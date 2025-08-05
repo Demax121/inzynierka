@@ -6,6 +6,8 @@ import RoomStats from './components/roomStats.vue';
 import LEDs from './components/wled.vue';
 import ProfileConfiguration from './components/profileConfiguration.vue';
 import ChooseProfile from './components/chooseProfile.vue';
+import Weather from './components/weather.vue';
+import AC from './components/klimatyzacja.vue';
 
 </script>
 
@@ -14,13 +16,15 @@ import ChooseProfile from './components/chooseProfile.vue';
     <Blinds/>
     <MainLights/>
     <LEDs/>
+    <AC/>
     <Doors/>
     <RoomStats/>
     <ProfileConfiguration/>
     <ChooseProfile/>
-    
-</div>
 
+
+</div>
+    <Weather/>
 </template>
 
 <style lang = "scss">

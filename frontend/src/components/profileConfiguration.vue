@@ -5,14 +5,13 @@
         </div>
         <div class="card__body">
             <div class="card__content">
-                <form @submit.prevent="saveProfile" class="profile-form">
+                <form class="profile-form">
                     <!-- Nazwa profilu -->
                     <div class="form-group">
                         <label for="profileName" class="form-label">Nazwa profilu:</label>
                         <input 
                             type="text" 
                             id="profileName" 
-                            v-model="profileData.name" 
                             class="form-input"
                             placeholder="Wprowadź nazwę profilu"
                             required
@@ -24,7 +23,6 @@
                         <label for="blinds" class="form-label">Rolety:</label>
                         <select 
                             id="blinds" 
-                            v-model="profileData.blinds" 
                             class="form-select"
                             required
                         >
@@ -39,7 +37,6 @@
                         <label for="mainLight" class="form-label">Główne światło:</label>
                         <select 
                             id="mainLight" 
-                            v-model="profileData.mainLight" 
                             class="form-select"
                             required
                         >
@@ -54,7 +51,6 @@
                         <label for="led" class="form-label">LED:</label>
                         <select 
                             id="led" 
-                            v-model="profileData.led" 
                             class="form-select"
                             required
                         >
@@ -64,17 +60,17 @@
                         </select>
                     </div>
 
-                    <!-- Kolor LED (tylko gdy wybrano WLED) -->
-                    <div class="form-group" v-if="profileData.led === 'WLED'">
+                    <!-- Kolor LED -->
+                    <div class="form-group">
                         <label for="ledColor" class="form-label">Kolor LED:</label>
                         <div class="color-picker-container">
                             <input 
                                 type="color" 
                                 id="ledColor" 
-                                v-model="profileData.ledColor" 
                                 class="form-color-picker"
+                                value="#ff0000"
                             />
-                            <span class="color-value">{{ profileData.ledColor }}</span>
+                            <span class="color-value">#ff0000</span>
                         </div>
                     </div>
 
@@ -84,7 +80,6 @@
                         <input 
                             type="number" 
                             id="ac" 
-                            v-model.number="profileData.ac" 
                             class="form-input"
                             min="16"
                             max="30"
@@ -96,10 +91,10 @@
 
                     <!-- Przyciski -->
                     <div class="form-actions">
-                        <button type="submit" class="btn" :disabled="loading">
-                            {{ loading ? 'Zapisywanie...' : 'Zapisz profil' }}
+                        <button type="submit" class="btn">
+                            Zapisz profil
                         </button>
-                        <button type="button" class="btn " @click="resetForm">
+                        <button type="button" class="btn">
                             Wyczyść formularz
                         </button>
                     </div>
@@ -110,74 +105,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-
-// Reactive data for the profile form
-const profileData = ref({
-  name: '',
-  blinds: '',
-  mainLight: '',
-  led: '',
-  ledColor: '#ff0000', // Default red color
-  ac: null
-})
-
-const loading = ref(false)
-
-// Form submission handler
-const saveProfile = async () => {
-  loading.value = true
-  try {
-    // Here you would typically send the data to your backend
-    console.log('Saving profile:', profileData.value)
-    
-    // Example API call (uncomment when backend is ready):
-    // const response = await fetch('/api/saveProfile.php', {
-    //   method: 'POST',
-    //   headers: {
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: JSON.stringify(profileData.value)
-    // })
-    
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    alert('Profil został zapisany pomyślnie!')
-  } catch (error) {
-    console.error('Error saving profile:', error)
-    alert('Błąd podczas zapisywania profilu')
-  } finally {
-    loading.value = false
-  }
-}
-
-// Reset form to initial state
-const resetForm = () => {
-  profileData.value = {
-    name: '',
-    blinds: '',
-    mainLight: '',
-    led: '',
-    ledColor: '#ff0000',
-    ac: null
-  }
-}
-
-// Existing ambilight function
-const ambilightOFF = () => {
-  // Your existing ambilight OFF logic here
-  console.log('Turning off ambilight')
-}
-
-// Computed property to check if form is valid
-const isFormValid = computed(() => {
-  return profileData.value.name && 
-         profileData.value.blinds && 
-         profileData.value.mainLight && 
-         profileData.value.led
-})
-
+// Simplified component - no JavaScript functionality for now
 </script>
 
 <style lang="scss" scoped>

@@ -78,7 +78,7 @@
                         <div class="info-item" v-if="selectedProfile.ac">
                             <div class="info-item__label">Temperatura AC:</div>
                             <div class="info-item__value">
-                                <span class="temperature-value">{{ selectedProfile.ac }}°C</span>
+                                <span>{{ selectedProfile.ac }}°C</span>
                             </div>
                         </div>
                     </div>
@@ -223,194 +223,167 @@ onMounted(async () => {
 </script>
 
 <style lang="scss" scoped>
-.form-group {
-    margin-bottom: 2rem;
-}
+.form {
+    &-group {
+        margin-bottom: 2rem;
+    }
 
-.form-label {
-    display: block;
-    font-weight: 600;
-    margin-bottom: 0.5rem;
-    color: var(--text-primary, #333);
-    font-size: 1rem;
-}
+    &-label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: var(--text-primary, #333);
+        font-size: 1rem;
+    }
 
-.form-select {
-    width: 100%;
-    padding: 0.75rem 1rem;
-    border: 2px solid var(--border-color, #e1e5e9);
-    border-radius: 8px;
-    font-size: 1rem;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
-    background-color: var(--input-bg, #fff);
-    cursor: pointer;
-    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
-    background-position: right 0.75rem center;
-    background-repeat: no-repeat;
-    background-size: 1.5em 1.5em;
-    padding-right: 2.5rem;
+    &-select {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 2px solid var(--border-color, #e1e5e9);
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        background-color: var(--input-bg, #fff);
+        cursor: pointer;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+        background-position: right 0.75rem center;
+        background-repeat: no-repeat;
+        background-size: 1.5em 1.5em;
+        padding-right: 2.5rem;
 
-    &:focus {
-        outline: none;
-        border-color: var(--primary-color, #007bff);
-        box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        &:focus {
+            outline: none;
+            border-color: var(--primary-color, #007bff);
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
     }
 }
 
-.profile-info {
-    background-color: var(--bg-light, #f8f9fa);
-    border-radius: 12px;
-    padding: 1.5rem;
-    margin-top: 1.5rem;
-    border: 1px solid var(--border-color, #e1e5e9);
-}
+.profile {
+    &-info {
+        background-color: var(--bg-light, #f8f9fa);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-top: 1.5rem;
+        border: 1px solid var(--border-color, #e1e5e9);
 
-.profile-info__title {
-    margin: 0 0 1.5rem 0;
-    color: var(--text-primary, #333);
-    font-size: 1.25rem;
-    font-weight: 600;
-}
+        &__title {
+            margin: 0 0 1.5rem 0;
+            color: var(--text-primary, #333);
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
 
-.profile-info__grid {
-    display: grid;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-}
-
-.info-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.75rem;
-    background-color: white;
-    border-radius: 8px;
-    border: 1px solid var(--border-light, #f0f0f0);
-}
-
-.info-item__label {
-    font-weight: 500;
-    color: var(--text-secondary, #666);
-    font-size: 0.95rem;
-}
-
-.info-item__value {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.status-badge {
-    padding: 0.25rem 0.75rem;
-    border-radius: 20px;
-    font-size: 0.85rem;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-
-    &--success {
-        background-color: #d4edda;
-        color: #155724;
-        border: 1px solid #c3e6cb;
+        &__grid {
+            display: grid;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
     }
 
-    &--warning {
-        background-color: #fff3cd;
-        color: #856404;
-        border: 1px solid #ffeaa7;
-    }
-
-    &--error {
-        background-color: #f8d7da;
-        color: #721c24;
-        border: 1px solid #f1b0b7;
-    }
-
-    &--led {
-        background-color: #e3f2fd;
-        color: #1565c0;
-        border: 1px solid #bbdefb;
+    &-actions {
+        display: flex;
+        justify-content: center;
+        padding-top: 1rem;
+        border-top: 1px solid var(--border-light, #f0f0f0);
     }
 }
 
-.color-display {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
+.info {
+    &-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem;
+        background-color: white;
+        border-radius: 8px;
+        border: 1px solid var(--border-light, #f0f0f0);
+
+        &__label {
+            font-weight: 500;
+            color: var(--text-secondary, #666);
+            font-size: 0.95rem;
+        }
+
+        &__value {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+    }
 }
 
-.color-preview {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    border: 2px solid white;
-    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
+.color {
+    &-display {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    &-preview {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        border: 2px solid white;
+        box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
+    }
+
+    &-code {
+        font-family: monospace;
+        font-size: 0.9rem;
+        color: var(--text-secondary, #666);
+        background-color: var(--bg-code, #f1f3f4);
+        padding: 0.2rem 0.4rem;
+        border-radius: 4px;
+    }
 }
 
-.color-code {
-    font-family: monospace;
-    font-size: 0.9rem;
-    color: var(--text-secondary, #666);
-    background-color: var(--bg-code, #f1f3f4);
-    padding: 0.2rem 0.4rem;
-    border-radius: 4px;
-}
+.no {
+    &-profile,
+    &-profiles {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: var(--text-secondary, #666);
 
-.temperature-value {
-    font-weight: 600;
-    color: var(--primary-color, #007bff);
-    font-size: 1.1rem;
-}
+        &__icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
 
-.profile-actions {
-    display: flex;
-    justify-content: center;
-    padding-top: 1rem;
-    border-top: 1px solid var(--border-light, #f0f0f0);
-}
+        &__text {
+            font-size: 1.1rem;
+            margin: 0;
+            line-height: 1.5;
+        }
+    }
 
-.no-profile,
-.no-profiles {
-    text-align: center;
-    padding: 3rem 1rem;
-    color: var(--text-secondary, #666);
-}
-
-.no-profile__icon,
-.no-profiles__icon {
-    font-size: 3rem;
-    margin-bottom: 1rem;
-}
-
-.no-profile__text,
-.no-profiles__text {
-    font-size: 1.1rem;
-    margin: 0;
-    line-height: 1.5;
-}
-
-.no-profiles {
-    background-color: var(--bg-light, #f8f9fa);
-    border-radius: 12px;
-    margin-top: 1.5rem;
-    border: 1px solid var(--border-color, #e1e5e9);
+    &-profiles {
+        background-color: var(--bg-light, #f8f9fa);
+        border-radius: 12px;
+        margin-top: 1.5rem;
+        border: 1px solid var(--border-color, #e1e5e9);
+    }
 }
 
 // Responsive design
 @media (max-width: 768px) {
-    .info-item {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.5rem;
+    .info {
+        &-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.5rem;
+
+            &__value {
+                width: 100%;
+                justify-content: flex-start;
+            }
+        }
     }
 
-    .info-item__value {
-        width: 100%;
-        justify-content: flex-start;
-    }
-
-    .profile-info {
-        padding: 1rem;
+    .profile {
+        &-info {
+            padding: 1rem;
+        }
     }
 
     .btn {
