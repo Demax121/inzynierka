@@ -30,10 +30,26 @@
 }
 }
 
-.button-group{
+.button-group {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
-    flex-wrap: wrap;
-    margin: 1rem 0;
+    gap: 12px;
+    width: 100%;
+    margin: 0;
+
+    &--horizontal {
+        flex-direction: row;
+        flex-wrap: wrap;
+        
+        .btn {
+            flex: 1;
+            min-width: 120px;
+        }
+    }
+
+    &--grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 12px;
+    }
 }

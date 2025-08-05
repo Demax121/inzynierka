@@ -19,6 +19,15 @@ export const useLinkStore = defineStore('linkStore', {
     // Getter: Retrieves a specific link by name from the links object
     getLink: (state) => (linkName) => state.links[linkName],
     
+    // Getter: Constructs full image URLs from CDN
+    getImage: (state) => (imageName) => {
+      if (!imageName || typeof imageName !== 'string') {
+        console.warn('Image name must be a non-empty string.');
+        return null;
+      }
+      return `${state.links.cdnURL}images/${imageName}`;
+    },
+
     // Getter: Constructs full PHP API URLs by combining base API URL with filename
     getPhpApiUrl: (state) => (phpFileName) => {
       if (!phpFileName || typeof phpFileName !== 'string') {

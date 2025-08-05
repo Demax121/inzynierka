@@ -1,23 +1,37 @@
 <template>
-    <div class="card-container">
-        <h2 class="card__title">Sterowanie roletami</h2>
-        <div class="status" v-if="status">{{ status }}</div>
-        <div class="button-group">
-            <button class="btn" @click="openBlinds" :disabled="loading">
-                {{ loading && currentAction === 'open' ? 'Otwieranie...' : 'Otwórz rolety' }}
-            </button>
-
-            <button class="btn" @click="closeBlinds" :disabled="loading">
-                {{ loading && currentAction === 'close' ? 'Zamykanie...' : 'Zamknij rolety' }}
-            </button>
-
-            <button class="btn" @click="getBlindsStatus" :disabled="loading">
-                {{ loading && currentAction === 'status' ? 'Pobieranie...' : 'Sprawdź status' }}
-            </button>
+    <div class="card">
+        <div class="card__header">
+            <h2 class="card__title">Sterowanie roletami</h2>
         </div>
-        <div class="device-info" v-if="deviceInfo">
-            <p>Poziom baterii: {{ deviceInfo.battery_percentage }}%</p>
-            <p>Status: {{ controlStatus }}</p>
+        <div class="card__body">
+            <div class="card__content">
+                <div class="status" v-if="status">
+                    <p class="card__text card__text--bold">{{ status }}</p>
+                </div>
+                <div class="button-group">
+                    <button class="btn" @click="openBlinds" :disabled="loading">
+                        {{ loading && currentAction === 'open' ? 'Otwieranie...' : 'Otwórz rolety' }}
+                    </button>
+
+                    <button class="btn" @click="closeBlinds" :disabled="loading">
+                        {{ loading && currentAction === 'close' ? 'Zamykanie...' : 'Zamknij rolety' }}
+                    </button>
+
+                    <button class="btn" @click="getBlindsStatus" :disabled="loading">
+                        {{ loading && currentAction === 'status' ? 'Pobieranie...' : 'Sprawdź status' }}
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="card__footer" v-if="deviceInfo">
+            <div class="card__info-item">
+                <span class="card__label">Poziom baterii:</span>
+                <span class="card__value">{{ deviceInfo.battery_percentage }}%</span>
+            </div>
+            <div class="card__info-item">
+                <span class="card__label">Status:</span>
+                <span class="card__value">{{ controlStatus }}</span>
+            </div>
         </div>
     </div>
 </template>
