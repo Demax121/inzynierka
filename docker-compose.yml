@@ -1,0 +1,123 @@
+services:
+  postgres:
+    container_name: postgres_db_inzynierka
+    build:
+      context: ./postgreSQL
+      dockerfile: postgresDB.Dockerfile
+      args:
+        DB_USER: ${POSTGRES_USER}
+        DB_PASSWORD: ${POSTGRES_PASSWORD}
+        DB_NAME: ${POSTGRES_DB}
+    restart: unless-stopped
+    ports:
+      - ${POSTGRES_PORT_EX}:${POSTGRES_PORT_NATIVE}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - inzynierka_network
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+  pgadmin:
+    container_name: pgadmin_ui_inzynierka
+    build:
+      context: ./postgreSQL
+      dockerfile: pgAdmin.Dockerfile
+      args:
+        PGADMIN_EMAIL: ${PGADMIN_EMAIL}
+        PGADMIN_PASSWORD: ${PGADMIN_PASSWORD}
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    ports:
+      - ${PGADMIN_PORT_EX}:${PGADMIN_PORT_NATIVE}
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - inzynierka_network
+  frontend:
+    container_name: vue_frontend_inzynierka
+    build:
+      context: ./frontend
+      dockerfile: frontend.Dockerfile
+      args:
+        PORT_REFERENCE: ${PORT_REFERENCE}
+        HOST_REFERENCE: ${HOST_REFERENCE}
+    restart: unless-stopped
+    depends_on:
+      - backend-server-caddy
+    ports:
+      - ${FRONTEND_PORT_EX}:${FRONTEND_PORT_NATIVE}
+    volumes:
+      - ./frontend:/app
+      - node_modules_cache:/app/node_modules
+    networks:
+      - inzynierka_network
+  php:
+    container_name: php_manager_inzynierka
+    build:
+      context: ./backend
+      dockerfile: php-manager.Dockerfile
+      args:
+        POSTGRES_USER: ${POSTGRES_USER}
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        POSTGRES_DB: ${POSTGRES_DB}
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    volumes:
+      - ./backend/php:/var/www/php
+    networks:
+      - inzynierka_network
+  backend-server-caddy:
+    container_name: backend_server_caddy_inzynierka
+    build:
+      context: ./backend
+      dockerfile: caddy-server.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - php
+    ports:
+      - ${BACKEND_CADDY_PORT_EX}:${BACKEND_CADDY_PORT_NATIVE}
+    volumes:
+      - ./backend/php:/var/www/php
+    networks:
+      - inzynierka_network
+  cdn:
+    container_name: caddy-cdn_inzynierka
+    build:
+      context: ./CDN
+      dockerfile: caddy-cdn.Dockerfile
+    restart: unless-stopped
+    ports:
+      - ${CDN_PORT_EX}:${CDN_PORT_NATIVE}
+    volumes:
+      - ./CDN/assets:/srv/assets:ro
+    networks:
+      - inzynierka_network
+  bun-api:
+    container_name: bun_api_inzynierka
+    build:
+      context: ./jsServer
+      dockerfile: bun-api.Dockerfile
+    restart: unless-stopped
+    ports:
+      - ${BUN_API_PORT_EX}:${BUN_API_PORT_NATIVE}
+    volumes:
+      - ./jsServer:/app
+    networks:
+      - inzynierka_network
+
+volumes:
+  postgres_data: null
+  pgadmin_data: null
+  node_modules_cache: null
+
+networks:
+  inzynierka_network:
+    driver: bridge

@@ -1,0 +1,7 @@
+{
+  "name": "bun-api-server",
+  "version": "1.0.0",
+  "main": "bunServer.js",
+  "dependencies": {
+  }
+}
