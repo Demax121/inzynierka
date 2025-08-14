@@ -1,0 +1,49 @@
+1. Sterowanie roletami po lokalnym wifi - przez API lub nie
+2. Sterowanie oświetleniem po lokalnym wifi - przez API lub nie
+3. Sterowanie ledami przez WLED zintegrować Prismatik z WLED - po wciśnięciu przycisku ambilight w WLED wysłany jest pakiet do programu prismatik, który aktywuje ambilight,
+   po wciśnięciu przycisku innego profilu wyłączany jest ambilight i uruchamiany profil WLED
+4. Sterowanie temperaturą - wysyłamy sygnał do ESP i odpowiada ono w następujący sposób: Ustawiono temperaturę na: [temperatura odczytana z otrzymanego JSON] - jeżeli wyżwsza niżaktualna, 
+    to dodaje komunikat: Rozpoczynam grzanie, jeżeli niższa to: Rozpoczynam chłodzenie
+5. Czujnik zakluczenia/blokady drzwi przycisk krawędziowy wysyła sygnał do ESP32 mini, jak wciśnięte to: Drzwi zablokowane, jak uwolniony przycisk: Drzwi odblokowane
+6. Przetestować wszystkie te rzeczy osobno przes postman, a następnie zorbić UI w przeglądarce
+7. Wszystkie dane mają być wysyłane przez JSON hashowane i zaszyfrowane
+8. Baza danych postgres będzie przechowywać informacje na temat profili w postaci hashu, który będzie następnie konwertowany na JSON
+9. Gdy już wszystko będzie działać spróbowac dodać integrację z google home, botem discord
+10. Do sterowania wykorzystujemy websockets z różnymi kanałami subskrypcji 
+11. Spróbować dodać integrację z wyświetlaczem i przyciskami dodtykowymi, każdy przycisk niech odpowiada za inny element
+
+
+
+
+Przyciski: 
+1. Podłącz rolety - wysyła na serwer zapytanie, które aktywuje skrypt wysyłający zapytanie do API aby się połączyć
+2. Otwórz rolety -  wysyła na serwer zapytanie, które aktywuje skrypt wysyłający komendę do otwarcia rolet
+3. Zamknij rolety -  wysyła na serwer zapytanie, które aktywuje skrypt wysyłający komendę do zamknięcia rolet
+
+
+
+Statystyki pokoju są pobierane za pomocą pliku PHP, na serwerze jest również uruchomiony Crony, który wysyła cykliczne zapytanie do ESP tym samym plikiem
+Serwer robi get request do ESP32 i otrzymuje odpowiedź w formacie JSON zawierającą dane:
+temperatura:
+wilgotność:
+ciśnmienie:
+
+Dane uzyskane automatycznie z co 3 zapytania są zapisywane do bazy danych w tabeli roomStats.
+
+Przycisk krawędziowy do sprawdzania czy drzwi są zamknięte działa na websocket w czasie rzeczywistym
+Wcisnięty: Drzwi zablokowane
+Niewciśnięty: Drzwi odblokowane
+
+
+Zabezpieczenia:
+
+1. Po włączeniu urządzenie robi zapytanie GET do serwera
+2. Serwer towrzy tymczasowy klucz szyfrujący i wysyła go do urządzenia
+3. Urządzenie tworzy plik JSON zawierający klucz API/UID urządzenia oraz adres MAC urządzenia szyfruje go tymczasowym
+kluczem szyfrującym i odsyła na serwer.
+4. Serwer odszyfrowuje JSON i sprawdza dane z pliku czy znajdują się one w bazie danych, jeśli się znajdują 
+serwer wysyła zaszyfrowany JSON zawierający klucz szyfrujący i usuwa tymczasowy klucz, urządzenia odszyfrowuje JSON
+i od tej pory wykorzystuje stały klucz szyfrujący do komunikacji z serwerem
+
+
+
