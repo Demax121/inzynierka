@@ -51,15 +51,20 @@ const deviceInfo = ref(null)
 // Initialize the link store
 const linkStore = useLinkStore()
 
-// Generic function to make API calls
-const makeApiCall = async (phpFile, action, statusMessage, successMessage) => {
+// Generic function to make API calls for blinds control
+const makeApiCall = async (phpFile, actionParam, action, statusMessage, successMessage) => {
     loading.value = true
     currentAction.value = action
     status.value = statusMessage
     responseData.value = null
 
     try {
-        const apiUrl = linkStore.getPhpApiUrl(phpFile)
+        let apiUrl = linkStore.getPhpApiUrl(phpFile)
+        
+        // Add action parameter for the unified blinds control
+        if (actionParam) {
+            apiUrl += `?action=${actionParam}`
+        }
 
         const response = await fetch(apiUrl, {
             method: 'GET',
@@ -93,16 +98,16 @@ const makeApiCall = async (phpFile, action, statusMessage, successMessage) => {
 
 // Function to open blinds
 const openBlinds = async () => {
-    await makeApiCall('openBlinds.php', 'open', 'Otwieranie rolet...', 'Rolety zostały otwarte!')
+    await makeApiCall('blindsControl.php', 'open', 'open', 'Otwieranie rolet...', 'Rolety zostały otwarte!')
 }
 
 // Function to close blinds
 const closeBlinds = async () => {
-    await makeApiCall('closeBlinds.php', 'close', 'Zamykanie rolet...', 'Rolety zostały zamknięte!')
+    await makeApiCall('blindsControl.php', 'close', 'close', 'Zamykanie rolet...', 'Rolety zostały zamknięte!')
 }
 
 const getBlindsStatus = async () => {
-    await makeApiCall('blindsStatus.php', 'status', 'Pobieranie statusu...', 'Status rolet został pobrany!')
+    await makeApiCall('blindsStatus.php', null, 'status', 'Pobieranie statusu...', 'Status rolet został pobrany!')
 
     // Extract battery_percentage and control from responseData
     if (responseData.value && responseData.value.result) {

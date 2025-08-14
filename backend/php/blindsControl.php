@@ -34,15 +34,20 @@ function getToken() {
     return json_decode($response, true);
 }
 
-function closeBlinds($access_token) {
+function controlBlinds($access_token, $action) {
     global $client_id, $client_secret, $device_id, $api_endpoint;
+    
+    // Validate action
+    if (!in_array($action, ['open', 'close'])) {
+        return ['success' => false, 'msg' => 'Invalid action. Use "open" or "close".'];
+    }
     
     $url = "$api_endpoint/v1.0/devices/$device_id/commands";
     $timestamp = strval(floor(microtime(true) * 1000));
     
     $body = json_encode([
         "commands" => [
-            ["code" => "control", "value" => "close"]
+            ["code" => "control", "value" => $action]
         ]
     ], JSON_UNESCAPED_SLASHES);
     
@@ -80,11 +85,20 @@ function closeBlinds($access_token) {
 }
 
 header('Content-Type: application/json');
+
+// Get the action from query parameter or POST data
+$action = $_GET['action'] ?? $_POST['action'] ?? null;
+
+if (!$action) {
+    echo json_encode(['success' => false, 'msg' => 'Action parameter is required. Use ?action=open or ?action=close'], JSON_PRETTY_PRINT);
+    exit;
+}
+
 $token_data = getToken();
 
 if ($token_data['success']) {
     $access_token = $token_data['result']['access_token'];
-    $result = closeBlinds($access_token);
+    $result = controlBlinds($access_token, $action);
     echo json_encode($result, JSON_PRETTY_PRINT);
 } else {
     echo json_encode($token_data, JSON_PRETTY_PRINT);
