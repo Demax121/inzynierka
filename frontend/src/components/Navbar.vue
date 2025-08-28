@@ -6,16 +6,16 @@
       </div>
       <ul class="navbar__list" role="menubar">
         <li class="navbar__item" role="none">
-          <button class="navbar__link" role="menuitem">Home</button>
+          <button class="navbar__link" role="menuitem" @click="$emit('changeTab', 'HomeTab')">Home</button>
         </li>
         <li class="navbar__item" role="none">
-          <button class="navbar__link" role="menuitem">Weather</button>
+          <button class="navbar__link" role="menuitem" @click="$emit('changeTab', 'WeatherTab')">Weather</button>
         </li>
         <li class="navbar__item" role="none">
-          <button class="navbar__link" role="menuitem">WLED</button>
+          <button class="navbar__link" role="menuitem" @click="$emit('changeTab', 'WledTab')">WLED</button>
         </li>
         <li class="navbar__item" role="none">
-          <button class="navbar__link" role="menuitem">Profiles</button>
+          <button class="navbar__link" role="menuitem" @click="$emit('changeTab', 'ProfilesTab')">Profiles</button>
         </li>
       </ul>
     </div>
@@ -36,24 +36,23 @@
   right: 0;
   z-index: 1000;
   background-color: $title-crl-secondary;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(10px);
-  margin-bottom: 2rem;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.1); /* 2px 4px */
+  backdrop-filter: blur(0.625rem); /* 10px */
+  height: var(--nav-height, 3.75rem);
 
   &__container {
-    max-width: 1200px;
+    max-width: 75rem; /* 1200px */
     margin: 0 auto;
     padding: 0 1rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    height: 60px;
+    height: 100%;
     gap: 2rem;
+    box-sizing: border-box;
   }
 
-  &__logo {
-    margin: 0;
-  }
+  &__logo { margin: 0; }
 
   &__brand {
     color: $title-crl-primary;
@@ -70,9 +69,7 @@
     gap: 2rem;
   }
 
-  &__item {
-    margin: 0;
-  }
+  &__item { margin: 0; }
 
   &__link {
     background: none;
@@ -81,7 +78,7 @@
     text-decoration: none;
     font-weight: 500;
     padding: 0.5rem 1rem;
-    border-radius: 4px;
+    border-radius: 0.25rem; /* 4px */
     transition: background-color .3s ease, color .3s ease, opacity .3s ease;
     cursor: pointer;
     font-size: inherit;
@@ -99,8 +96,8 @@
     }
 
     &:focus-visible {
-      outline: 2px solid $title-crl-primary;
-      outline-offset: 2px;
+      outline: 0.125rem solid $title-crl-primary; /* 2px */
+      outline-offset: 0.125rem; /* 2px */
     }
   }
 }

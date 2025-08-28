@@ -10,27 +10,17 @@ import AC from '@/components/klimatyzacja.vue';
 
 </script>
 
-
-
-
-
 <template>
-    <div>
-<div class="main-container">
-            <Doors />
-            <RoomStats />
-            <Blinds />
-            <MainLights />
-            <LEDs />
-            <AC />
-
-        </div>
-    </div>
+  <div class="main-container">
+    <Doors />
+    <RoomStats />
+    <Blinds />
+    <MainLights />
+    <LEDs />
+    <AC />
+  </div>
 </template>
 
-
 <style lang="scss" scoped>
-
-
-
+/* Adjust if any specific overrides needed later */
 </style>

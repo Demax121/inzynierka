@@ -1,28 +1,30 @@
 @use 'colors.scss' as *;
 
+/* Utility: rely on --nav-height defined globally */
+
 .card {
     display: flex;
     flex-direction: column;
     width: 100%;
-    min-height: 320px;
-    max-height: 400px;
+    min-height: 20rem; /* 320px */
+    max-height: 25rem; /* 400px */
     padding: 0;
     box-sizing: border-box;
-    border: 1px solid #e1e5e9;
-    border-radius: 12px;
+    border: 0.0625rem solid #e1e5e9; /* 1px */
+    border-radius: 0.75rem; /* 12px */
     background: #fff;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 0.125rem 0.5rem rgba(0, 0, 0, 0.1); /* 2px 8px */
     transition: box-shadow 0.3s ease, transform 0.2s ease;
     overflow: hidden;
 
     &:hover {
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-        transform: translateY(-2px);
+        box-shadow: 0 0.25rem 1rem rgba(0, 0, 0, 0.15); /* 4px 16px */
+        transform: translateY(-0.125rem); /* 2px */
     }
 
     &__header {
-        padding: 20px 20px 16px;
-        border-bottom: 1px solid #f0f0f0;
+        padding: 1.25rem 1.25rem 1rem; /* 20px 20px 16px */
+        border-bottom: 0.0625rem solid #f0f0f0; /* 1px */
         flex-shrink: 0;
     }
 
@@ -37,7 +39,7 @@
     }
 
     &__body {
-        padding: 20px;
+        padding: 1.25rem; /* 20px */
         flex: 1;
         display: flex;
         flex-direction: column;
@@ -49,17 +51,16 @@
         flex: 1;
         display: flex;
         flex-direction: column;
-        gap: 12px;
+        gap: 0.75rem; /* 12px */
     }
 
     &__footer {
-        padding: 16px 20px;
-        border-top: 1px solid #f0f0f0;
+        padding: 1rem 1.25rem; /* 16px 20px */
+        border-top: 0.0625rem solid #f0f0f0; /* 1px */
         margin-top: auto;
         flex-shrink: 0;
     }
 
-    // Text handling for consistent layout
     &__text {
         font-size: 0.95rem;
         line-height: 1.5;
@@ -67,69 +68,60 @@
         word-break: break-word;
         hyphens: auto;
         
-        &--large {
-            font-size: 1.1rem;
-        }
-        
-        &--bold {
-            font-weight: 600;
-            color: #333;
-        }
+        &--large { font-size: 1.1rem; }
+        &--bold { font-weight: 600; color: #333; }
     }
 
-    // Status and info displays
     &__info-item {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 8px 0;
-        border-bottom: 1px solid #f5f5f5;
-        
-        &:last-child {
-            border-bottom: none;
-        }
+        padding: 0.5rem 0; /* 8px */
+        border-bottom: 0.0625rem solid #f5f5f5; /* 1px */
+        &:last-child { border-bottom: none; }
     }
 
-    &__label {
-        font-weight: 500;
-        color: #555;
-        font-size: 0.9rem;
-    }
-
-    &__value {
-        font-weight: 600;
-        color: #333;
-        font-size: 0.95rem;
-    }
+    &__label { font-weight: 500; color: #555; font-size: 0.9rem; }
+    &__value { font-weight: 600; color: #333; font-size: 0.95rem; }
 }
 
 .main-container {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 24px;
-    padding: 24px;
-    max-width: 1400px;
-    margin: 0 auto;
-    min-height: 90vh;
+    grid-template-columns: repeat(auto-fit, minmax(18.75rem, 1fr)); /* 300px */
+    gap: 1.5rem; /* 24px */
+    padding: 1.5rem; /* 24px */
+    max-width: 87.5rem; /* 1400px */
+    margin: var(--nav-height) auto 0; /* push below navbar */
+    min-height: calc(100vh - var(--nav-height));
+    box-sizing: border-box;
 
-    // Responsive breakpoints
-    @media (max-width: 768px) {
+    @media (max-width: 48em) { /* 768px */
         grid-template-columns: 1fr;
-        gap: 16px;
-        padding: 16px;
+        gap: 1rem; /* 16px */
+        padding: 1rem; /* 16px */
     }
 
-    @media (min-width: 769px) and (max-width: 1024px) {
+    @media (min-width: 48.0625em) and (max-width: 64em) { /* 769px - 1024px */
         grid-template-columns: repeat(2, 1fr);
-        gap: 20px;
-        padding: 20px;
+        gap: 1.25rem; /* 20px */
+        padding: 1.25rem; /* 20px */
     }
 
-    @media (min-width: 1025px) and (max-width: 1400px) {
+    @media (min-width: 64.0625em) and (max-width: 87.5em) { /* 1025px - 1400px */
         grid-template-columns: repeat(3, 1fr);
     }
 
-    @media (min-width: 1401px) {
+    @media (min-width: 87.5625em) { /* > 1401px */
         grid-template-columns: repeat(4, 1fr);
     }
+}
+
+.big-container {
+    width: 100%;
+    height: calc(100vh - var(--nav-height));
+    margin-top: var(--nav-height);
+    padding: 0;
+    box-sizing: border-box;
+    overflow: hidden;
+    position: relative;
 }

@@ -16,7 +16,10 @@ import { useLinkStore } from '@/stores/linkStore';
 const linkStore = useLinkStore();
 const scrollToMainContainer = () => {
     const el = document.querySelector('.main-container');
-    if (!el) return;
+    if (!el){
+    let el = document.querySelector('.big-container');
+    el.scrollIntoView({ behavior: 'smooth' });
+    };
     el.scrollIntoView({ behavior: 'smooth' });
 };
 

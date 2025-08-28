@@ -3,6 +3,13 @@ import { ref } from 'vue'
 import Navbar from '@/components/Navbar.vue'
 import HeroSection from '@/components/heroSection.vue'
 import HomeTab from './components/Tabs/homeTab.vue'
+import ProfilesTab from './components/Tabs/profilesTab.vue'
+import WeatherTab from './components/Tabs/weatherTab.vue'
+import WledTab from './components/Tabs/wledTab.vue'
+
+const currentTab = ref('HomeTab');
+const Tabs = { HomeTab, WeatherTab, WledTab, ProfilesTab };
+
 
 
 </script>
@@ -10,8 +17,11 @@ import HomeTab from './components/Tabs/homeTab.vue'
 <template>
     <div class="app">
         <HeroSection />
-        <Navbar />
-        <HomeTab />
+        <Navbar @changeTab="currentTab = $event" />
+
+        <KeepAlive>
+        <component :is="Tabs[currentTab]" />
+        </KeepAlive>
     </div>
 </template>
 
