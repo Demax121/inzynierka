@@ -209,7 +209,7 @@ const getLightStatusClass = (status) => {
     return status === 'wlaczone' ? 'status-badge--success' : 'status-badge--error'
 }
 
-// Load profiles on component mount
+// Load profiles on component mount 
 onMounted(async () => {
     // Here you will load profiles from your backend
     // try {

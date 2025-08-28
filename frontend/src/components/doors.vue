@@ -10,22 +10,11 @@
           <span class="card__value">{{ doorStatus }}</span>
         </div>
         <div class="card__icon">
-          <img 
-            :src="linkStore.getImage('lock-open.svg')" 
-            alt="Otwarta kłódka" 
-            class="door-icon"
-            v-if="doorStatus === 'Drzwi otwarte'" 
-          />
-          <img 
-            :src="linkStore.getImage('lock-closed.svg')" 
-            alt="Zamknięta kłódka" 
-            class="door-icon"
-            v-else-if="doorStatus === 'Drzwi zamknięte'" 
-          />
-          <div 
-            class="door-icon door-icon--placeholder"
-            v-else
-          >
+          <img :src="linkStore.getImage('lock-open.svg')" alt="Otwarta kłódka" class="door-icon"
+            v-if="doorStatus === 'Drzwi otwarte'" />
+          <img :src="linkStore.getImage('lock-closed.svg')" alt="Zamknięta kłódka" class="door-icon"
+            v-else-if="doorStatus === 'Drzwi zamknięte'" />
+          <div class="door-icon door-icon--placeholder" v-else>
             <span>🔒</span>
           </div>
         </div>

@@ -1,31 +1,25 @@
 <script setup>
-import Blinds from '@/components/blinds.vue'
-import Doors from '@/components/doors.vue'
-import MainLights from './components/mainLights.vue';
-import RoomStats from './components/roomStats.vue';
-import LEDs from './components/wled.vue';
-import ProfileConfiguration from './components/profileConfiguration.vue';
-import ChooseProfile from './components/chooseProfile.vue';
-import Weather from './components/weather.vue';
-import AC from './components/klimatyzacja.vue';
+import { ref } from 'vue'
+import Navbar from '@/components/Navbar.vue'
+import HeroSection from '@/components/heroSection.vue'
+import HomeTab from './components/Tabs/homeTab.vue'
+
 
 </script>
 
 <template>
-<div class="main-container">
-    <Blinds/>
-    <MainLights/>
-    <LEDs/>
-    <AC/>
-    <Doors/>
-    <RoomStats/>
-    <ProfileConfiguration/>
-    <ChooseProfile/>
-
-
-</div>
-    <Weather/>
+    <div class="app">
+        <HeroSection />
+        <Navbar />
+        <HomeTab />
+    </div>
 </template>
 
-<style lang = "scss">
+<style lang="scss">
+@use "@/scss/colors" as *;
+
+.app {
+    min-height: 100vh;
+}
+
 </style>

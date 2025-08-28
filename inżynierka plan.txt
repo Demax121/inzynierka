@@ -39,11 +39,29 @@ Zabezpieczenia:
 
 1. Po włączeniu urządzenie robi zapytanie GET do serwera
 2. Serwer towrzy tymczasowy klucz szyfrujący i wysyła go do urządzenia
-3. Urządzenie tworzy plik JSON zawierający klucz API/UID urządzenia oraz adres MAC urządzenia szyfruje go tymczasowym
-kluczem szyfrującym i odsyła na serwer.
-4. Serwer odszyfrowuje JSON i sprawdza dane z pliku czy znajdują się one w bazie danych, jeśli się znajdują 
-serwer wysyła zaszyfrowany JSON zawierający klucz szyfrujący i usuwa tymczasowy klucz, urządzenia odszyfrowuje JSON
-i od tej pory wykorzystuje stały klucz szyfrujący do komunikacji z serwerem
+3. Urządzenie tworzy plik JSON zawierający klucz API/UID urządzenia oraz adres MAC urządzenia
+4. JSON jest hashowany i następnie szyfrowany uzyskanym tymczasowym kluczem
+5. Zaszyfrowany JSON jest wysyany do serwera
+6. Serwer odszyfrowuje JSON tym samym kluczem i sprawdza dane z pliku czy znajdują się one w bazie danych
+7. Jeśli dane znajdują się w bazie serwer odsyła hashowany? zaszyfrowany JSON z kluczem szyfrowania z bazy odpowiadający urządzeniu
+8. Serwer usuwa tymczasowy klucz
+9. urządzenie odszyfrowuje JSON i od tej pory wykorzystuje stały klucz szyfrujący do komunikacji z serwerem
+10. Urządzenie usuwa/nadpisuje tymczasowy klucz 
+
+
+
+
+Profile:
+Profile będą przechowywane jako pliki JSON w formie hashu w bazie danych
+
+Budowa JSON:
+{
+Blinds: open/close
+Lights: ON/OFF
+LEDs: WLED/ambilight
+ledColor: HEX - jeżeli jest wybrany wcześniej w LED WLED zamianst ambilight
+Temperature: float
+}
 
 
 
