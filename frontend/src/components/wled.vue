@@ -6,31 +6,23 @@
         <div class="card__body">
             <div class="card__content">
                 <div class="button-group">
-                    <button class="btn" @click="wledON" :disabled="loading">
-                        {{ 'Włącz WLED' }}
+                    <button class="btn" @click="sendCommand({
+                        on: true,
+                        lor: 2,
+                        ps: 1
+                    })" 
+                    :disabled="loading">
+                        {{ 'Tryb WLED' }}
                     </button>
 
-                    <button class="btn" @click="wledOFF" :disabled="loading">
-                        {{ 'Wyłącz WLED' }}
+                    <button class="btn" @click="sendCommand({ on: true, lor: 0 })" :disabled="loading">
+                        {{ 'Tryb Ambilight' }}
                     </button>
 
-                    <button class="btn" @click="ambilightON" :disabled="loading">
-                        {{ 'Włącz Ambilight' }}
-                    </button>
-                    <button class="btn" @click="ambilightOFF" :disabled="loading">
-                        {{ 'Wyłącz Ambilight' }}
+                    <button class="btn" @click="sendCommand({ on: false })" :disabled="loading">
+                        {{ 'Wyłącz LED' }}
                     </button>
                 </div>
-            </div>
-        </div>
-        <div class="card__footer" v-if="lightInfo">
-            <div class="card__info-item">
-                <span class="card__label">Zużycie prądu:</span>
-                <span class="card__value">{{ lightInfo.power || 'N/A' }}</span>
-            </div>
-            <div class="card__info-item">
-                <span class="card__label">Status:</span>
-                <span class="card__value">{{ lightInfo.status || 'N/A' }}</span>
             </div>
         </div>
     </div>
@@ -38,6 +30,23 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+
+const WLED_IP = "http://192.168.1.19"; // Adres WLED
+const WLED_ENDPOINT = "/json/state";
+
+function sendCommand(payload) {
+    fetch(WLED_IP + WLED_ENDPOINT, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+    })
+        .then(response => response.json())
+        .then(data => console.log("Odpowiedź WLED:", data))
+        .catch(error => console.error("Błąd:", error));
+}
+
 
 
 </script>
