@@ -15,8 +15,13 @@ const unsigned long WEBSOCKET_RECONNECT_INTERVAL = 5000;  // 5 sekund
 const unsigned long SERIAL_BAUD_RATE = 19200;
 
 // Konfiguracja pinu i zmiennych specyficznych dla tego urządzenia
-const int BUTTON_PIN = 10;                    // Pin do którego podłączony jest przycisk/czujnik drzwi
-int lastButtonState = HIGH;                   // Ostatni stan przycisku (HIGH = drzwi otwarte z INPUT_PULLUP)
+// Uwaga: unikanie pinów SPI flash (2,7,8,9,10) – wybrano 21 jako bezpieczny GPIO dla wejścia
+const int BUTTON_PIN = 21;                    // Pin do którego podłączony jest przycisk/czujnik drzwi
+int lastButtonState = HIGH;                   // Ostatni stabilny stan przycisku (HIGH = drzwi otwarte z INPUT_PULLUP)
+const unsigned long DEBOUNCE_MS = 30;         // Czas stabilizacji stanu
+const unsigned long HEARTBEAT_INTERVAL_MS = 60000; // Wysyłanie statusu co 60s
+unsigned long lastChangeTime = 0;             // Znacznik startu potencjalnej zmiany (0 = brak zmiany)
+unsigned long lastHeartbeatMs = 0;            // Czas ostatniego heartbeat
 
 // Obiekty do komunikacji
 WebSocketsClient webSocketClient;            // Klient WebSocket do wysyłania danych w czasie rzeczywistym
@@ -53,16 +58,14 @@ void sendWebSocketData() {
 // Używane przez backend PHP do pobrania aktualnego stanu drzwi po odświeżeniu strony
 void handleStatusRequest() {
   int currentButtonState = digitalRead(BUTTON_PIN);
-  delay(20);                                 
-  currentButtonState = digitalRead(BUTTON_PIN);
-  updateJSONData(currentButtonState);
-  
+  updateJSONData(currentButtonState); // Aktualizacja bez blokującego opóźnienia
+
   // Tworzy odpowiedź JSON tylko ze statusem (bez kanału)
   StaticJsonDocument<100> responseDoc;
   responseDoc["status"] = jsonPayload["status"];
   String response;
   serializeJson(responseDoc, response);
-  
+
   server.send(200, "application/json", response);
   Serial.println("HTTP door status sent: " + response);
 }
@@ -118,16 +121,31 @@ void setup() {
 void loop() {
   server.handleClient();                     // Obsługuje przychodzące zapytania HTTP
   webSocketClient.loop();                    // Utrzymuje połączenie WebSocket
-  int currentButtonState = digitalRead(BUTTON_PIN);
+  int currentState = digitalRead(BUTTON_PIN);
 
-  // Sprawdza czy stan przycisku się zmienił
-  if (currentButtonState != lastButtonState) {
-    delay(50);
-    currentButtonState = digitalRead(BUTTON_PIN);
-    if (currentButtonState != lastButtonState) {
-      updateJSONData(currentButtonState);
-      sendWebSocketData();                   // Wysyła aktualizację przez WebSocket
-      lastButtonState = currentButtonState;  // Zapamiętuje nowy stan
+  // Detekcja zmiany z debounce bez delay
+  if (currentState != lastButtonState) {
+    if (lastChangeTime == 0) {
+      lastChangeTime = millis(); // start obserwacji zmiany
+    } else if (millis() - lastChangeTime >= DEBOUNCE_MS) {
+      // Zmiana utrzymała się wystarczająco długo – akceptujemy
+      lastButtonState = currentState;
+      updateJSONData(lastButtonState);
+      sendWebSocketData();
+      Serial.println(String("Door state changed -> ") + (lastButtonState == LOW ? "zamkniete" : "otwarte"));
+      lastChangeTime = 0; // reset obserwacji
     }
+  } else {
+    // Brak różnicy – reset zegara zmiany jeśli był ustawiony
+    lastChangeTime = 0;
+  }
+
+  // Heartbeat co 60s – wysyła aktualny stan niezależnie od zmian
+  unsigned long now = millis();
+  if (now - lastHeartbeatMs >= HEARTBEAT_INTERVAL_MS) {
+    updateJSONData(digitalRead(BUTTON_PIN));
+    sendWebSocketData();
+    lastHeartbeatMs = now;
+    Serial.println("Heartbeat door status sent");
   }
 }
