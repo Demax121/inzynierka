@@ -9,12 +9,12 @@
 
 const unsigned long SERIAL_BAUD_RATE = 19200;
 
-const int RELAY_PIN = 27;            // Sterowanie przekaźnikiem (ACTIVE = HIGH)
+const int RELAY_PIN = 27;            // Sterowanie przekaźnikiem (ACTIVE = LOW po zmianie okablowania COM+NO)
 const int TOUCH_BUTTON_PIN = 22;     // Wejście przycisku / sensora dotykowego (aktywny HIGH)
 
 // Poziomy logiczne – w razie zmiany hardware wystarczy dostosować stałe
-const int RELAY_ACTIVE_LEVEL = HIGH;     // Poziom logiczny załączający światło (zwiera COM–NO)
-const int RELAY_INACTIVE_LEVEL = LOW;    // Poziom logiczny wyłączający światło
+const int RELAY_ACTIVE_LEVEL = LOW;      // Poziom logiczny ZAŁĄCZAJĄCY (moduł active LOW)
+const int RELAY_INACTIVE_LEVEL = HIGH;   // Poziom logiczny WYŁĄCZAJĄCY
 const int BUTTON_ACTIVE_LEVEL = HIGH;    // Odczyt HIGH oznacza dotknięcie / żądanie zmiany
 
 // Debounce
@@ -84,9 +84,9 @@ void handleStatusRequest() {
 void setup() {
   Serial.begin(SERIAL_BAUD_RATE);  // Inicjalizacja komunikacji szeregowej do debugowania
 
-  // Wczesna inicjalizacja przekaźnika aby uniknąć przypadkowego załączenia
+  // Wczesna inicjalizacja przekaźnika aby uniknąć glitch (najpierw ustaw latch, potem OUTPUT)
+  digitalWrite(RELAY_PIN, RELAY_INACTIVE_LEVEL); // Gwarantowane OFF na starcie (active LOW)
   pinMode(RELAY_PIN, OUTPUT);
-  digitalWrite(RELAY_PIN, RELAY_INACTIVE_LEVEL); // Gwarantowane OFF na starcie
 
   pinMode(TOUCH_BUTTON_PIN, INPUT); // Jeśli kiedyś potrzebny będzie wewnętrzny pullup -> INPUT_PULLUP
 
