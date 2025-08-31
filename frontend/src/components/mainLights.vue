@@ -51,17 +51,18 @@ const fetchInitialStatus = async () => {
 // Funkcja do przełączania świateł
 const toggleLights = () => {
   const newStatus = lightStatus.value === "ON" ? "OFF" : "ON"
-  lightStatus.value = newStatus
   
-  // Wyślij stan przez WebSocket
+  // Najpierw wyślij przez WebSocket
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({
       channel: "mainLights",
       lightStatus: newStatus
     }))
+    console.log(`Lights toggle command sent via WebSocket: ${newStatus}`)
   }
   
-  console.log(`Lights ${newStatus} via website`)
+  // Ustaw lokalny stan dla natychmiastowego feedback UI
+  lightStatus.value = newStatus
 }
 
 // Inicjalizacja WebSocket
@@ -81,9 +82,10 @@ const initWebSocket = () => {
         
         // Obsługa wiadomości z kanału mainLights
         if (data.channel === 'mainLights' && typeof data.lightStatus === 'string') {
-          if (data.lightStatus === "ON" || data.lightStatus === "OFF") {
-            lightStatus.value = data.lightStatus
-            console.log(`Lights state updated from external source: ${data.lightStatus}`)
+          const receivedStatus = data.lightStatus
+          if ((receivedStatus === "ON" || receivedStatus === "OFF") && lightStatus.value !== receivedStatus) {
+            lightStatus.value = receivedStatus
+            console.log(`Lights state updated from external source: ${receivedStatus}`)
           }
         }
       } catch (error) {

@@ -24,11 +24,11 @@ wss.on("connection", (ws) => {
 
       // Obsługa kanału "doorStatus"
       if (data.channel === "doorStatus") {
-        // Rozsyłaj tylko do frontend klientów i ESP32 door sensor
+        // Rozsyłaj tylko do frontend klientów i konkretnie ESP32 door sensor
         wss.clients.forEach((client) => {
           if (client.readyState === client.OPEN) {
             const clientInfo = clients.get(client);
-            if (clientInfo && (clientInfo.type === 'frontend' || clientInfo.channel === 'doorStatus')) {
+            if (clientInfo && (clientInfo.type === 'frontend' || (clientInfo.type === 'esp32' && clientInfo.channel === 'doorStatus'))) {
               client.send(JSON.stringify({
                 channel: "doorStatus",
                 status: data.status
@@ -62,11 +62,12 @@ wss.on("connection", (ws) => {
         
         // Sprawdź czy status jest poprawny
         if (lightStatus === "ON" || lightStatus === "OFF") {
-          // Rozsyłaj do frontend klientów i ESP32 mainLights
+          // Rozsyłaj do wszystkich klientów OPRÓCZ nadawcy
           wss.clients.forEach((client) => {
-            if (client.readyState === client.OPEN) {
+            if (client.readyState === client.OPEN && client !== ws) {
               const clientInfo = clients.get(client);
-              if (clientInfo && (clientInfo.type === 'frontend' || clientInfo.channel === 'mainLights')) {
+              // Tylko frontend klienty ORAZ konkretnie ESP32 mainLights
+              if (clientInfo && (clientInfo.type === 'frontend' || (clientInfo.type === 'esp32' && clientInfo.channel === 'mainLights'))) {
                 client.send(JSON.stringify({
                   channel: "mainLights",
                   lightStatus: lightStatus
@@ -75,7 +76,7 @@ wss.on("connection", (ws) => {
             }
           });
           
-          console.log(`MainLights state broadcasted: ${lightStatus}`);
+          console.log(`MainLights state broadcasted: ${lightStatus} (excluding sender)`);
         }
       }
     } catch (err) {
