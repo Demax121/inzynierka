@@ -62,6 +62,11 @@ $slider-switch-size: 3.5rem;
 
 .card__content--slider {
   height: fit-content;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 2rem; /* odstęp między formularzem a przełącznikiem */
 }
 
 /* The switch - the box around the slider */

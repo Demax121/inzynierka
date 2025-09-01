@@ -1,9 +1,9 @@
 <script setup>
 
 import Blinds from '@/components/blinds.vue'
-import Doors from '@/components/doors.vue'
-import MainLights from '@/components/mainLights.vue';
-import RoomStats from '@/components/roomStats.vue';
+import Doors from '@/components/doorSensorV2.vue'
+import MainLights from '@/components/mainLightsV2.vue';
+import RoomStats from '@/components/roomStatsV2.vue';
 import LEDs from '@/components/wled.vue';
 import AC from '@/components/klimatyzacja.vue';
 

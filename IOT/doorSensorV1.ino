@@ -19,7 +19,7 @@ const unsigned long SERIAL_BAUD_RATE = 19200;
 const int BUTTON_PIN = 21;                    // Pin do którego podłączony jest przycisk/czujnik drzwi
 int lastButtonState = HIGH;                   // Ostatni stabilny stan przycisku (HIGH = drzwi otwarte z INPUT_PULLUP)
 const unsigned long DEBOUNCE_MS = 30;         // Czas stabilizacji stanu
-const unsigned long HEARTBEAT_INTERVAL_MS = 60000; // Wysyłanie statusu co 60s
+const unsigned long HEARTBEAT_INTERVAL_MS = 10000; // Wysyłanie statusu co 60s
 unsigned long lastChangeTime = 0;             // Znacznik startu potencjalnej zmiany (0 = brak zmiany)
 unsigned long lastHeartbeatMs = 0;            // Czas ostatniego heartbeat
 
