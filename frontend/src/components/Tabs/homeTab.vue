@@ -1,11 +1,12 @@
 <script setup>
 
-import Blinds from '@/components/blinds.vue'
-import Doors from '@/components/doorSensorV2.vue'
-import MainLights from '@/components/mainLightsV2.vue';
-import RoomStats from '@/components/roomStatsV2.vue';
-import LEDs from '@/components/wled.vue';
-import AC from '@/components/klimatyzacja.vue';
+import Blinds from '@/components/blindsCard_component.vue'
+import Doors from '@/components/doorsCard_component.vue'
+import MainLights from '@/components/światłaCard_component.vue';
+import RoomStats from '@/components/roomStatsCard_component.vue';
+import LEDs from '@/components/wledCard_component.vue';
+import AC from '@/components/klimaCard_component.vue';
+import LuxSensorCard_component from '../luxSensorCard_component.vue'
 
 
 </script>
@@ -18,6 +19,7 @@ import AC from '@/components/klimatyzacja.vue';
     <MainLights />
     <LEDs />
     <AC />
+    <LuxSensorCard_component />
   </div>
 </template>
 

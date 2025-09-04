@@ -26,9 +26,9 @@ const unsigned long WEBSOCKET_RECONNECT_INTERVAL = 5000;
 
 StaticJsonDocument<64> jsonPayload;
 
-inline void initializeJSON() { jsonPayload["channel"] = "mainLights"; jsonPayload["lightStatus"] = ""; }
-inline void updateJSONData(int relayState) { jsonPayload["lightStatus"] = (relayState == RELAY_ACTIVE_LEVEL) ? "ON" : "OFF"; }
-inline void setRelay(bool on) { State = on; digitalWrite(RELAY_PIN, on ? RELAY_ACTIVE_LEVEL : RELAY_INACTIVE_LEVEL); updateJSONData(digitalRead(RELAY_PIN)); }
+void initializeJSON() { jsonPayload["channel"] = "mainLights"; jsonPayload["lightStatus"] = ""; }
+void updateJSONData(int relayState) { jsonPayload["lightStatus"] = (relayState == RELAY_ACTIVE_LEVEL) ? "ON" : "OFF"; }
+void setRelay(bool on) { State = on; digitalWrite(RELAY_PIN, on ? RELAY_ACTIVE_LEVEL : RELAY_INACTIVE_LEVEL); updateJSONData(digitalRead(RELAY_PIN)); }
 
 void sendWebSocketData() {
   if (!webSocketClient.isConnected()) return;
@@ -39,10 +39,10 @@ void sendWebSocketData() {
 
 void handleIncomingText(uint8_t* payload, size_t length) {
   if (!payload || length == 0) return;
-  StaticJsonDocument<128> doc; // lokalny bufor jak w V1 (zapewnia zapas)
+  StaticJsonDocument<128> doc;
   DeserializationError err = deserializeJson(doc, payload, length);
   if (err) return;
-  if (!doc.containsKey("lightStatus")) return; // kanał opcjonalny, ale status wymagany
+  if (!doc.containsKey("lightStatus")) return;
   if (doc.containsKey("channel") && strcmp(doc["channel"], "mainLights") != 0) return;
   const char* cmd = doc["lightStatus"];
   if (!cmd) return;
@@ -56,12 +56,15 @@ void handleIncomingText(uint8_t* payload, size_t length) {
 }
 
 void setup() {
+  Serial.begin(19200);
   digitalWrite(RELAY_PIN, RELAY_INACTIVE_LEVEL);
   pinMode(RELAY_PIN, OUTPUT);
   pinMode(TOUCH_BUTTON_PIN, INPUT);
   initializeJSON();
   setRelay(false);
-  WiFiManager wm; wm.autoConnect(WIFI_AP_NAME);
+  WiFiManager wm; wm.setDebugOutput(false); wm.autoConnect(WIFI_AP_NAME);
+  uint8_t mac[6]; WiFi.macAddress(mac);
+  Serial.printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X\n", mac[0],mac[1],mac[2],mac[3],mac[4],mac[5]);
   webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
   webSocketClient.onEvent([](WStype_t type, uint8_t* payload, size_t length) {
     if (type == WStype_CONNECTED) {

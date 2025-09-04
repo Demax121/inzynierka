@@ -19,14 +19,21 @@ WebSocketsClient webSocketClient;
 StaticJsonDocument<100> jsonPayload;
 
 void initializeJSON() { jsonPayload["channel"] = "doorStatus"; jsonPayload["status"] = ""; }
-
 void updateJSONData(int buttonState) { jsonPayload["status"] = (buttonState == LOW) ? "zamkniete" : "otwarte"; }
-
-void sendWebSocketData() { String jsonStr; serializeJson(jsonPayload, jsonStr); webSocketClient.sendTXT(jsonStr); }
+void sendWebSocketData() {
+  if (!webSocketClient.isConnected()) return;
+  char buf[64];
+  size_t n = serializeJson(jsonPayload, buf, sizeof(buf));
+  webSocketClient.sendTXT(buf, n);
+}
 
 void setup() {
+  Serial.begin(19200);
   WiFiManager wm;
   wm.autoConnect(WIFI_AP_NAME);
+  uint8_t mac[6];
+  WiFi.macAddress(mac);
+  Serial.printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
   pinMode(BUTTON_PIN, INPUT_PULLUP);
   initializeJSON();
   lastButtonState = digitalRead(BUTTON_PIN);

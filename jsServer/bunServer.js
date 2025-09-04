@@ -79,6 +79,24 @@ wss.on("connection", (ws) => {
           console.log(`MainLights state broadcasted: ${lightStatus} (excluding sender)`);
         }
       }
+
+      // Obsługa kanału "luxSensor"
+      if (data.channel === "luxSensor") {
+        const lux = data.lux;
+        if (typeof lux === 'number') {
+          wss.clients.forEach((client) => {
+            if (client.readyState === client.OPEN) {
+              const clientInfo = clients.get(client);
+              if (clientInfo && clientInfo.type === 'frontend') {
+                client.send(JSON.stringify({
+                  channel: "luxSensor",
+                  lux: lux
+                }));
+              }
+            }
+          });
+        }
+      }
     } catch (err) {
       // Niepoprawny JSON, ignoruj
     }
@@ -90,4 +108,4 @@ wss.on("connection", (ws) => {
   });
 });
 
-console.log(`WebSocket server listening on ws://0.0.0.0:${PORT} (doorStatus, roomStats & mainLights channels)`);
+console.log(`WebSocket server listening on ws://0.0.0.0:${PORT} (doorStatus, roomStats, mainLights, luxSensor channels)`);

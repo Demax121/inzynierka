@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from 'vue'
-import Navbar from '@/components/Navbar.vue'
-import HeroSection from '@/components/heroSection.vue'
+import Navbar from '@/components/Navbar_component.vue'
+import HeroSection from '@/components/heroSection_component.vue'
 import HomeTab from './components/Tabs/homeTab.vue'
 import ProfilesTab from './components/Tabs/profilesTab.vue'
 import WeatherTab from './components/Tabs/weatherTab.vue'

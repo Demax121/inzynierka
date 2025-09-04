@@ -28,8 +28,6 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
-import { useLinkStore } from '@/stores/linkStore';
-const linkStore = useLinkStore();
 
 const statsInfo = ref(null);
 let ws;

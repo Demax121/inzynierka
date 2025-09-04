@@ -1,7 +1,7 @@
 
 <script setup>
-import ProfileConfiguration from '../profileConfiguration.vue'
-import ChooseProfile from '../chooseProfile.vue'
+import ProfileConfiguration from '../profileConfigurationCard_component.vue'
+import ChooseProfile from '../chooseProfileCard_component.vue'
 
 
 </script>

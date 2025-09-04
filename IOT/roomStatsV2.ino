@@ -22,17 +22,23 @@ unsigned long lastSendTime = 0;
 StaticJsonDocument<200> jsonPayload;
 
 void initializeJSON() { jsonPayload["channel"] = "roomStats"; jsonPayload["temperature"] = ""; jsonPayload["humidity"] = ""; jsonPayload["pressure"] = ""; }
-
 void updateJSONData() {
   jsonPayload["temperature"] = String(bme.readTemperature(), 0) + " °C";
   jsonPayload["humidity"] = String(bme.readHumidity(), 0) + " %";
   jsonPayload["pressure"] = String(bme.readPressure() / 100.0F, 0) + " hPa";
 }
-
-void sendWebSocketData() { String jsonStr; serializeJson(jsonPayload, jsonStr); webSocketClient.sendTXT(jsonStr); }
+void sendWebSocketData() {
+  if (!webSocketClient.isConnected()) return;
+  char buf[160];
+  size_t n = serializeJson(jsonPayload, buf, sizeof(buf));
+  webSocketClient.sendTXT(buf, n);
+}
 
 void setup() {
+  Serial.begin(19200);
   WiFiManager wm; wm.autoConnect(WIFI_AP_NAME);
+  uint8_t mac[6]; WiFi.macAddress(mac);
+  Serial.printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X\n", mac[0],mac[1],mac[2],mac[3],mac[4],mac[5]);
   Wire.begin(SDA_PIN, SCL_PIN);
   bme.begin(BME280_I2C_ADDRESS);
   initializeJSON();
