@@ -23,9 +23,9 @@ StaticJsonDocument<200> jsonPayload;
 
 void initializeJSON() { jsonPayload["channel"] = "roomStats"; jsonPayload["temperature"] = ""; jsonPayload["humidity"] = ""; jsonPayload["pressure"] = ""; }
 void updateJSONData() {
-  jsonPayload["temperature"] = String(bme.readTemperature(), 0) + " °C";
-  jsonPayload["humidity"] = String(bme.readHumidity(), 0) + " %";
-  jsonPayload["pressure"] = String(bme.readPressure() / 100.0F, 0) + " hPa";
+  jsonPayload["temperature"] = (int)round(bme.readTemperature());
+  jsonPayload["humidity"] = (int)round(bme.readHumidity());
+  jsonPayload["pressure"] = (int)round(bme.readPressure() / 100.0F);
 }
 void sendWebSocketData() {
   if (!webSocketClient.isConnected()) return;

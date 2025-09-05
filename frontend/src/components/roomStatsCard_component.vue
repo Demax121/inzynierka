@@ -7,15 +7,15 @@
             <div class="card__content" v-if="statsInfo">
                 <div class="card__info-item">
                     <span class="card__label">Temperatura:</span>
-                    <span class="card__value">{{ statsInfo.temperature }}</span>
+                    <span class="card__value">{{ formatTemperature(statsInfo.temperature) }}</span>
                 </div>
                 <div class="card__info-item">
                     <span class="card__label">Wilgotność:</span>
-                    <span class="card__value">{{ statsInfo.humidity }}</span>
+                    <span class="card__value">{{ formatHumidity(statsInfo.humidity) }}</span>
                 </div>
                 <div class="card__info-item">
                     <span class="card__label">Ciśnienie:</span>
-                    <span class="card__value">{{ statsInfo.pressure }}</span>
+                    <span class="card__value">{{ formatPressure(statsInfo.pressure) }}</span>
                 </div>
             </div>
             <div class="card__content card__content--loading" v-else>
@@ -32,13 +32,39 @@ import { ref, onMounted, onUnmounted } from 'vue';
 const statsInfo = ref(null);
 let ws;
 
+// Funkcje formatujące
+const formatTemperature = (temp) => {
+  if (typeof temp === 'number') {
+    return `${temp.toFixed(1)} °C`;
+  }
+  return 'N/A';
+};
+
+const formatHumidity = (humidity) => {
+  if (typeof humidity === 'number') {
+    return `${humidity.toFixed(0)} %`;
+  }
+  return 'N/A';
+};
+
+const formatPressure = (pressure) => {
+  if (typeof pressure === 'number') {
+    return `${pressure.toFixed(0)} hPa`;
+  }
+  return 'N/A';
+};
+
 onMounted(() => {
   ws = new WebSocket('ws://192.168.1.4:8886');
   ws.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
       if (data.channel === 'roomStats') {
-        statsInfo.value = { temperature: data.temperature, humidity: data.humidity, pressure: data.pressure };
+        statsInfo.value = { 
+          temperature: data.temperature, 
+          humidity: data.humidity, 
+          pressure: data.pressure 
+        };
       }
     } catch {}
   };
