@@ -63,8 +63,6 @@ void setup() {
   initializeJSON();
   setRelay(false);
   WiFiManager wm; wm.setDebugOutput(false); wm.autoConnect(WIFI_AP_NAME);
-  uint8_t mac[6]; WiFi.macAddress(mac);
-  Serial.printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X\n", mac[0],mac[1],mac[2],mac[3],mac[4],mac[5]);
   webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
   webSocketClient.onEvent([](WStype_t type, uint8_t* payload, size_t length) {
     if (type == WStype_CONNECTED) {
