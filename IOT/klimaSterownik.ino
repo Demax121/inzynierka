@@ -11,6 +11,9 @@
 #define TFT_DC   21
 #define TFT_RST  22
 
+const int buttonPin = 13;  //Ustawienie C + NO (ground + pin 13)
+bool BTNstate = false;
+
 // Tworzymy obiekt ILI9341
 Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_RST);
 
@@ -223,7 +226,7 @@ void handleIncomingText(uint8_t* payload, size_t length) {
 void setup() {
   Serial.begin(19200);
   delay(500);
-
+  pinMode(buttonPin, INPUT_PULLUP);
   // Inicjalizacja wyświetlacza
   initializeDisplay();
 
@@ -247,4 +250,28 @@ void setup() {
 
 void loop() {
   webSocketClient.loop();
+  static bool lastButton = HIGH;
+  bool reading = digitalRead(buttonPin);
+  
+  // Obsługa naciśnięcia przycisku (zbocze opadające)
+  if (reading == LOW && lastButton == HIGH) {
+    klimaOn = !klimaOn; // przełącz stan klimy
+    manualOverride = true; // włącz ręczne sterowanie
+    
+    if (!klimaOn) {
+      currentFunction = ""; // resetuj funkcję gdy wyłączamy
+    } else {
+      // Gdy włączamy klimę przyciskiem, sprawdź od razu czy trzeba chłodzić/grzać
+      manualOverride = false; // tymczasowo wyłącz blokadę
+      checkTemperatureControl(); // sprawdź kontrolę temperatury
+      manualOverride = true; // przywróć blokadę automatycznej kontroli
+    }
+    
+    Serial.printf("Przycisk naciśnięty - AC %s (ręczne)\n", klimaOn ? "ON" : "OFF");
+    updateDisplay();
+    sendWebSocketData();
+    delay(200); // prosta eliminacja drgań
+  }
+
+  lastButton = reading;
 }
