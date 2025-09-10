@@ -3,7 +3,6 @@
 #include <Adafruit_BME280.h>
 #include <WiFiManager.h>
 #include <ArduinoJson.h>
-#include <WiFi.h>
 #include <WebSocketsClient.h>
 
 const char* WEBSOCKET_SERVER = "192.168.1.4";

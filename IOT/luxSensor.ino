@@ -1,7 +1,6 @@
 #include <Wire.h>
 #include <Adafruit_VEML7700.h>
 #include <WiFiManager.h>
-#include <WiFi.h>
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>
 

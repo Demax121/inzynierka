@@ -1,107 +1,109 @@
 #include <WiFiManager.h>
+#include <WiFi.h>
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_ILI9341.h>
 #include <SPI.h>
 
+// Piny dla ESP32 (wyświetlacz)
 #define TFT_CS   5
 #define TFT_DC   21
 #define TFT_RST  22
 
-const int buttonPin = 13;
+const int buttonPin = 13;  //Ustawienie C + NO (ground + pin 13)
 bool BTNstate = false;
 
+// Tworzymy obiekt ILI9341
 Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_RST);
 
 WebSocketsClient webSocketClient;
 
-const char* WEBSOCKET_SERVER = "192.168.1.4";
-const int   WEBSOCKET_PORT   = 8886;
-const char* WIFI_AP_NAME     = "Klimatyzacja AP";
-const unsigned long RECONNECT_INTERVAL = 5000;
+// Konfiguracja połączenia
+const char* WEBSOCKET_SERVER = "192.168.1.4"; // adres serwera
+const int   WEBSOCKET_PORT   = 8886;            // port WS
+const char* WIFI_AP_NAME     = "Klimatyzacja AP"; // nazwa konfiguracji WiFiManagera
+const unsigned long RECONNECT_INTERVAL = 5000; // ms
 
-bool klimaOn = false;
-bool manualOverride = false;
+// Stan klimatyzacji
+bool klimaOn = false; // aktualny stan (logiczny)
+bool manualOverride = false; // flaga ręcznego sterowania
 
-int currentTemp = 0;
-int requestedTemp = 25;
-const int HISTERAZA = 2;
-char currentFunction[16] = "";
+// Dodane zmienne do kontroli temperatury
+int currentTemp = 0;    // aktualna temperatura z czujnika
+int requestedTemp = 25; // docelowa temperatura
+const int HISTERAZA = 2; // histereza 2 stopnie
+String currentFunction = ""; // aktualnie wykonywana funkcja
 
+// Bufor roboczy JSON (wejściowy) + payload wyjściowy
 StaticJsonDocument<256> doc;
-StaticJsonDocument<64> jsonPayload;
-
-const char PROGMEM temp_aktualna[] = "TEMP AKTUALNA:";
-const char PROGMEM temp_oczekiwana[] = "TEMP OCZEKIWANA:";
-const char PROGMEM status_text[] = "STATUS:";
-const char PROGMEM funkcja_text[] = "FUNKCJA:";
-const char PROGMEM on_text[] = "ON";
-const char PROGMEM off_text[] = "OFF";
-const char PROGMEM spoczynku_text[] = "W SPOCYNKU";
-const char PROGMEM space_c[] = " C";
-const char PROGMEM dash_c[] = "-- C";
-const char PROGMEM chlodzenie_text[] = "CHLODZIMY!!!";
-const char PROGMEM grzanie_text[] = "GRZEJEMY!!!";
+StaticJsonDocument<64> jsonPayload; // analogicznie do innych sterowników
 
 void initializeDisplay() {
-  tft.begin();
-  tft.setRotation(1);
+  tft.begin();                 // Inicjalizacja ILI9341
+  tft.setRotation(1);          // Obrót ekranu (0-3)
   tft.fillScreen(ILI9341_BLACK);
 
   tft.setTextColor(ILI9341_GREEN, ILI9341_BLACK);
   tft.setTextSize(2);
   
+  // Aktualna temperatura na górze
   tft.setCursor(10, 20);
-  tft.print((__FlashStringHelper*)temp_aktualna);
+  tft.println("TEMP AKTUALNA:");
   
+  // Odstęp i oczekiwana temperatura
   tft.setCursor(10, 100);
-  tft.print((__FlashStringHelper*)temp_oczekiwana);
+  tft.println("TEMP OCZEKIWANA:");
   
+  // Większy odstęp i status + funkcja obok siebie
   tft.setCursor(10, 180);
-  tft.print((__FlashStringHelper*)status_text);
+  tft.println("STATUS:");
   
   tft.setCursor(160, 180);
-  tft.print((__FlashStringHelper*)funkcja_text);
+  tft.println("FUNKCJA:");
 }
 
 void updateDisplay() {
   tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);
-  tft.setTextSize(2);
+  tft.setTextSize(2); // Zmniejszony tekst dla temperatur
   
+  // Wyczyść i wyświetl aktualną temperaturę
   tft.fillRect(10, 50, 300, 30, ILI9341_BLACK);
   tft.setCursor(10, 50);
   if (currentTemp > 0) {
     tft.print(currentTemp);
-    tft.print((__FlashStringHelper*)space_c);
+    tft.print(" C");
   } else {
-    tft.print((__FlashStringHelper*)dash_c);
+    tft.print("-- C");
   }
   
+  // Wyczyść i wyświetl oczekiwaną temperaturę
   tft.fillRect(10, 130, 300, 30, ILI9341_BLACK);
   tft.setCursor(10, 130);
   tft.print(requestedTemp);
-  tft.print((__FlashStringHelper*)space_c);
+  tft.print(" C");
   
+  // Wyczyść i wyświetl status klimatyzacji (lewa strona)
   tft.fillRect(10, 210, 140, 25, ILI9341_BLACK);
   tft.setCursor(10, 210);
   tft.setTextSize(2);
   if (klimaOn) {
     tft.setTextColor(ILI9341_GREEN, ILI9341_BLACK);
-    tft.print((__FlashStringHelper*)on_text);
+    tft.print("ON");
   } else {
     tft.setTextColor(ILI9341_RED, ILI9341_BLACK);
-    tft.print((__FlashStringHelper*)off_text);
+    tft.print("OFF");
   }
   
+  // Wyczyść i wyświetl funkcję (prawa strona)
   tft.fillRect(160, 210, 150, 25, ILI9341_BLACK);
   tft.setCursor(160, 210);
   tft.setTextColor(ILI9341_YELLOW, ILI9341_BLACK);
-  tft.setTextSize(2);
-  if (strlen(currentFunction) > 0) {
+  tft.setTextSize(2); // Zwiększony tekst dla funkcji
+  if (currentFunction.length() > 0) {
     tft.print(currentFunction);
   } else {
-    tft.print((__FlashStringHelper*)spoczynku_text);
+    tft.print("W SPOCYNKU");
   }
 }
 
@@ -126,34 +128,36 @@ void sendWebSocketData() {
 }
 
 void checkTemperatureControl() {
-  if (currentTemp == 0) return;
-  if (manualOverride) return;
+  if (currentTemp == 0) return; // brak danych o temperaturze
+  if (manualOverride) return; // jeśli jest ręczne sterowanie, nie kontroluj automatycznie
   
   int tempDiff = currentTemp - requestedTemp;
   bool previousState = klimaOn;
-  char previousFunction[16];
-  strcpy(previousFunction, currentFunction);
+  String previousFunction = currentFunction;
   
   if (tempDiff > HISTERAZA) {
+    // Za gorąco - włączamy chłodzenie
     klimaOn = true;
-    strcpy_P(currentFunction, chlodzenie_text);
-    if (!previousState || strcmp(previousFunction, currentFunction) != 0) {
+    currentFunction = "CHLODZIMY!!!";
+    if (!previousState || previousFunction != currentFunction) {
       Serial.println("CHŁODZIMY!!!");
       sendWebSocketData();
       updateDisplay();
     }
   } else if (tempDiff < -HISTERAZA) {
+    // Za zimno - włączamy grzanie
     klimaOn = true;
-    strcpy_P(currentFunction, grzanie_text);
-    if (!previousState || strcmp(previousFunction, currentFunction) != 0) {
+    currentFunction = "GRZEJEMY!!!";
+    if (!previousState || previousFunction != currentFunction) {
       Serial.println("GRZEJMY!!!");
       sendWebSocketData();
       updateDisplay();
     }
   } else {
+    // Temperatura w zakresie - wyłączamy klimę
     if (klimaOn) {
       klimaOn = false;
-      strcpy(currentFunction, "");
+      currentFunction = "";
       Serial.println("Temperatura OK - wyłączam klimę");
       sendWebSocketData();
       updateDisplay();
@@ -170,26 +174,28 @@ void handleIncomingText(uint8_t* payload, size_t length) {
       int t = doc["temperature"].as<int>();
       int h = doc["humidity"].as<int>();
       int p = doc["pressure"].as<int>();
-      currentTemp = t;
+      currentTemp = t; // zapisz aktualną temperaturę
       Serial.printf("[roomStats] T: %d°C  H: %d%%  P: %d hPa\n", t, h, p);
-      updateDisplay();
-      checkTemperatureControl();
+      updateDisplay(); // aktualizuj wyświetlacz po otrzymaniu nowej temperatury
+      checkTemperatureControl(); // sprawdź czy trzeba włączyć/wyłączyć klimę
     }
   } else if (strcmp(channel, "klimatyzacja") == 0) {
+    // Odczyt temperatury jeśli przyszła razem z kanałem klimatyzacji
     if (doc.containsKey("temperature")) {
       int t = doc["temperature"].as<int>();
-      currentTemp = t;
+      currentTemp = t; // zapisz aktualną temperaturę
       Serial.printf("[klimatyzacja] Ambient temperature: %d°C\n", t);
-      updateDisplay();
-      checkTemperatureControl();
+      updateDisplay(); // aktualizuj wyświetlacz
+      checkTemperatureControl(); // sprawdź kontrolę temperatury
     }
+    // Nowa sekcja dla requestedTemp
     if (doc.containsKey("requestedTemp")) {
       int reqTemp = doc["requestedTemp"].as<int>();
-      requestedTemp = reqTemp;
-      manualOverride = false;
+      requestedTemp = reqTemp; // zapisz docelową temperaturę
+      manualOverride = false; // resetuj flagę przy zmianie temperatury
       Serial.printf("[klimatyzacja] Requested temperature: %d°C\n", reqTemp);
-      updateDisplay();
-      checkTemperatureControl();
+      updateDisplay(); // aktualizuj wyświetlacz po zmianie docelowej temperatury
+      checkTemperatureControl(); // sprawdź kontrolę temperatury po zmianie docelowej
     }
     if (doc.containsKey("klimaStatus")) {
       const char* st = doc["klimaStatus"];
@@ -198,14 +204,16 @@ void handleIncomingText(uint8_t* payload, size_t length) {
         if (newState != klimaOn) {
           klimaOn = newState;
           if (newState) {
+            // Jeśli włączamy klimę, wyłączamy ręczne sterowanie i sprawdzamy temperaturę
             manualOverride = false;
-            checkTemperatureControl();
+            checkTemperatureControl(); // sprawdź od razu czy trzeba chłodzić/grzać
           } else {
+            // Jeśli wyłączamy klimę, włączamy ręczne sterowanie i resetujemy funkcję
             manualOverride = true;
-            strcpy(currentFunction, "");
+            currentFunction = "";
           }
-          updateDisplay();
-          sendWebSocketData();
+          updateDisplay(); // aktualizuj wyświetlacz po zmianie stanu
+          sendWebSocketData(); // wyślij nowy stan
           Serial.printf("[RX] AC %s (ręczne sterowanie)\n", klimaOn ? "Włączone" : "Wyłączone");
         } else {
           Serial.printf("[RX] AC %s (bez zmiany)\n", klimaOn ? "Włączone" : "Wyłączone");
@@ -219,6 +227,7 @@ void setup() {
   Serial.begin(19200);
   delay(500);
   pinMode(buttonPin, INPUT_PULLUP);
+  // Inicjalizacja wyświetlacza
   initializeDisplay();
 
   WiFiManager wm; wm.setDebugOutput(false); wm.autoConnect(WIFI_AP_NAME);
@@ -231,7 +240,7 @@ void setup() {
       Serial.println("Połączono z WS – identyfikacja kanału klimatyzacja");
       webSocketClient.sendTXT("{\"type\":\"esp32_identification\",\"channel\":\"klimatyzacja\"}");
       sendWebSocketData();
-      updateDisplay();
+      updateDisplay(); // aktualizuj wyświetlacz po połączeniu
     } else if (type == WStype_TEXT) {
       handleIncomingText(payload, length);
     }
@@ -244,22 +253,24 @@ void loop() {
   static bool lastButton = HIGH;
   bool reading = digitalRead(buttonPin);
   
+  // Obsługa naciśnięcia przycisku (zbocze opadające)
   if (reading == LOW && lastButton == HIGH) {
-    klimaOn = !klimaOn;
-    manualOverride = true;
+    klimaOn = !klimaOn; // przełącz stan klimy
+    manualOverride = true; // włącz ręczne sterowanie
     
     if (!klimaOn) {
-      strcpy(currentFunction, "");
+      currentFunction = ""; // resetuj funkcję gdy wyłączamy
     } else {
-      manualOverride = false;
-      checkTemperatureControl();
-      manualOverride = true;
+      // Gdy włączamy klimę przyciskiem, sprawdź od razu czy trzeba chłodzić/grzać
+      manualOverride = false; // tymczasowo wyłącz blokadę
+      checkTemperatureControl(); // sprawdź kontrolę temperatury
+      manualOverride = true; // przywróć blokadę automatycznej kontroli
     }
     
     Serial.printf("Przycisk naciśnięty - AC %s (ręczne)\n", klimaOn ? "ON" : "OFF");
     updateDisplay();
     sendWebSocketData();
-    delay(200);
+    delay(200); // prosta eliminacja drgań
   }
 
   lastButton = reading;
