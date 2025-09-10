@@ -2,7 +2,7 @@
     <div class="big-container wled">
         <iframe
             class="wled__iframe"
-            src="http://192.168.1.19/#Colors" frameborder="0"
+            src="http://192.168.1.25/#Colors" frameborder="0"
             title="WLED Controller"
             loading="lazy"
         ></iframe>
