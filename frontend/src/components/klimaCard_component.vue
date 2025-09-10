@@ -12,7 +12,7 @@
         <div class="temps-display" v-if="!loading">
           <p>Aktualna: <strong>{{ currentTempDisplay }}</strong>°C</p>
           <p>Docelowa: <strong>{{ targetTempDisplay }}</strong>°C</p>
-          <p v-if="modeLabel">Status: <strong>{{ modeLabel }}</strong></p>
+          <p v-if="modeLabel">Funkcja: <strong>{{ modeLabel }}</strong></p>
         </div>
         <div v-else class="temps-loading">⏳</div>
         <label class="switch">
@@ -40,6 +40,7 @@ const targetTemp = ref(25);    // default value
 const inputTemp = ref(25);
 const klimaStatus = ref('OFF'); // ON / OFF
 const mode = ref('idle');       // cooling / heating / idle
+const currentFunction = ref(''); // funkcja otrzymana z ESP32
 const loading = ref(true);
 
 const currentTempDisplay = computed(() => currentTemp.value === null ? '-' : currentTemp.value);
@@ -49,15 +50,8 @@ const isOn = computed(() => klimaStatus.value === 'ON');
 const modeLabel = computed(() => {
   if (!isOn.value) return null; // Nie pokazuj statusu gdy OFF
   
-  if (currentTemp.value !== null && targetTemp.value !== null) {
-    const tempDiff = currentTemp.value - targetTemp.value;
-    if (tempDiff > 2) {
-      return 'CHŁODZIMY!!!';
-    } else if (tempDiff < -2) {
-      return 'GRZEJMY!!!';
-    }
-  }
-  return 'IDLE';
+  // Używamy funkcji otrzymanej z ESP32
+  return currentFunction.value || 'IDLE';
 });
 
 let lastCommandTs = 0;
@@ -86,6 +80,12 @@ function connect() {
     try {
       const data = JSON.parse(event.data);
       if (data.channel === 'klimatyzacja') {
+        // Sprawdź czy ESP32 się rozłączył
+        if (data.status === 'disconnected') {
+          loading.value = true;
+          return;
+        }
+        
         // jeśli serwer dośle temperature (ambient)
         if (Number.isFinite(data.temperature)) currentTemp.value = Math.round(data.temperature);
         if (Number.isInteger(data.currentTemp)) currentTemp.value = data.currentTemp; // kompatybilność gdyby później zmieniono nazwę
@@ -95,6 +95,7 @@ function connect() {
         }
         if (typeof data.klimaStatus === 'string') klimaStatus.value = data.klimaStatus;
         if (typeof data.mode === 'string') mode.value = data.mode;
+        if (typeof data.currentFunction === 'string') currentFunction.value = data.currentFunction;
         loading.value = false;
       }
       if (data.channel === 'roomStats' && Number.isFinite(data.temperature)) {
@@ -145,7 +146,7 @@ onUnmounted(() => { if (reconnectTimer) clearTimeout(reconnectTimer); if (ws) ws
   margin-bottom: 1.5rem;
 }
 
-.temps-display { text-align:center; margin-bottom: .5rem; line-height:1.3; }
+.temps-display { text-align:center; margin-bottom: .2rem; line-height:1.3; }
 .temps-display p { margin:.15rem 0; }
 .temps-loading { font-size:2rem; opacity:.6; animation: pulse 1.4s ease-in-out infinite; }
 @keyframes pulse { 0%,100% { opacity:.3;} 50% { opacity:1;} }
@@ -163,7 +164,7 @@ onUnmounted(() => { if (reconnectTimer) clearTimeout(reconnectTimer); if (ws) ws
 
 .temp-input:focus { border-color: var(--color); }
 
-$slider-switch-size: 3.5rem;
+$slider-switch-size: 2.5rem;
 
 .card__body--slider { display: grid; justify-content: center; align-items: center; }
 
@@ -173,11 +174,11 @@ $slider-switch-size: 3.5rem;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  gap: 1.4rem;
+  gap: 0.8rem;
 }
 
 /* The switch - the box around the slider */
-.switch { position: relative; display: inline-block; width: 11rem; height: 4rem; }
+.switch { position: relative; display: inline-block; width: 8rem; height: 3rem; }
 
 /* Hide default HTML checkbox */
 .switch input { opacity: 0; width: 0; height: 0; }
@@ -221,7 +222,7 @@ input:checked + .slider { box-shadow: 0 0 25px 6px #d40fe6; }
 input:checked + .slider::after { content: "ON"; opacity: 1; animation: fadeText .3s ease-in-out; }
 
 /* Gdy zaznaczony przesuwamy kółko w prawo */
-input:checked + .slider:before { transform: translateX(7rem); }
+input:checked + .slider:before { transform: translateX(5rem); }
 
 /* Animacja fade dla tekstu */
 @keyframes fadeText { 0% { opacity: 0; } 50% { opacity: .5; } 100% { opacity: 1; } }

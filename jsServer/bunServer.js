@@ -164,6 +164,7 @@ wss.on("connection", (ws) => {
         }
         else if (senderInfo && senderInfo.type === 'esp32' && senderInfo.channel === 'klimatyzacja' && typeof data.klimaStatus !== 'undefined') {
           const status = data.klimaStatus === 'ON' ? 'ON' : 'OFF';
+          const currentFunction = data.currentFunction || '';
           wss.clients.forEach(client => {
             if (client.readyState === client.OPEN) {
               const ci = clients.get(client);
@@ -171,12 +172,13 @@ wss.on("connection", (ws) => {
                 client.send(JSON.stringify({
                   channel: 'klimatyzacja',
                   klimaStatus: status,
+                  currentFunction: currentFunction,
                   temperature: lastRoomTemperature
                 }));
               }
             }
           });
-          console.log(`Klimatyzacja status od ESP32 -> ${status}`);
+          console.log(`Klimatyzacja status od ESP32 -> ${status}, function: ${currentFunction}`);
         }
       }
 
@@ -186,6 +188,22 @@ wss.on("connection", (ws) => {
   });
 
   ws.on('close', () => {
+    const clientInfo = clients.get(ws);
+    if (clientInfo && clientInfo.type === 'esp32') {
+      console.log(`ESP32 device disconnected: ${clientInfo.channel}`);
+      // Powiadom frontendy o rozłączeniu ESP32
+      wss.clients.forEach((client) => {
+        if (client.readyState === client.OPEN) {
+          const ci = clients.get(client);
+          if (ci && ci.type === 'frontend') {
+            client.send(JSON.stringify({
+              channel: clientInfo.channel,
+              status: 'disconnected'
+            }));
+          }
+        }
+      });
+    }
     clients.delete(ws);
   });
 });

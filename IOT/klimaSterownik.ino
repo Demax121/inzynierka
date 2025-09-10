@@ -24,11 +24,12 @@ const unsigned long RECONNECT_INTERVAL = 5000; // ms
 
 // Stan klimatyzacji
 bool klimaOn = false; // aktualny stan (logiczny)
+bool manualOverride = false; // flaga ręcznego sterowania
 
 // Dodane zmienne do kontroli temperatury
-float currentTemp = 0.0;    // aktualna temperatura z czujnika
-float requestedTemp = 25.0; // docelowa temperatura
-const float HISTERAZA = 2.0; // histereza 2 stopnie
+int currentTemp = 0;    // aktualna temperatura z czujnika
+int requestedTemp = 25; // docelowa temperatura
+const int HISTERAZA = 2; // histereza 2 stopnie
 String currentFunction = ""; // aktualnie wykonywana funkcja
 
 // Bufor roboczy JSON (wejściowy) + payload wyjściowy
@@ -66,8 +67,8 @@ void updateDisplay() {
   // Wyczyść i wyświetl aktualną temperaturę
   tft.fillRect(10, 50, 300, 30, ILI9341_BLACK);
   tft.setCursor(10, 50);
-  if (currentTemp > 0.0) {
-    tft.print(currentTemp, 1);
+  if (currentTemp > 0) {
+    tft.print(currentTemp);
     tft.print(" C");
   } else {
     tft.print("-- C");
@@ -76,7 +77,7 @@ void updateDisplay() {
   // Wyczyść i wyświetl oczekiwaną temperaturę
   tft.fillRect(10, 130, 300, 30, ILI9341_BLACK);
   tft.setCursor(10, 130);
-  tft.print(requestedTemp, 0);
+  tft.print(requestedTemp);
   tft.print(" C");
   
   // Wyczyść i wyświetl status klimatyzacji (lewa strona)
@@ -106,10 +107,12 @@ void updateDisplay() {
 void initializeJSON() {
   jsonPayload["channel"] = "klimatyzacja";
   jsonPayload["klimaStatus"] = klimaOn ? "ON" : "OFF";
+  jsonPayload["currentFunction"] = currentFunction;
 }
 
 void updateJSONData() {
   jsonPayload["klimaStatus"] = klimaOn ? "ON" : "OFF";
+  jsonPayload["currentFunction"] = currentFunction;
 }
 
 void sendWebSocketData() {
@@ -122,25 +125,27 @@ void sendWebSocketData() {
 }
 
 void checkTemperatureControl() {
-  if (currentTemp == 0.0) return; // brak danych o temperaturze
+  if (currentTemp == 0) return; // brak danych o temperaturze
+  if (manualOverride) return; // jeśli jest ręczne sterowanie, nie kontroluj automatycznie
   
-  float tempDiff = currentTemp - requestedTemp;
+  int tempDiff = currentTemp - requestedTemp;
   bool previousState = klimaOn;
+  String previousFunction = currentFunction;
   
   if (tempDiff > HISTERAZA) {
     // Za gorąco - włączamy chłodzenie
-    if (!klimaOn) {
-      klimaOn = true;
-      currentFunction = "CHLODZIMY!!!";
+    klimaOn = true;
+    currentFunction = "CHLODZIMY!!!";
+    if (!previousState || previousFunction != currentFunction) {
       Serial.println("CHŁODZIMY!!!");
       sendWebSocketData();
       updateDisplay();
     }
   } else if (tempDiff < -HISTERAZA) {
     // Za zimno - włączamy grzanie
-    if (!klimaOn) {
-      klimaOn = true;
-      currentFunction = "GRZEJEMY!!!";
+    klimaOn = true;
+    currentFunction = "GRZEJEMY!!!";
+    if (!previousState || previousFunction != currentFunction) {
       Serial.println("GRZEJMY!!!");
       sendWebSocketData();
       updateDisplay();
@@ -163,27 +168,28 @@ void handleIncomingText(uint8_t* payload, size_t length) {
   const char* channel = doc["channel"] | "";
   if (strcmp(channel, "roomStats") == 0) {
     if (doc.containsKey("temperature")) {
-      float t = doc["temperature"].as<float>();
-      float h = doc["humidity"].as<float>();
-      float p = doc["pressure"].as<float>();
+      int t = doc["temperature"].as<int>();
+      int h = doc["humidity"].as<int>();
+      int p = doc["pressure"].as<int>();
       currentTemp = t; // zapisz aktualną temperaturę
-      Serial.printf("[roomStats] T: %.2f°C  H: %.2f%%  P: %.2f hPa\n", t, h, p);
+      Serial.printf("[roomStats] T: %d°C  H: %d%%  P: %d hPa\n", t, h, p);
       updateDisplay(); // aktualizuj wyświetlacz po otrzymaniu nowej temperatury
       checkTemperatureControl(); // sprawdź czy trzeba włączyć/wyłączyć klimę
     }
   } else if (strcmp(channel, "klimatyzacja") == 0) {
     // Odczyt temperatury jeśli przyszła razem z kanałem klimatyzacji
     if (doc.containsKey("temperature")) {
-      float t = doc["temperature"].as<float>();
+      int t = doc["temperature"].as<int>();
       currentTemp = t; // zapisz aktualną temperaturę
-      Serial.printf("[klimatyzacja] Ambient temperature: %.2f°C\n", t);
+      Serial.printf("[klimatyzacja] Ambient temperature: %d°C\n", t);
       updateDisplay(); // aktualizuj wyświetlacz
       checkTemperatureControl(); // sprawdź kontrolę temperatury
     }
     // Nowa sekcja dla requestedTemp
     if (doc.containsKey("requestedTemp")) {
       int reqTemp = doc["requestedTemp"].as<int>();
-      requestedTemp = (float)reqTemp; // zapisz docelową temperaturę
+      requestedTemp = reqTemp; // zapisz docelową temperaturę
+      manualOverride = false; // resetuj flagę przy zmianie temperatury
       Serial.printf("[klimatyzacja] Requested temperature: %d°C\n", reqTemp);
       updateDisplay(); // aktualizuj wyświetlacz po zmianie docelowej temperatury
       checkTemperatureControl(); // sprawdź kontrolę temperatury po zmianie docelowej
@@ -194,8 +200,18 @@ void handleIncomingText(uint8_t* payload, size_t length) {
         bool newState = (strcmp(st, "ON") == 0);
         if (newState != klimaOn) {
           klimaOn = newState;
+          if (newState) {
+            // Jeśli włączamy klimę, wyłączamy ręczne sterowanie i sprawdzamy temperaturę
+            manualOverride = false;
+            checkTemperatureControl(); // sprawdź od razu czy trzeba chłodzić/grzać
+          } else {
+            // Jeśli wyłączamy klimę, włączamy ręczne sterowanie i resetujemy funkcję
+            manualOverride = true;
+            currentFunction = "";
+          }
           updateDisplay(); // aktualizuj wyświetlacz po zmianie stanu
-          Serial.printf("[RX] AC %s (z sieci)\n", klimaOn ? "Włączone" : "Wyłączone");
+          sendWebSocketData(); // wyślij nowy stan
+          Serial.printf("[RX] AC %s (ręczne sterowanie)\n", klimaOn ? "Włączone" : "Wyłączone");
         } else {
           Serial.printf("[RX] AC %s (bez zmiany)\n", klimaOn ? "Włączone" : "Wyłączone");
         }
