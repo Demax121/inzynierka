@@ -34,13 +34,10 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 let ws = null;
 let reconnectTimer;
 
-// Temperatures + localStorage persistence
-const LS_KEY = 'klima_target_temp';
-let saved = parseInt(localStorage.getItem(LS_KEY));
-if (!Number.isInteger(saved) || saved < 16 || saved > 30) saved = 25;
+// Temperatures
 const currentTemp = ref(null); // aktualna z roomStats / status
-const targetTemp = ref(saved);    // restored or default
-const inputTemp = ref(saved);
+const targetTemp = ref(25);    // default value
+const inputTemp = ref(25);
 const klimaStatus = ref('OFF'); // ON / OFF
 const mode = ref('idle');       // cooling / heating / idle
 const loading = ref(true);
@@ -95,7 +92,6 @@ function connect() {
         if (Number.isInteger(data.targetTemp)) {
           targetTemp.value = data.targetTemp;
           inputTemp.value = data.targetTemp;
-          localStorage.setItem(LS_KEY, String(data.targetTemp));
         }
         if (typeof data.klimaStatus === 'string') klimaStatus.value = data.klimaStatus;
         if (typeof data.mode === 'string') mode.value = data.mode;
@@ -121,7 +117,6 @@ function submitTemp() {
   if (inputTemp.value < 16 || inputTemp.value > 30) return;
   
   targetTemp.value = inputTemp.value; // optimistic update
-  localStorage.setItem(LS_KEY, String(targetTemp.value));
   
   console.log(`Sending requestedTemp: ${targetTemp.value}`); // Debug log
   

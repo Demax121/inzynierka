@@ -99,7 +99,7 @@ void updateDisplay() {
   if (currentFunction.length() > 0) {
     tft.print(currentFunction);
   } else {
-    tft.print("GOTOWY");
+    tft.print("W SPOCYNKU");
   }
 }
 
