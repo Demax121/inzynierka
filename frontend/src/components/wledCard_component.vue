@@ -31,7 +31,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 
-const WLED_IP = "http://192.168.1.25"; // Adres WLED
+const WLED_IP = "192.168.1.25"; // Adres WLED
 const WLED_ENDPOINT = "/json/state";
 
 function sendCommand(payload) {
