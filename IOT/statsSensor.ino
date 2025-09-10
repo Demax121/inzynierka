@@ -8,23 +8,23 @@
 const char* WEBSOCKET_SERVER = "192.168.1.4";
 const int WEBSOCKET_PORT = 8886;
 const char* WIFI_AP_NAME = "Statystyki Pomieszczenia AP";
-const unsigned long WEBSOCKET_RECONNECT_INTERVAL = 5000;
+const unsigned int WEBSOCKET_RECONNECT_INTERVAL = 5000;
 
 #define SDA_PIN 4
 #define SCL_PIN 5
 const uint8_t BME280_I2C_ADDRESS = 0x76;
-const unsigned long SENSOR_SEND_INTERVAL = 10000;
+const unsigned int SENSOR_SEND_INTERVAL = 10000;
 
 Adafruit_BME280 bme;
 WebSocketsClient webSocketClient;
-unsigned long lastSendTime = 0;
+unsigned int lastSendTime = 0;
 StaticJsonDocument<200> jsonPayload;
 
 void initializeJSON() { jsonPayload["channel"] = "roomStats"; jsonPayload["temperature"] = ""; jsonPayload["humidity"] = ""; jsonPayload["pressure"] = ""; }
 void updateJSONData() {
   jsonPayload["temperature"] = (int)round(bme.readTemperature());
   jsonPayload["humidity"] = (int)round(bme.readHumidity());
-  jsonPayload["pressure"] = (int)round(bme.readPressure() / 100.0F);
+  jsonPayload["pressure"] = (int)(bme.readPressure() / 100);
 }
 void sendWebSocketData() {
   if (!webSocketClient.isConnected()) return;
@@ -54,9 +54,10 @@ void setup() {
 
 void loop() {
   webSocketClient.loop();
-  if (millis() - lastSendTime >= SENSOR_SEND_INTERVAL) {
+  unsigned int now = millis();
+  if (now - lastSendTime >= SENSOR_SEND_INTERVAL) {
     updateJSONData();
     sendWebSocketData();
-    lastSendTime = millis();
+    lastSendTime = now;
   }
 }

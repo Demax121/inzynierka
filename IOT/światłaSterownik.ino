@@ -9,18 +9,18 @@ const int TOUCH_BUTTON_PIN = 22;
 const int RELAY_ACTIVE_LEVEL = LOW;
 const int RELAY_INACTIVE_LEVEL = HIGH;
 const int BUTTON_ACTIVE_LEVEL = HIGH;
-const unsigned long BUTTON_DEBOUNCE_MS = 25;
-const unsigned long HEARTBEAT_INTERVAL_MS = 10000;
+const unsigned int BUTTON_DEBOUNCE_MS = 25;
+const unsigned int HEARTBEAT_INTERVAL_MS = 10000;
 
 bool State = false;
 int lastButtonState = LOW;
-unsigned long lastButtonChangeMs = 0;
-unsigned long lastHeartbeatMs = 0;
+unsigned int lastButtonChangeMs = 0;
+unsigned int lastHeartbeatMs = 0;
 
 const char* WEBSOCKET_SERVER = "192.168.1.4";
 const int WEBSOCKET_PORT = 8886;
 const char* WIFI_AP_NAME = "Główne Światła AP";
-const unsigned long WEBSOCKET_RECONNECT_INTERVAL = 5000;
+const unsigned int WEBSOCKET_RECONNECT_INTERVAL = 5000;
 
 
 StaticJsonDocument<64> jsonPayload;
@@ -80,7 +80,7 @@ void loop() {
 
   int rawButton = digitalRead(TOUCH_BUTTON_PIN);
   if (rawButton == BUTTON_ACTIVE_LEVEL && lastButtonState != BUTTON_ACTIVE_LEVEL) {
-    unsigned long now = millis();
+    unsigned int now = millis();
     if (now - lastButtonChangeMs >= BUTTON_DEBOUNCE_MS) {
       delay(BUTTON_DEBOUNCE_MS);
       if (digitalRead(TOUCH_BUTTON_PIN) == BUTTON_ACTIVE_LEVEL) {
@@ -92,7 +92,7 @@ void loop() {
   }
   lastButtonState = rawButton;
 
-  unsigned long now = millis();
+  unsigned int now = millis();
   if (now - lastHeartbeatMs >= HEARTBEAT_INTERVAL_MS) {
     updateJSONData(digitalRead(RELAY_PIN));
     sendWebSocketData();

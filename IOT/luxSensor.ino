@@ -11,16 +11,16 @@
 #define WEBSOCKET_SERVER "192.168.1.4"
 #define WEBSOCKET_PORT 8886
 
-const unsigned long SENSOR_SEND_INTERVAL = 10000;
-const unsigned long WEBSOCKET_RECONNECT_INTERVAL = 5000;
-const float LUX_THRESHOLD = 10; // próg zmiany w lux do wysłania natychmiast
+const unsigned int SENSOR_SEND_INTERVAL = 10000;
+const unsigned int WEBSOCKET_RECONNECT_INTERVAL = 5000;
+const int LUX_THRESHOLD = 10;
 
 WebSocketsClient webSocket;
 Adafruit_VEML7700 veml;
 StaticJsonDocument<64> jsonPayload;
 
-unsigned long lastSendMs = 0;
-float lastLux = -999;
+unsigned int lastSendMs = 0;
+int lastLux = -999;
 bool sensorReady = false;
 
 void setup() {
@@ -46,7 +46,6 @@ void setup() {
   webSocket.setReconnectInterval(WEBSOCKET_RECONNECT_INTERVAL);
   webSocket.onEvent([](WStype_t type, uint8_t *payload, size_t length) {
     if (type == WStype_CONNECTED) {
-      Serial.println("WebSocket połączony.");
       webSocket.sendTXT("{\"type\":\"esp32_identification\",\"channel\":\"luxSensor\"}");
     }
   });
@@ -54,17 +53,16 @@ void setup() {
 
 void loop() {
   webSocket.loop();
-  unsigned long now = millis();
+  unsigned int now = millis();
 
-  float currentLux = sensorReady ? veml.readLux() : -1;
+  int currentLux = sensorReady ? (int)veml.readLux() : -1;
 
-  if (fabs(currentLux - lastLux) >= LUX_THRESHOLD || (now - lastSendMs >= SENSOR_SEND_INTERVAL)) {
-    jsonPayload["lux"] = (int)currentLux;
+  if (abs(currentLux - lastLux) >= LUX_THRESHOLD || (now - lastSendMs >= SENSOR_SEND_INTERVAL)) {
+    jsonPayload["lux"] = currentLux;
 
     char buf[64];
     size_t n = serializeJson(jsonPayload, buf);
     webSocket.sendTXT(buf, n);
-    Serial.printf("Wysłano: %s\n", buf);
     lastLux = currentLux;
     lastSendMs = now;
   }
