@@ -7,13 +7,13 @@
       <div class="card__content">
         <div class="card__info-item">
           <span class="card__label">Status:</span>
-          <span class="card__value">{{ doorStatus }}</span>
+          <span class="card__value">{{ door_sensor }}</span>
         </div>
         <div class="card__icon">
           <img :src="linkStore.getImage('lock-open.svg')" alt="Otwarta kłódka" class="door-icon"
-            v-if="doorStatus === 'Drzwi otwarte'" />
+            v-if="door_sensor === 'Drzwi otwarte'" />
           <img :src="linkStore.getImage('lock-closed.svg')" alt="Zamknięta kłódka" class="door-icon"
-            v-else-if="doorStatus === 'Drzwi zamknięte'" />
+            v-else-if="door_sensor === 'Drzwi zamknięte'" />
           <div class="door-icon door-icon--placeholder" v-else>
             <span>🔒</span>
           </div>
@@ -28,34 +28,34 @@ import { useLinkStore } from '@/stores/linkStore';
 const linkStore = useLinkStore();
 
 // Stan początkowy utrzymany aż do pierwszej wiadomości z ESP
-const doorStatus = ref('Łączenie...');
+const door_sensor = ref('Łączenie...');
 let ws;
 
 onMounted(() => {
   ws = new WebSocket('ws://192.168.1.4:8886');
 
   ws.onopen = () => {
-    // Po nawiązaniu połączenia czekamy na pierwszą wiadomość z kanału doorStatus
-    doorStatus.value = 'Oczekiwanie danych...';
+    // Po nawiązaniu połączenia czekamy na pierwszą wiadomość z kanału door_sensor
+    door_sensor.value = 'Oczekiwanie danych...';
   };
 
   ws.onclose = () => {
-    if (doorStatus.value !== 'Drzwi otwarte' && doorStatus.value !== 'Drzwi zamknięte') {
-      doorStatus.value = 'Brak połączenia';
+    if (door_sensor.value !== 'Drzwi otwarte' && door_sensor.value !== 'Drzwi zamknięte') {
+      door_sensor.value = 'Brak połączenia';
     }
   };
 
   ws.onerror = () => {
-    if (doorStatus.value !== 'Drzwi otwarte' && doorStatus.value !== 'Drzwi zamknięte') {
-      doorStatus.value = 'Błąd połączenia';
+    if (door_sensor.value !== 'Drzwi otwarte' && door_sensor.value !== 'Drzwi zamknięte') {
+      door_sensor.value = 'Błąd połączenia';
     }
   };
 
   ws.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
-      if (data.channel === 'doorStatus' && data.status) {
-        doorStatus.value = data.status === 'otwarte' ? 'Drzwi otwarte' : 'Drzwi zamknięte';
+      if (data.channel === 'door_sensor' && data.status) {
+        door_sensor.value = data.status === 'otwarte' ? 'Drzwi otwarte' : 'Drzwi zamknięte';
       }
     } catch {
       // Ignoruj błędne pakiety

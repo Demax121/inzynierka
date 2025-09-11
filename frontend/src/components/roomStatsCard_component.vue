@@ -59,7 +59,7 @@ onMounted(() => {
   ws.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
-      if (data.channel === 'roomStats') {
+      if (data.channel === 'room_stats') {
         statsInfo.value = { 
           temperature: data.temperature, 
           humidity: data.humidity, 

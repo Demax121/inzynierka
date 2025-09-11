@@ -35,7 +35,7 @@ let ws = null;
 let reconnectTimer;
 
 // Temperatures
-const currentTemp = ref(null); // aktualna z roomStats / status
+const currentTemp = ref(null); // aktualna z room_stats / status
 const targetTemp = ref(25);    // default value
 const inputTemp = ref(25);
 const klimaStatus = ref('OFF'); // ON / OFF
@@ -58,7 +58,7 @@ let lastCommandTs = 0;
 const COMMAND_DEBOUNCE_MS = 800; // aby nie spamować przy szybkim klikaniu
 function sendManual(status) {
   if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ channel: 'klimatyzacja', klimaStatus: status }));
+    ws.send(JSON.stringify({ channel: 'air_conditioning', klimaStatus: status }));
   }
 }
 
@@ -74,12 +74,12 @@ function toggleManual() {
 function connect() {
   ws = new WebSocket('ws://192.168.1.4:8886');
   ws.onopen = () => {
-    // czekamy na status z ESP32 albo roomStats
+    // czekamy na status z ESP32 albo room_stats
   };
   ws.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
-      if (data.channel === 'klimatyzacja') {
+      if (data.channel === 'air_conditioning') {
         // Sprawdź czy ESP32 się rozłączył
         if (data.status === 'disconnected') {
           loading.value = true;
@@ -98,7 +98,7 @@ function connect() {
         if (typeof data.currentFunction === 'string') currentFunction.value = data.currentFunction;
         loading.value = false;
       }
-      if (data.channel === 'roomStats' && Number.isFinite(data.temperature)) {
+      if (data.channel === 'room_stats' && Number.isFinite(data.temperature)) {
         currentTemp.value = Math.round(data.temperature);
         loading.value = false;
       }
@@ -123,10 +123,10 @@ function submitTemp() {
   
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ 
-      channel: 'klimatyzacja', 
+      channel: 'air_conditioning', 
       requestedTemp: targetTemp.value 
     }));
-    console.log(`Sent: {"channel": "klimatyzacja", "requestedTemp": ${targetTemp.value}}`); // Debug log
+    console.log(`Sent: {"channel": "air_conditioning", "requestedTemp": ${targetTemp.value}}`); // Debug log
   } else {
     console.log('WebSocket not connected'); // Debug log
   }

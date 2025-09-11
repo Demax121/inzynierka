@@ -28,7 +28,7 @@ temperatura:
 wilgotność:
 ciśnmienie:
 
-Dane uzyskane automatycznie z co 3 zapytania są zapisywane do bazy danych w tabeli roomStats.
+Dane uzyskane automatycznie z co 3 zapytania są zapisywane do bazy danych w tabeli room_stats.
 
 Przycisk krawędziowy do sprawdzania czy drzwi są zamknięte działa na websocket w czasie rzeczywistym
 Wcisnięty: Drzwi zablokowane

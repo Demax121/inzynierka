@@ -1,9 +1,10 @@
 #include <Wire.h>
 #include <Adafruit_VEML7700.h>
+#include <MyWiFi.h>
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>
-#include <MyWiFi.h>
 
+// Konfiguracja
 #define SDA_PIN 4
 #define SCL_PIN 5
 #define WEBSOCKET_SERVER "192.168.1.4"
@@ -21,29 +22,11 @@ unsigned int lastSendMs = 0;
 int lastLux = -999;
 bool sensorReady = false;
 
-void sendWebSocketData() {
-  if (!webSocket.isConnected()) return;
-  jsonPayload["lux"] = sensorReady ? (int)veml.readLux() : -1;
-  char buf[64];
-  size_t n = serializeJson(jsonPayload, buf, sizeof(buf));
-  webSocket.sendTXT(buf, n);
-  Serial.printf("[TX] Lux: %d\n", (int)jsonPayload["lux"]);
-}
-
-void handleIncomingText(uint8_t *payload, size_t length) {
-  DeserializationError err = deserializeJson(jsonPayload, payload, length);
-  if (err) return;
-
-  if (jsonPayload.containsKey("type") && strcmp(jsonPayload["type"], "heartbeat") == 0) {
-    jsonPayload["lux"] = sensorReady ? (int)veml.readLux() : -1;
-    sendWebSocketData();
-    Serial.println("[Heartbeat] Reply sent to server");
-  }
-}
-
 void setup() {
   Serial.begin(19200);
-MyWiFi::connect();
+  MyWiFi::connect();
+
+
 
   Wire.begin(SDA_PIN, SCL_PIN);
 
@@ -54,7 +37,7 @@ MyWiFi::connect();
     veml.powerSaveEnable(false);
   }
 
-  jsonPayload["channel"] = "luxSensor";
+  jsonPayload["channel"] = "lux_sensor";
   jsonPayload["lux"] = sensorReady ? (int)veml.readLux() : -1;
   lastLux = jsonPayload["lux"];
 
@@ -62,9 +45,7 @@ MyWiFi::connect();
   webSocket.setReconnectInterval(WEBSOCKET_RECONNECT_INTERVAL);
   webSocket.onEvent([](WStype_t type, uint8_t *payload, size_t length) {
     if (type == WStype_CONNECTED) {
-      webSocket.sendTXT("{\"type\":\"esp32_identification\",\"channel\":\"luxSensor\"}");
-    } else if (type == WStype_TEXT) {
-      handleIncomingText(payload, length);
+      webSocket.sendTXT("{\"type\":\"esp32_identification\",\"channel\":\"lux_sensor\"}");
     }
   });
 }

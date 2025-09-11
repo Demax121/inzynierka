@@ -1,11 +1,9 @@
+#include <MyWiFi.h>
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_ILI9341.h>
 #include <SPI.h>
-#include <MyWiFi.h>
-
-
 
 #define TFT_CS   5
 #define TFT_DC   21
@@ -107,7 +105,7 @@ void updateDisplay() {
 }
 
 void initializeJSON() {
-  jsonPayload["channel"] = "klimatyzacja";
+  jsonPayload["channel"] = "air_conditioning";
   jsonPayload["klimaStatus"] = klimaOn ? "ON" : "OFF";
   jsonPayload["currentFunction"] = currentFunction;
 }
@@ -166,21 +164,21 @@ void handleIncomingText(uint8_t* payload, size_t length) {
   DeserializationError err = deserializeJson(doc, payload, length);
   if (err) return;
   const char* channel = doc["channel"] | "";
-  if (strcmp(channel, "roomStats") == 0) {
+  if (strcmp(channel, "room_stats") == 0) {
     if (doc.containsKey("temperature")) {
       int t = doc["temperature"].as<int>();
       int h = doc["humidity"].as<int>();
       int p = doc["pressure"].as<int>();
       currentTemp = t;
-      Serial.printf("[roomStats] T: %d°C  H: %d%%  P: %d hPa\n", t, h, p);
+      Serial.printf("[room_stats] T: %d°C  H: %d%%  P: %d hPa\n", t, h, p);
       updateDisplay();
       checkTemperatureControl();
     }
-  } else if (strcmp(channel, "klimatyzacja") == 0) {
+  } else if (strcmp(channel, "air_conditioning") == 0) {
     if (doc.containsKey("temperature")) {
       int t = doc["temperature"].as<int>();
       currentTemp = t;
-      Serial.printf("[klimatyzacja] Ambient temperature: %d°C\n", t);
+      Serial.printf("[air_conditioning] Ambient temperature: %d°C\n", t);
       updateDisplay();
       checkTemperatureControl();
     }
@@ -188,7 +186,7 @@ void handleIncomingText(uint8_t* payload, size_t length) {
       int reqTemp = doc["requestedTemp"].as<int>();
       requestedTemp = reqTemp;
       manualOverride = false;
-      Serial.printf("[klimatyzacja] Requested temperature: %d°C\n", reqTemp);
+      Serial.printf("[air_conditioning] Requested temperature: %d°C\n", reqTemp);
       updateDisplay();
       checkTemperatureControl();
     }
@@ -214,12 +212,6 @@ void handleIncomingText(uint8_t* payload, size_t length) {
       }
     }
   }
-  if (doc.containsKey("type") && strcmp(doc["type"], "heartbeat") == 0) {
-    updateJSONData();
-    sendWebSocketData();
-    Serial.println("[Heartbeat] Reply sent to server");
-    return;
-  }
 }
 
 void setup() {
@@ -235,8 +227,8 @@ void setup() {
   webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
   webSocketClient.onEvent([](WStype_t type, uint8_t* payload, size_t length) {
     if (type == WStype_CONNECTED) {
-      Serial.println("Połączono z WS – identyfikacja kanału klimatyzacja");
-      webSocketClient.sendTXT("{\"type\":\"esp32_identification\",\"channel\":\"klimatyzacja\"}");
+      Serial.println("Połączono z WS – identyfikacja kanału air_conditioning");
+      webSocketClient.sendTXT("{\"type\":\"esp32_identification\",\"channel\":\"air_conditioning\"}");
       sendWebSocketData();
       updateDisplay();
     } else if (type == WStype_TEXT) {

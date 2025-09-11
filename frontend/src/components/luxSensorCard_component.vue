@@ -23,7 +23,7 @@ onMounted(() => {
   ws.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
-      if (data.channel === 'luxSensor') {
+      if (data.channel === 'lux_sensor') {
         lux.value = data.lux;
       }
     } catch {}

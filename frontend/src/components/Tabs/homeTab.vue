@@ -2,11 +2,11 @@
 
 import Blinds from '@/components/blindsCard_component.vue'
 import Doors from '@/components/doorsCard_component.vue'
-import MainLights from '@/components/światłaCard_component.vue';
-import RoomStats from '@/components/roomStatsCard_component.vue';
+import main_lights from '@/components/światłaCard_component.vue';
+import room_stats from '@/components/roomStatsCard_component.vue';
 import LEDs from '@/components/wledCard_component.vue';
 import AC from '@/components/klimaCard_component.vue';
-import LuxSensorCard_component from '../luxSensorCard_component.vue'
+import lux_sensorCard_component from '../luxSensorCard_component.vue'
 
 
 </script>
@@ -14,12 +14,12 @@ import LuxSensorCard_component from '../luxSensorCard_component.vue'
 <template>
   <div class="main-container">
     <Doors />
-    <RoomStats />
+    <room_stats />
     <Blinds />
-    <MainLights />
+    <main_lights />
     <LEDs />
     <AC />
-    <LuxSensorCard_component />
+    <lux_sensorCard_component />
   </div>
 </template>
 

@@ -33,7 +33,7 @@ let reconnectTimer;
 const toggleLights = () => {
   const newStatus = lightStatus.value === 'ON' ? 'OFF' : 'ON';
   if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ channel: 'mainLights', lightStatus: newStatus }));
+    ws.send(JSON.stringify({ channel: 'main_lights', lightStatus: newStatus }));
   }
   lightStatus.value = newStatus;
 };
@@ -44,7 +44,7 @@ function connect() {
   ws.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
-      if (data.channel === 'mainLights' && typeof data.lightStatus === 'string') {
+      if (data.channel === 'main_lights' && typeof data.lightStatus === 'string') {
         lightStatus.value = data.lightStatus;
         loading.value = false;
       }
