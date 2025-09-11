@@ -3,18 +3,21 @@
     <div class="card__header">
       <h2 class="card__title card__title--lights">Klimatyzacja</h2>
     </div>
-    <div class="card__body card__body--slider">
+    <div class="card__body card__body--slider" v-if="loading">
+      <div class="loading-wrapper">⏳ Ładowanie...</div>
+    </div>
+    <div class="card__body card__body--slider" v-else>
       <div class="card__content card__content--slider">
         <form class="temp-form" @submit.prevent="submitTemp">
           <input v-model.number="inputTemp" type="number" min="16" max="30" step="1" placeholder="Wprowadź temperaturę" class="temp-input" required />
           <button type="submit" class="btn">Ustaw temperaturę</button>
         </form>
-        <div class="temps-display" v-if="!loading">
+        <div class="temps-display">
           <p>Aktualna: <strong>{{ currentTempDisplay }}</strong>°C</p>
           <p>Docelowa: <strong>{{ targetTempDisplay }}</strong>°C</p>
           <p v-if="modeLabel">Funkcja: <strong>{{ modeLabel }}</strong></p>
+          <p v-if="manualOverride">Status: <strong>Tryb ręczny</strong></p>
         </div>
-        <div v-else class="temps-loading">⏳</div>
         <label class="switch">
           <input
             type="checkbox"
@@ -34,78 +37,98 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 let ws = null;
 let reconnectTimer;
 
-// Temperatures
-const currentTemp = ref(null); // aktualna z room_stats / status
-const targetTemp = ref(25);    // default value
-const inputTemp = ref(25);
-const klimaStatus = ref('OFF'); // ON / OFF
-const mode = ref('idle');       // cooling / heating / idle
-const currentFunction = ref(''); // funkcja otrzymana z ESP32
+// State variables
+const currentTemp = ref(null);
+const requestedTemp = ref(null);
+const inputTemp = ref("");
+const klimaON = ref(false);
+const functionState = ref('');
+const manualOverride = ref(false);
 const loading = ref(true);
 
-const currentTempDisplay = computed(() => currentTemp.value === null ? '-' : currentTemp.value);
-const targetTempDisplay = computed(() => targetTemp.value === null ? '-' : targetTemp.value);
-const isOn = computed(() => klimaStatus.value === 'ON');
+const currentTempDisplay = computed(() => currentTemp.value === null ? '--' : currentTemp.value);
+const targetTempDisplay = computed(() => requestedTemp.value === null ? '--' : requestedTemp.value);
+const isOn = computed(() => klimaON.value);
 
 const modeLabel = computed(() => {
-  if (!isOn.value) return null; // Nie pokazuj statusu gdy OFF
+  if (!functionState.value) return null;
   
-  // Używamy funkcji otrzymanej z ESP32
-  return currentFunction.value || 'IDLE';
+  switch(functionState.value) {
+    case 'C': return 'Chłodzenie';
+    case 'H': return 'Grzanie';
+    case 'F': return 'Wentylator';
+    default: return functionState.value;
+  }
 });
 
-let lastCommandTs = 0;
-const COMMAND_DEBOUNCE_MS = 800; // aby nie spamować przy szybkim klikaniu
-function sendManual(status) {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ channel: 'air_conditioning', klimaStatus: status }));
-  }
-}
-
-function toggleManual() {
-  const now = Date.now();
-  if (now - lastCommandTs < COMMAND_DEBOUNCE_MS) return;
-  lastCommandTs = now;
-  const next = isOn.value ? 'OFF' : 'ON';
-  klimaStatus.value = next; // optymistycznie
-  sendManual(next);
-}
-
 function connect() {
+  loading.value = true;
   ws = new WebSocket('ws://192.168.1.4:8886');
+  
   ws.onopen = () => {
-    // czekamy na status z ESP32 albo room_stats
+    console.log('WebSocket połączenie otwarte dla klimatyzacji');
+    loading.value = false; // Wyłącz loading gdy połączenie otwarte
   };
+  
   ws.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
-      if (data.channel === 'air_conditioning') {
-        // Sprawdź czy ESP32 się rozłączył
-        if (data.status === 'disconnected') {
-          loading.value = true;
-          return;
-        }
-        
-        // jeśli serwer dośle temperature (ambient)
-        if (Number.isFinite(data.temperature)) currentTemp.value = Math.round(data.temperature);
-        if (Number.isInteger(data.currentTemp)) currentTemp.value = data.currentTemp; // kompatybilność gdyby później zmieniono nazwę
-        if (Number.isInteger(data.targetTemp)) {
-          targetTemp.value = data.targetTemp;
-          inputTemp.value = data.targetTemp;
-        }
-        if (typeof data.klimaStatus === 'string') klimaStatus.value = data.klimaStatus;
-        if (typeof data.mode === 'string') mode.value = data.mode;
-        if (typeof data.currentFunction === 'string') currentFunction.value = data.currentFunction;
-        loading.value = false;
+      console.log('Odebrane dane klimatyzacji:', data);
+      
+      // Obsługa payload format (nowy)
+      if (data.channel === 'air_conditioning' && data.payload) {
+        updateAirConditioningState(data.payload);
       }
-      if (data.channel === 'room_stats' && Number.isFinite(data.temperature)) {
-        currentTemp.value = Math.round(data.temperature);
-        loading.value = false;
+      // Obsługa room_stats dla temperatury
+      else if (data.channel === 'room_stats' && typeof data.temperature === 'number') {
+        currentTemp.value = data.temperature;
+        console.log(`Zaktualizowano temperaturę z room_stats: ${data.temperature}°C`);
       }
-    } catch {}
+      // Obsługa disconnection status
+      else if (data.channel === 'air_conditioning' && data.status === 'disconnected') {
+        console.log('ESP32 air_conditioning rozłączony');
+        // Nie zmieniaj loading state - pokaż ostatnie dane
+      }
+    } catch (error) {
+      console.error('Błąd parsowania danych klimatyzacji:', error);
+    }
   };
-  ws.onclose = () => { loading.value = true; scheduleReconnect(); };
-  ws.onerror = () => { loading.value = true; if (ws) ws.close(); };
+  
+  ws.onclose = () => {
+    console.log('WebSocket połączenie zamknięte dla klimatyzacji');
+    loading.value = true;
+    scheduleReconnect();
+  };
+  
+  ws.onerror = (error) => {
+    console.error('Błąd WebSocket dla klimatyzacji:', error);
+    loading.value = true;
+    if (ws) ws.close();
+  };
+}
+
+function updateAirConditioningState(payload) {
+  // loading już wyłączony w onopen
+  
+  if (payload.hasOwnProperty('klimaON')) {
+    klimaON.value = payload.klimaON;
+  }
+  
+  if (payload.hasOwnProperty('currentTemp')) {
+    currentTemp.value = payload.currentTemp;
+  }
+  
+  if (payload.hasOwnProperty('requestedTemp')) {
+    requestedTemp.value = payload.requestedTemp;
+  }
+  
+  if (payload.hasOwnProperty('function')) {
+    functionState.value = payload.function;
+  }
+  
+  if (payload.hasOwnProperty('manualOverride')) {
+    manualOverride.value = payload.manualOverride;
+  }
 }
 
 function scheduleReconnect() {
@@ -114,21 +137,34 @@ function scheduleReconnect() {
 }
 
 function submitTemp() {
-  if (!Number.isInteger(inputTemp.value)) return;
-  if (inputTemp.value < 16 || inputTemp.value > 30) return;
+  if (!inputTemp.value || inputTemp.value < 16 || inputTemp.value > 30) return;
   
-  targetTemp.value = inputTemp.value; // optimistic update
-  
-  console.log(`Sending requestedTemp: ${targetTemp.value}`); // Debug log
+  const message = {
+    channel: "air_conditioning",
+    payload: {
+      requestedTemp: inputTemp.value
+    }
+  };
   
   if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ 
-      channel: 'air_conditioning', 
-      requestedTemp: targetTemp.value 
-    }));
-    console.log(`Sent: {"channel": "air_conditioning", "requestedTemp": ${targetTemp.value}}`); // Debug log
-  } else {
-    console.log('WebSocket not connected'); // Debug log
+    ws.send(JSON.stringify(message));
+    inputTemp.value = "";
+  }
+}
+
+function toggleManual() {
+  const newState = !klimaON.value;
+  
+  const message = {
+    channel: "air_conditioning", 
+    payload: {
+      klimaON: newState,
+      manualOverride: true
+    }
+  };
+  
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(message));
   }
 }
 
@@ -148,8 +184,19 @@ onUnmounted(() => { if (reconnectTimer) clearTimeout(reconnectTimer); if (ws) ws
 
 .temps-display { text-align:center; margin-bottom: .2rem; line-height:1.3; }
 .temps-display p { margin:.15rem 0; }
-.temps-loading { font-size:2rem; opacity:.6; animation: pulse 1.4s ease-in-out infinite; }
-@keyframes pulse { 0%,100% { opacity:.3;} 50% { opacity:1;} }
+
+.loading-wrapper { 
+  font-size: 2rem; 
+  opacity: .6; 
+  animation: pulse 1.4s ease-in-out infinite; 
+  text-align: center;
+  padding: 2rem;
+}
+
+@keyframes pulse { 
+  0%, 100% { opacity: .3; }
+  50% { opacity: 1; }
+}
 
 .temp-input {
   padding: 8px;

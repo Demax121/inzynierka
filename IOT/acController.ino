@@ -29,7 +29,7 @@ const int HISTERAZA = 2;
 char currentFunction[16] = "";
 
 StaticJsonDocument<256> doc;
-StaticJsonDocument<64> jsonPayload;
+StaticJsonDocument<512> jsonPayload;
 
 const char PROGMEM temp_aktualna[] = "TEMP AKTUALNA:";
 const char PROGMEM temp_oczekiwana[] = "TEMP OCZEKIWANA:";
@@ -105,14 +105,21 @@ void updateDisplay() {
 }
 
 void initializeJSON() {
+  jsonPayload["identity"] = "air_conditioning";
   jsonPayload["channel"] = "air_conditioning";
-  jsonPayload["klimaStatus"] = klimaOn ? "ON" : "OFF";
-  jsonPayload["currentFunction"] = currentFunction;
+  JsonObject payload = jsonPayload.createNestedObject("payload");
+  payload["requestedTemp"] = requestedTemp;
+  payload["function"] = "";
+  payload["klimaON"] = false;
+  payload["manualOverride"] = false;
 }
 
 void updateJSONData() {
-  jsonPayload["klimaStatus"] = klimaOn ? "ON" : "OFF";
-  jsonPayload["currentFunction"] = currentFunction;
+  JsonObject payload = jsonPayload["payload"];
+  payload["requestedTemp"] = requestedTemp;
+  payload["function"] = currentFunction;
+  payload["klimaON"] = klimaOn;
+  payload["manualOverride"] = manualOverride;
 }
 
 void identifyDevice() {
@@ -127,7 +134,7 @@ void identifyDevice() {
 void sendWebSocketData() {
   if (!webSocketClient.isConnected()) return;
   updateJSONData();
-  char buf[80];
+  char buf[400];
   size_t n = serializeJson(jsonPayload, buf, sizeof(buf));
   webSocketClient.sendTXT(buf, n);
   Serial.printf("[TX] AC %s\n", klimaOn ? "Włączone" : "Wyłączone");
@@ -191,33 +198,39 @@ void handleIncomingText(uint8_t* payload, size_t length) {
       updateDisplay();
       checkTemperatureControl();
     }
-    if (doc.containsKey("requestedTemp")) {
-      int reqTemp = doc["requestedTemp"].as<int>();
-      requestedTemp = reqTemp;
-      manualOverride = false;
-      Serial.printf("[air_conditioning] Requested temperature: %d°C\n", reqTemp);
-      updateDisplay();
-      checkTemperatureControl();
-    }
-    if (doc.containsKey("klimaStatus")) {
-      const char* st = doc["klimaStatus"];
-      if (st && (strcmp(st, "ON") == 0 || strcmp(st, "OFF") == 0)) {
-        bool newState = (strcmp(st, "ON") == 0);
+    // Nowy format - obsługa payload z frontendu
+    if (doc.containsKey("payload")) {
+      JsonObject frontendPayload = doc["payload"];
+      
+      if (frontendPayload.containsKey("klimaON")) {
+        bool newState = frontendPayload["klimaON"];
         if (newState != klimaOn) {
           klimaOn = newState;
+          if (frontendPayload.containsKey("manualOverride")) {
+            manualOverride = frontendPayload["manualOverride"];
+          }
+          
           if (newState) {
-            manualOverride = false;
-            checkTemperatureControl();
+            if (!manualOverride) {
+              checkTemperatureControl();
+            }
           } else {
-            manualOverride = true;
             strcpy(currentFunction, "");
           }
           updateDisplay();
           sendWebSocketData();
           Serial.printf("[RX] AC %s (ręczne sterowanie)\n", klimaOn ? "Włączone" : "Wyłączone");
-        } else {
-          Serial.printf("[RX] AC %s (bez zmiany)\n", klimaOn ? "Włączone" : "Wyłączone");
         }
+      }
+      
+      // Obsługa requestedTemp z payload
+      if (frontendPayload.containsKey("requestedTemp")) {
+        int reqTemp = frontendPayload["requestedTemp"];
+        requestedTemp = reqTemp;
+        manualOverride = false;
+        Serial.printf("[air_conditioning] Requested temperature: %d°C\n", reqTemp);
+        updateDisplay();
+        checkTemperatureControl();
       }
     }
   }
@@ -248,26 +261,43 @@ void setup() {
 }
 
 void loop() {
+  // Obsługa przycisku na początku - niezależnie od WebSocket
+  handleButton();
+  
+  // WebSocket loop - może blokować podczas reconnect
   webSocketClient.loop();
+}
+
+void handleButton() {
   static bool lastButton = HIGH;
+  static unsigned long lastButtonChange = 0;
+  const unsigned long BUTTON_DEBOUNCE_MS = 200;
+  
   bool reading = digitalRead(buttonPin);
   
   if (reading == LOW && lastButton == HIGH) {
-    klimaOn = !klimaOn;
-    manualOverride = true;
-    
-    if (!klimaOn) {
-      strcpy(currentFunction, "");
-    } else {
-      manualOverride = false;
-      checkTemperatureControl();
+    if (millis() - lastButtonChange > BUTTON_DEBOUNCE_MS) {
+      klimaOn = !klimaOn;
       manualOverride = true;
+      
+      if (!klimaOn) {
+        strcpy(currentFunction, "");
+      } else {
+        manualOverride = false;
+        checkTemperatureControl();
+        manualOverride = true;
+      }
+      
+      Serial.printf("Przycisk naciśnięty - AC %s (ręczne)\n", klimaOn ? "ON" : "OFF");
+      updateDisplay();
+      
+      // Wyślij tylko jeśli połączony
+      if (webSocketClient.isConnected()) {
+        sendWebSocketData();
+      }
+      
+      lastButtonChange = millis();
     }
-    
-    Serial.printf("Przycisk naciśnięty - AC %s (ręczne)\n", klimaOn ? "ON" : "OFF");
-    updateDisplay();
-    sendWebSocketData();
-    delay(200);
   }
 
   lastButton = reading;

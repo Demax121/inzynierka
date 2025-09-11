@@ -179,58 +179,45 @@ wss.on("connection", (ws) => {
       if (data.channel === 'air_conditioning') {
         const senderInfo = clients.get(ws);
 
-        if (senderInfo && senderInfo.type === 'frontend' && typeof data.klimaStatus === 'string') {
-          const status = data.klimaStatus === 'OFF' ? 'OFF' : 'ON';
+        // Obsługa wiadomości z ESP32 - nowy format z payload
+        if (data.payload && senderInfo && senderInfo.type === 'esp32') {
+          const payload = data.payload;
+          
           wss.clients.forEach(client => {
-            if (client.readyState === client.OPEN) {
-              const ci = clients.get(client);
-              if (ci && (ci.type === 'frontend' || (ci.type === 'esp32' && ci.channel === 'air_conditioning'))) {
-                client.send(JSON.stringify({
-                  channel: 'air_conditioning',
-                  klimaStatus: status,
-                  temperature: lastRoomTemperature
-                }));
-              }
-            }
-          });
-          console.log(`air_conditioning broadcast (frontend command) -> ${status}`);
-        }
-        // Nowa sekcja dla requestedTemp
-        else if (senderInfo && senderInfo.type === 'frontend' && typeof data.requestedTemp === 'number') {
-          const temp = Math.round(data.requestedTemp);
-          console.log(`Processing requestedTemp: ${temp} from frontend`); // Debug log
-          let sentCount = 0;
-          wss.clients.forEach(client => {
-            if (client.readyState === client.OPEN) {
-              const ci = clients.get(client);
-              if (ci && ci.type === 'esp32' && ci.channel === 'air_conditioning') {
-                sentCount++;
-                client.send(JSON.stringify({
-                  channel: 'air_conditioning',
-                  requestedTemp: temp
-                }));
-              }
-            }
-          });
-          console.log(`Requested temperature sent to ${sentCount} air_conditioning ESP32 devices`);
-        }
-        else if (senderInfo && senderInfo.type === 'esp32' && senderInfo.channel === 'air_conditioning' && typeof data.klimaStatus !== 'undefined') {
-          const status = data.klimaStatus === 'ON' ? 'ON' : 'OFF';
-          const currentFunction = data.currentFunction || '';
-          wss.clients.forEach(client => {
-            if (client.readyState === client.OPEN) {
+            if (client.readyState === client.OPEN && client !== ws) {
               const ci = clients.get(client);
               if (ci && ci.type === 'frontend') {
                 client.send(JSON.stringify({
                   channel: 'air_conditioning',
-                  klimaStatus: status,
-                  currentFunction: currentFunction,
-                  temperature: lastRoomTemperature
+                  payload: {
+                    requestedTemp: payload.requestedTemp,
+                    function: payload.function,
+                    klimaON: payload.klimaON,
+                    manualOverride: payload.manualOverride,
+                    currentTemp: lastRoomTemperature
+                  }
                 }));
               }
             }
           });
-          console.log(`air_conditioning status od ESP32 -> ${status}, function: ${currentFunction}`);
+          console.log(`air_conditioning status from ESP32 -> klimaON: ${payload.klimaON}, function: ${payload.function}, manualOverride: ${payload.manualOverride}`);
+        }
+        // Obsługa wiadomości z frontendu - nowy format z payload
+        else if (data.payload && senderInfo && senderInfo.type === 'frontend') {
+          const payload = data.payload;
+          
+          wss.clients.forEach(client => {
+            if (client.readyState === client.OPEN && client !== ws) {
+              const ci = clients.get(client);
+              if (ci && ci.type === 'esp32' && ci.channel === 'air_conditioning') {
+                client.send(JSON.stringify({
+                  channel: 'air_conditioning',
+                  payload: payload
+                }));
+              }
+            }
+          });
+          console.log(`air_conditioning command from frontend -> klimaON: ${payload.klimaON}, manualOverride: ${payload.manualOverride}`);
         }
       }
 
