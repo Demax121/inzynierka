@@ -24,16 +24,16 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useLinkStore } from '@/stores/linkStore';
 const linkStore = useLinkStore();
 
-const lightStatus = ref('OFF');
+const lightStatus = ref(false);
 const loading = ref(true);
-const isLightOn = computed(() => lightStatus.value === 'ON');
+const isLightOn = computed(() => lightStatus.value === true);
 let ws = null;
 let reconnectTimer;
 
 const toggleLights = () => {
-  const newStatus = lightStatus.value === 'ON' ? 'OFF' : 'ON';
+  const newStatus = !lightStatus.value;
   if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ channel: 'main_lights', lightStatus: newStatus }));
+    ws.send(JSON.stringify({ channel: 'main_lights', lightON: newStatus }));
   }
   lightStatus.value = newStatus;
 };
@@ -44,8 +44,8 @@ function connect() {
   ws.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
-      if (data.channel === 'main_lights' && typeof data.lightStatus === 'string') {
-        lightStatus.value = data.lightStatus;
+      if (data.channel === 'main_lights' && typeof data.lightON === 'boolean') {
+        lightStatus.value = data.lightON;
         loading.value = false;
       }
     } catch {}

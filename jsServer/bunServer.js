@@ -107,21 +107,48 @@ wss.on("connection", (ws) => {
         }
       }
 
-      if (data.channel === "main_lights" || (typeof data.channel === "undefined" && typeof data.lightStatus === "string")) {
-        const lightStatus = data.lightStatus;
-        if (lightStatus === "ON" || lightStatus === "OFF") {
+      if (data.channel === "main_lights") {
+        const senderInfo = clients.get(ws);
+        
+        // Obsługa wiadomości z frontendu (bez payload - bezpośrednio lightON)
+        if (senderInfo && senderInfo.type === 'frontend' && typeof data.lightON === 'boolean') {
+          const lightON = data.lightON;
           wss.clients.forEach((client) => {
             if (client.readyState === client.OPEN && client !== ws) {
               const clientInfo = clients.get(client);
-              if (clientInfo && (clientInfo.type === 'frontend' || (clientInfo.type === 'esp32' && clientInfo.channel === 'main_lights'))) {
+              if (clientInfo && clientInfo.type === 'esp32' && clientInfo.channel === 'main_lights') {
                 client.send(JSON.stringify({
                   channel: "main_lights",
-                  lightStatus: lightStatus
+                  lightON: lightON
+                }));
+              } else if (clientInfo && clientInfo.type === 'frontend') {
+                client.send(JSON.stringify({
+                  channel: "main_lights",
+                  lightON: lightON
                 }));
               }
             }
           });
-          console.log(`main_lights state broadcasted: ${lightStatus} (excluding sender)`);
+          console.log(`main_lights command from frontend: ${lightON ? 'ON' : 'OFF'}`);
+        }
+        // Obsługa wiadomości z ESP32 (z payload)
+        else if (data.payload && typeof data.payload.lightON === 'boolean') {
+          const lightON = data.payload.lightON;
+          wss.clients.forEach((client) => {
+            if (client.readyState === client.OPEN && client !== ws) {
+              const clientInfo = clients.get(client);
+              if (clientInfo && clientInfo.type === 'frontend') {
+                client.send(JSON.stringify({
+                  channel: "main_lights",
+                  lightON: lightON
+                }));
+              }
+            }
+          });
+          console.log(`main_lights status from ESP32: ${lightON ? 'ON' : 'OFF'}`);
+        }
+        else {
+          console.log(`Invalid main_lights format - missing valid data`);
         }
       }
 

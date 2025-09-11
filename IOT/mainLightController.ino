@@ -9,11 +9,12 @@ const int TOUCH_BUTTON_PIN = 22;
 const int RELAY_ACTIVE_LEVEL = LOW;
 const int RELAY_INACTIVE_LEVEL = HIGH;
 const int BUTTON_ACTIVE_LEVEL = HIGH;
-const unsigned int BUTTON_DEBOUNCE_MS = 25;
+const unsigned int BUTTON_DEBOUNCE_MS = 50;
 const unsigned int HEARTBEAT_INTERVAL_MS = 10000;
 
 bool State = false;
 int lastButtonState = LOW;
+int buttonState = LOW;
 unsigned int lastButtonChangeMs = 0;
 unsigned int lastHeartbeatMs = 0;
 
@@ -21,12 +22,25 @@ const char* WEBSOCKET_SERVER = "192.168.1.4";
 const int WEBSOCKET_PORT = 8886;
 const unsigned int WEBSOCKET_RECONNECT_INTERVAL = 5000;
 
+StaticJsonDocument<256> jsonPayload;
 
-StaticJsonDocument<64> jsonPayload;
+void initializeJSON() { 
+  jsonPayload["identity"] = "lights_controller";
+  jsonPayload["channel"] = "main_lights";
+  JsonObject payload = jsonPayload.createNestedObject("payload");
+  payload["lightON"] = false;
+}
 
-void initializeJSON() { jsonPayload["channel"] = "main_lights"; jsonPayload["lightStatus"] = ""; }
-void updateJSONData(int relayState) { jsonPayload["lightStatus"] = (relayState == RELAY_ACTIVE_LEVEL) ? "ON" : "OFF"; }
-void setRelay(bool on) { State = on; digitalWrite(RELAY_PIN, on ? RELAY_ACTIVE_LEVEL : RELAY_INACTIVE_LEVEL); updateJSONData(digitalRead(RELAY_PIN)); }
+void updateJSONData(bool lightState) { 
+  JsonObject payload = jsonPayload["payload"];
+  payload["lightON"] = lightState;
+}
+
+void setRelay(bool on) { 
+  State = on; 
+  digitalWrite(RELAY_PIN, on ? RELAY_ACTIVE_LEVEL : RELAY_INACTIVE_LEVEL); 
+  updateJSONData(on);
+}
 
 void identifyDevice() {
   StaticJsonDocument<128> idDoc;
@@ -39,7 +53,7 @@ void identifyDevice() {
 
 void sendWebSocketData() {
   if (!webSocketClient.isConnected()) return;
-  char buf[48];
+  char buf[200];
   size_t n = serializeJson(jsonPayload, buf, sizeof(buf));
   webSocketClient.sendTXT(buf, n);
 }
@@ -49,17 +63,11 @@ void handleIncomingText(uint8_t* payload, size_t length) {
   StaticJsonDocument<128> doc;
   DeserializationError err = deserializeJson(doc, payload, length);
   if (err) return;
-  if (!doc.containsKey("lightStatus")) return;
+  if (!doc.containsKey("lightON")) return;
   if (doc.containsKey("channel") && strcmp(doc["channel"], "main_lights") != 0) return;
-  const char* cmd = doc["lightStatus"];
-  if (!cmd) return;
-  if (strcmp(cmd, "ON") == 0) {
-    setRelay(true);
-    sendWebSocketData();
-  } else if (strcmp(cmd, "OFF") == 0) {
-    setRelay(false);
-    sendWebSocketData();
-  }
+  bool lightON = doc["lightON"];
+  setRelay(lightON);
+  sendWebSocketData();
 }
 
 void setup() {
@@ -86,23 +94,33 @@ void setup() {
 void loop() {
   webSocketClient.loop();
 
-  int rawButton = digitalRead(TOUCH_BUTTON_PIN);
-  if (rawButton == BUTTON_ACTIVE_LEVEL && lastButtonState != BUTTON_ACTIVE_LEVEL) {
-    unsigned int now = millis();
-    if (now - lastButtonChangeMs >= BUTTON_DEBOUNCE_MS) {
-      delay(BUTTON_DEBOUNCE_MS);
-      if (digitalRead(TOUCH_BUTTON_PIN) == BUTTON_ACTIVE_LEVEL) {
-        lastButtonChangeMs = now;
+  // Czytaj aktualny stan przycisku
+  int reading = digitalRead(TOUCH_BUTTON_PIN);
+  
+  // Sprawdź czy stan się zmienił (reset timer debounce)
+  if (reading != lastButtonState) {
+    lastButtonChangeMs = millis();
+  }
+  
+  // Jeśli minął czas debounce, zaktualizuj stan
+  if ((millis() - lastButtonChangeMs) > BUTTON_DEBOUNCE_MS) {
+    if (reading != buttonState) {
+      buttonState = reading;
+      
+      // Jeśli przycisk został naciśnięty (przejście LOW -> HIGH)
+      if (buttonState == BUTTON_ACTIVE_LEVEL) {
         setRelay(!State);
         sendWebSocketData();
       }
     }
   }
-  lastButtonState = rawButton;
+  
+  lastButtonState = reading;
 
+  // Heartbeat
   unsigned int now = millis();
   if (now - lastHeartbeatMs >= HEARTBEAT_INTERVAL_MS) {
-    updateJSONData(digitalRead(RELAY_PIN));
+    updateJSONData(State);
     sendWebSocketData();
     lastHeartbeatMs = now;
   }
