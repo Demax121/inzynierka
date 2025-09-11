@@ -14,13 +14,34 @@ unsigned long lastChangeTime = 0;
 unsigned long lastHeartbeatMs = 0;
 
 WebSocketsClient webSocketClient;
-StaticJsonDocument<100> jsonPayload;
+StaticJsonDocument<256> jsonPayload;
+bool doorOpen = false;
 
-void initializeJSON() { jsonPayload["channel"] = "door_sensor"; jsonPayload["status"] = ""; }
-void updateJSONData(int buttonState) { jsonPayload["status"] = (buttonState == LOW) ? "zamkniete" : "otwarte"; }
+void initializeJSON() { 
+  jsonPayload["identity"] = "main_door_sensor";
+  jsonPayload["channel"] = "door_sensor";
+  JsonObject payload = jsonPayload.createNestedObject("payload");
+  payload["doorOpen"] = false;
+}
+
+void updateJSONData(int buttonState) { 
+  doorOpen = (buttonState == HIGH);
+  JsonObject payload = jsonPayload["payload"];
+  payload["doorOpen"] = doorOpen;
+}
+
+void identifyDevice() {
+  StaticJsonDocument<128> idDoc;
+  idDoc["type"] = "esp32_identification";
+  idDoc["channel"] = "door_sensor";
+  String idMessage;
+  serializeJson(idDoc, idMessage);
+  webSocketClient.sendTXT(idMessage);
+}
+
 void sendWebSocketData() {
   if (!webSocketClient.isConnected()) return;
-  char buf[64];
+  char buf[200];
   size_t n = serializeJson(jsonPayload, buf, sizeof(buf));
   webSocketClient.sendTXT(buf, n);
 }
@@ -36,7 +57,7 @@ void setup() {
   webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT);
   webSocketClient.onEvent([](WStype_t type, uint8_t* payload, size_t length) {
     if (type == WStype_CONNECTED) {
-      webSocketClient.sendTXT("{\"type\":\"esp32_identification\",\"channel\":\"door_sensor\"}");
+      identifyDevice();
       int currentButtonState = digitalRead(BUTTON_PIN);
       updateJSONData(currentButtonState);
       sendWebSocketData();

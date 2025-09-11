@@ -28,13 +28,21 @@ wss.on("connection", (ws) => {
       }
 
       if (data.channel === "door_sensor") {
+        // Obsługa tylko nowego formatu z payload
+        if (!data.payload) {
+          console.log(`Invalid door_sensor format - missing payload object`);
+          return;
+        }
+        
+        const doorOpen = data.payload.doorOpen;
+        
         wss.clients.forEach((client) => {
           if (client.readyState === client.OPEN) {
             const clientInfo = clients.get(client);
             if (clientInfo && (clientInfo.type === 'frontend' || (clientInfo.type === 'esp32' && clientInfo.channel === 'door_sensor'))) {
               client.send(JSON.stringify({
                 channel: "door_sensor",
-                status: data.status
+                doorOpen: doorOpen
               }));
             }
           }
@@ -44,12 +52,22 @@ wss.on("connection", (ws) => {
       if (data.channel === "room_stats") {
         console.log(`Received room_stats data:`, data); // Debug log
         
+        // Obsługa tylko nowego formatu z payload
+        if (!data.payload) {
+          console.log(`Invalid room_stats format - missing payload object`);
+          return;
+        }
+        
+        const temperature = data.payload.temperature;
+        const humidity = data.payload.humidity;
+        const pressure = data.payload.pressure;
+        
         // zapamiętaj temperaturę
-        if (typeof data.temperature === 'number') {
-          lastRoomTemperature = data.temperature;
+        if (typeof temperature === 'number') {
+          lastRoomTemperature = temperature;
           console.log(`Updated lastRoomTemperature: ${lastRoomTemperature}`);
         } else {
-          console.log(`Temperature is not a number: ${typeof data.temperature}, value: ${data.temperature}`);
+          console.log(`Temperature is not a number: ${typeof temperature}, value: ${temperature}`);
         }
 
         // Do frontendów pełne dane (surowe liczby)
@@ -61,9 +79,9 @@ wss.on("connection", (ws) => {
               frontendCount++;
               client.send(JSON.stringify({
                 channel: "room_stats",
-                temperature: data.temperature,
-                humidity: data.humidity,
-                pressure: data.pressure
+                temperature: temperature,
+                humidity: humidity,
+                pressure: pressure
               }));
             }
           }
@@ -71,7 +89,7 @@ wss.on("connection", (ws) => {
         console.log(`room_stats broadcasted to ${frontendCount} frontend clients`);
 
         // Dodatkowo: wyślij samą temperaturę do ESP32 air_conditioning
-        if (typeof data.temperature === 'number') {
+        if (typeof temperature === 'number') {
             let klimaCount = 0;
             wss.clients.forEach(client => {
               if (client.readyState === client.OPEN) {
@@ -79,8 +97,8 @@ wss.on("connection", (ws) => {
                 if (ci && ci.type === 'esp32' && ci.channel === 'air_conditioning') {
                   klimaCount++;
                   client.send(JSON.stringify({
-                    channel: 'air_conditioning', // Zmieniono z 'room_stats' na 'air_conditioning'
-                    temperature: data.temperature
+                    channel: 'air_conditioning',
+                    temperature: temperature
                   }));
                 }
               }

@@ -115,6 +115,15 @@ void updateJSONData() {
   jsonPayload["currentFunction"] = currentFunction;
 }
 
+void identifyDevice() {
+  StaticJsonDocument<128> idDoc;
+  idDoc["type"] = "esp32_identification";
+  idDoc["channel"] = "air_conditioning";
+  String idMessage;
+  serializeJson(idDoc, idMessage);
+  webSocketClient.sendTXT(idMessage);
+}
+
 void sendWebSocketData() {
   if (!webSocketClient.isConnected()) return;
   updateJSONData();
@@ -228,7 +237,7 @@ void setup() {
   webSocketClient.onEvent([](WStype_t type, uint8_t* payload, size_t length) {
     if (type == WStype_CONNECTED) {
       Serial.println("Połączono z WS – identyfikacja kanału air_conditioning");
-      webSocketClient.sendTXT("{\"type\":\"esp32_identification\",\"channel\":\"air_conditioning\"}");
+      identifyDevice();
       sendWebSocketData();
       updateDisplay();
     } else if (type == WStype_TEXT) {

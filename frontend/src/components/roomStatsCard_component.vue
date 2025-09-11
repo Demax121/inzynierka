@@ -60,6 +60,7 @@ onMounted(() => {
     try {
       const data = JSON.parse(event.data);
       if (data.channel === 'room_stats') {
+        // Obsługa tylko nowego formatu - serwer już wysyła w starym formacie
         statsInfo.value = { 
           temperature: data.temperature, 
           humidity: data.humidity, 

@@ -28,6 +28,15 @@ void initializeJSON() { jsonPayload["channel"] = "main_lights"; jsonPayload["lig
 void updateJSONData(int relayState) { jsonPayload["lightStatus"] = (relayState == RELAY_ACTIVE_LEVEL) ? "ON" : "OFF"; }
 void setRelay(bool on) { State = on; digitalWrite(RELAY_PIN, on ? RELAY_ACTIVE_LEVEL : RELAY_INACTIVE_LEVEL); updateJSONData(digitalRead(RELAY_PIN)); }
 
+void identifyDevice() {
+  StaticJsonDocument<128> idDoc;
+  idDoc["type"] = "esp32_identification";
+  idDoc["channel"] = "main_lights";
+  String idMessage;
+  serializeJson(idDoc, idMessage);
+  webSocketClient.sendTXT(idMessage);
+}
+
 void sendWebSocketData() {
   if (!webSocketClient.isConnected()) return;
   char buf[48];
@@ -64,7 +73,7 @@ void setup() {
   webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
   webSocketClient.onEvent([](WStype_t type, uint8_t* payload, size_t length) {
     if (type == WStype_CONNECTED) {
-      webSocketClient.sendTXT("{\"type\":\"esp32_identification\",\"channel\":\"main_lights\"}");
+      identifyDevice();
       sendWebSocketData();
       lastHeartbeatMs = millis();
     } else if (type == WStype_TEXT) {

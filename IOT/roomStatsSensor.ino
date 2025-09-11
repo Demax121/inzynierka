@@ -17,18 +17,36 @@ const unsigned int SENSOR_SEND_INTERVAL = 10000;
 Adafruit_BME280 bme;
 WebSocketsClient webSocketClient;
 unsigned int lastSendTime = 0;
-StaticJsonDocument<192> jsonPayload;
+StaticJsonDocument<256> jsonPayload;
 
-void initializeJSON() { jsonPayload["channel"] = "room_stats"; jsonPayload["temperature"] = ""; jsonPayload["humidity"] = ""; jsonPayload["pressure"] = ""; }
+void initializeJSON() { 
+  jsonPayload["identity"] = "room_stats_sensor";
+  jsonPayload["channel"] = "room_stats";
+  JsonObject payload = jsonPayload.createNestedObject("payload");
+  payload["temperature"] = "";
+  payload["humidity"] = "";
+  payload["pressure"] = "";
+}
+
 void updateJSONData() {
-  jsonPayload["temperature"] = (int)round(bme.readTemperature());
-  jsonPayload["humidity"] = (int)round(bme.readHumidity());
-  jsonPayload["pressure"] = (int)(bme.readPressure() / 100);
+  JsonObject payload = jsonPayload["payload"];
+  payload["temperature"] = (int)round(bme.readTemperature());
+  payload["humidity"] = (int)round(bme.readHumidity());
+  payload["pressure"] = (int)(bme.readPressure() / 100);
+}
+
+void identifyDevice() {
+  StaticJsonDocument<128> idDoc;
+  idDoc["type"] = "esp32_identification";
+  idDoc["channel"] = "room_stats";
+  String idMessage;
+  serializeJson(idDoc, idMessage);
+  webSocketClient.sendTXT(idMessage);
 }
 
 void sendWebSocketData() {
   if (!webSocketClient.isConnected()) return;
-  char buf[160];
+  char buf[200];
   size_t n = serializeJson(jsonPayload, buf, sizeof(buf));
   webSocketClient.sendTXT(buf, n);
 }
@@ -41,10 +59,10 @@ void setup() {
   initializeJSON();
   updateJSONData();
   
-  webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
+  webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT);
   webSocketClient.onEvent([](WStype_t type, uint8_t* payload, size_t length) {
     if (type == WStype_CONNECTED) {
-      webSocketClient.sendTXT("{\"type\":\"esp32_identification\",\"channel\":\"room_stats\"}");
+      identifyDevice();
       updateJSONData();
       sendWebSocketData();
       lastSendTime = millis();

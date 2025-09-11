@@ -22,6 +22,15 @@ unsigned int lastSendMs = 0;
 int lastLux = -999;
 bool sensorReady = false;
 
+void identifyDevice() {
+  StaticJsonDocument<128> idDoc;
+  idDoc["type"] = "esp32_identification";
+  idDoc["channel"] = "lux_sensor";
+  String idMessage;
+  serializeJson(idDoc, idMessage);
+  webSocket.sendTXT(idMessage);
+}
+
 void setup() {
   Serial.begin(19200);
   MyWiFi::connect();
@@ -45,7 +54,7 @@ void setup() {
   webSocket.setReconnectInterval(WEBSOCKET_RECONNECT_INTERVAL);
   webSocket.onEvent([](WStype_t type, uint8_t *payload, size_t length) {
     if (type == WStype_CONNECTED) {
-      webSocket.sendTXT("{\"type\":\"esp32_identification\",\"channel\":\"lux_sensor\"}");
+      identifyDevice();
     }
   });
 }

@@ -54,8 +54,8 @@ onMounted(() => {
   ws.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
-      if (data.channel === 'door_sensor' && data.status) {
-        door_sensor.value = data.status === 'otwarte' ? 'Drzwi otwarte' : 'Drzwi zamknięte';
+      if (data.channel === 'door_sensor' && typeof data.doorOpen === 'boolean') {
+        door_sensor.value = data.doorOpen ? 'Drzwi otwarte' : 'Drzwi zamknięte';
       }
     } catch {
       // Ignoruj błędne pakiety
