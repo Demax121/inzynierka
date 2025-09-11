@@ -4,9 +4,23 @@ const PORT = 3000;
 const wss = new WebSocketServer({ port: PORT });
 
 const clients = new Map();
-let lastRoomTemperature = null; // zapamiętana ostatnia temperatura
+let lastRoomTemperature = null;
 
 wss.on("connection", (ws) => {
+  const HEARTBEAT_INTERVAL = 10000;
+
+  setInterval(() => {
+    wss.clients.forEach((client) => {
+      const clientInfo = clients.get(client);
+      if (client.readyState === client.OPEN && clientInfo?.type === 'esp32') {
+        client.send(JSON.stringify({
+          type: "heartbeat",
+          channel: clientInfo.channel
+        }));
+      }
+    });
+  }, HEARTBEAT_INTERVAL);
+
   clients.set(ws, { type: 'frontend', channel: null });
 
   ws.on("message", (message) => {
@@ -15,9 +29,7 @@ wss.on("connection", (ws) => {
 
       if (data.type === 'esp32_identification') {
         clients.set(ws, { type: 'esp32', channel: data.channel });
-        console.log(`ESP32 device identified: ${data.channel}`);
 
-        // Jeśli to klimatyzacja i mamy ostatnią temperaturę – wyślij od razu (zachowujemy kompatybilność)
         if (data.channel === 'klimatyzacja' && lastRoomTemperature !== null) {
           ws.send(JSON.stringify({
             channel: 'klimatyzacja',
@@ -42,23 +54,14 @@ wss.on("connection", (ws) => {
       }
 
       if (data.channel === "roomStats") {
-        console.log(`Received roomStats data:`, data); // Debug log
-        
-        // zapamiętaj temperaturę
         if (typeof data.temperature === 'number') {
           lastRoomTemperature = data.temperature;
-          console.log(`Updated lastRoomTemperature: ${lastRoomTemperature}`);
-        } else {
-          console.log(`Temperature is not a number: ${typeof data.temperature}, value: ${data.temperature}`);
         }
 
-        // Do frontendów pełne dane (surowe liczby)
-        let frontendCount = 0;
         wss.clients.forEach((client) => {
           if (client.readyState === client.OPEN) {
             const clientInfo = clients.get(client);
             if (clientInfo && clientInfo.type === 'frontend') {
-              frontendCount++;
               client.send(JSON.stringify({
                 channel: "roomStats",
                 temperature: data.temperature,
@@ -68,24 +71,19 @@ wss.on("connection", (ws) => {
             }
           }
         });
-        console.log(`RoomStats broadcasted to ${frontendCount} frontend clients`);
 
-        // Dodatkowo: wyślij samą temperaturę do ESP32 klimatyzacja
         if (typeof data.temperature === 'number') {
-            let klimaCount = 0;
-            wss.clients.forEach(client => {
-              if (client.readyState === client.OPEN) {
-                const ci = clients.get(client);
-                if (ci && ci.type === 'esp32' && ci.channel === 'klimatyzacja') {
-                  klimaCount++;
-                  client.send(JSON.stringify({
-                    channel: 'klimatyzacja', // Zmieniono z 'roomStats' na 'klimatyzacja'
-                    temperature: data.temperature
-                  }));
-                }
+          wss.clients.forEach(client => {
+            if (client.readyState === client.OPEN) {
+              const ci = clients.get(client);
+              if (ci && ci.type === 'esp32' && ci.channel === 'klimatyzacja') {
+                client.send(JSON.stringify({
+                  channel: 'klimatyzacja',
+                  temperature: data.temperature
+                }));
               }
-            });
-            console.log(`Temperature sent to ${klimaCount} klimatyzacja ESP32 devices`);
+            }
+          });
         }
       }
 
@@ -103,7 +101,6 @@ wss.on("connection", (ws) => {
               }
             }
           });
-          console.log(`MainLights state broadcasted: ${lightStatus} (excluding sender)`);
         }
       }
 
@@ -141,18 +138,13 @@ wss.on("connection", (ws) => {
               }
             }
           });
-          console.log(`Klimatyzacja broadcast (frontend command) -> ${status}`);
         }
-        // Nowa sekcja dla requestedTemp
         else if (senderInfo && senderInfo.type === 'frontend' && typeof data.requestedTemp === 'number') {
           const temp = Math.round(data.requestedTemp);
-          console.log(`Processing requestedTemp: ${temp} from frontend`); // Debug log
-          let sentCount = 0;
           wss.clients.forEach(client => {
             if (client.readyState === client.OPEN) {
               const ci = clients.get(client);
               if (ci && ci.type === 'esp32' && ci.channel === 'klimatyzacja') {
-                sentCount++;
                 client.send(JSON.stringify({
                   channel: 'klimatyzacja',
                   requestedTemp: temp
@@ -160,7 +152,6 @@ wss.on("connection", (ws) => {
               }
             }
           });
-          console.log(`Requested temperature sent to ${sentCount} klimatyzacja ESP32 devices`);
         }
         else if (senderInfo && senderInfo.type === 'esp32' && senderInfo.channel === 'klimatyzacja' && typeof data.klimaStatus !== 'undefined') {
           const status = data.klimaStatus === 'ON' ? 'ON' : 'OFF';
@@ -178,20 +169,16 @@ wss.on("connection", (ws) => {
               }
             }
           });
-          console.log(`Klimatyzacja status od ESP32 -> ${status}, function: ${currentFunction}`);
         }
       }
 
     } catch (err) {
-      // Ignorujemy błędny JSON
     }
   });
 
   ws.on('close', () => {
     const clientInfo = clients.get(ws);
     if (clientInfo && clientInfo.type === 'esp32') {
-      console.log(`ESP32 device disconnected: ${clientInfo.channel}`);
-      // Powiadom frontendy o rozłączeniu ESP32
       wss.clients.forEach((client) => {
         if (client.readyState === client.OPEN) {
           const ci = clients.get(client);

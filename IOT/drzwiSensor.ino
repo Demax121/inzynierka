@@ -1,71 +1,76 @@
-#include <WiFiManager.h>
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>
+#include <MyWiFi.h>
 
-const char* WEBSOCKET_SERVER = "192.168.1.4";
-const int WEBSOCKET_PORT = 8886;
-const char* WIFI_AP_NAME = "Sensor Drzwi AP";
-const unsigned long WEBSOCKET_RECONNECT_INTERVAL = 5000;
-
-const int BUTTON_PIN = 21;
-int lastButtonState = HIGH;
-const unsigned long DEBOUNCE_MS = 30;
-const unsigned long HEARTBEAT_INTERVAL_MS = 10000;
-unsigned long lastChangeTime = 0;
-unsigned long lastHeartbeatMs = 0;
+#define BUTTON_PIN 23
 
 WebSocketsClient webSocketClient;
-StaticJsonDocument<100> jsonPayload;
+StaticJsonDocument<128> jsonPayload;
 
-void initializeJSON() { jsonPayload["channel"] = "doorStatus"; jsonPayload["status"] = ""; }
-void updateJSONData(int buttonState) { jsonPayload["status"] = (buttonState == LOW) ? "zamkniete" : "otwarte"; }
+const char* WEBSOCKET_SERVER = "192.168.1.4";
+const int   WEBSOCKET_PORT   = 3000;
+const unsigned long RECONNECT_INTERVAL = 5000;
+
+void initializeJSON() {
+  jsonPayload["channel"] = "doorStatus";
+  jsonPayload["status"]  = digitalRead(BUTTON_PIN) == LOW ? "OPEN" : "CLOSED";
+}
+
+void updateJSONData(int pinValue) {
+  jsonPayload["status"] = (pinValue == LOW) ? "OPEN" : "CLOSED";
+}
+
 void sendWebSocketData() {
   if (!webSocketClient.isConnected()) return;
-  char buf[64];
+  char buf[80];
   size_t n = serializeJson(jsonPayload, buf, sizeof(buf));
   webSocketClient.sendTXT(buf, n);
+  Serial.printf("[TX] Door status: %s\n", (const char*)jsonPayload["status"]);
+}
+
+void handleIncomingText(uint8_t* payload, size_t length) {
+  DeserializationError err = deserializeJson(jsonPayload, payload, length);
+  if (err) return;
+
+  if (jsonPayload.containsKey("type") && strcmp(jsonPayload["type"], "heartbeat") == 0) {
+    updateJSONData(digitalRead(BUTTON_PIN));
+    sendWebSocketData();
+    Serial.println("[Heartbeat] Reply sent to server");
+  }
 }
 
 void setup() {
-  Serial.begin(19200);
-  WiFiManager wm;
-  wm.autoConnect(WIFI_AP_NAME);
+  Serial.begin(115200);
   pinMode(BUTTON_PIN, INPUT_PULLUP);
+
+  MyWiFi::connect();
+
   initializeJSON();
-  lastButtonState = digitalRead(BUTTON_PIN);
-  updateJSONData(lastButtonState);
+
   webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
   webSocketClient.onEvent([](WStype_t type, uint8_t* payload, size_t length) {
     if (type == WStype_CONNECTED) {
+      Serial.println("Połączono z WebSocket – identyfikacja jako doorStatus");
       webSocketClient.sendTXT("{\"type\":\"esp32_identification\",\"channel\":\"doorStatus\"}");
-      int currentButtonState = digitalRead(BUTTON_PIN);
-      updateJSONData(currentButtonState);
       sendWebSocketData();
-      lastButtonState = currentButtonState;
+    } else if (type == WStype_TEXT) {
+      handleIncomingText(payload, length);
+    } else if (type == WStype_DISCONNECTED) {
+      Serial.println("Rozłączono z WebSocket");
     }
   });
-  webSocketClient.setReconnectInterval(WEBSOCKET_RECONNECT_INTERVAL);
+  webSocketClient.setReconnectInterval(RECONNECT_INTERVAL);
 }
 
 void loop() {
   webSocketClient.loop();
-  int currentState = digitalRead(BUTTON_PIN);
-  if (currentState != lastButtonState) {
-    if (lastChangeTime == 0) {
-      lastChangeTime = millis();
-    } else if (millis() - lastChangeTime >= DEBOUNCE_MS) {
-      lastButtonState = currentState;
-      updateJSONData(lastButtonState);
-      sendWebSocketData();
-      lastChangeTime = 0;
-    }
-  } else {
-    lastChangeTime = 0;
-  }
-  unsigned long now = millis();
-  if (now - lastHeartbeatMs >= HEARTBEAT_INTERVAL_MS) {
-    updateJSONData(digitalRead(BUTTON_PIN));
+
+  static int lastState = HIGH;
+  int reading = digitalRead(BUTTON_PIN);
+  if (reading != lastState) {
+    delay(50);
+    updateJSONData(reading);
     sendWebSocketData();
-    lastHeartbeatMs = now;
+    lastState = reading;
   }
 }

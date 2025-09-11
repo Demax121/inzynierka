@@ -1,9 +1,11 @@
-#include <WiFiManager.h>
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_ILI9341.h>
 #include <SPI.h>
+#include <MyWiFi.h>
+
+
 
 #define TFT_CS   5
 #define TFT_DC   21
@@ -18,7 +20,6 @@ WebSocketsClient webSocketClient;
 
 const char* WEBSOCKET_SERVER = "192.168.1.4";
 const int   WEBSOCKET_PORT   = 8886;
-const char* WIFI_AP_NAME     = "Klimatyzacja AP";
 const unsigned long RECONNECT_INTERVAL = 5000;
 
 bool klimaOn = false;
@@ -213,6 +214,12 @@ void handleIncomingText(uint8_t* payload, size_t length) {
       }
     }
   }
+  if (doc.containsKey("type") && strcmp(doc["type"], "heartbeat") == 0) {
+    updateJSONData();
+    sendWebSocketData();
+    Serial.println("[Heartbeat] Reply sent to server");
+    return;
+  }
 }
 
 void setup() {
@@ -221,7 +228,7 @@ void setup() {
   pinMode(buttonPin, INPUT_PULLUP);
   initializeDisplay();
 
-  WiFiManager wm; wm.setDebugOutput(false); wm.autoConnect(WIFI_AP_NAME);
+  MyWiFi::connect();
 
   initializeJSON();
 

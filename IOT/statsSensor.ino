@@ -1,13 +1,14 @@
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
-#include <WiFiManager.h>
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>
+#include <MyWiFi.h>
+
+
 
 const char* WEBSOCKET_SERVER = "192.168.1.4";
 const int WEBSOCKET_PORT = 8886;
-const char* WIFI_AP_NAME = "Statystyki Pomieszczenia AP";
 const unsigned int WEBSOCKET_RECONNECT_INTERVAL = 5000;
 
 #define SDA_PIN 4
@@ -33,9 +34,21 @@ void sendWebSocketData() {
   webSocketClient.sendTXT(buf, n);
 }
 
+void handleIncomingText(uint8_t* payload, size_t length) {
+  DeserializationError err = deserializeJson(jsonPayload, payload, length);
+  if (err) return;
+
+  if (jsonPayload.containsKey("type") && strcmp(jsonPayload["type"], "heartbeat") == 0) {
+    updateJSONData();
+    sendWebSocketData();
+    Serial.println("[Heartbeat] Reply sent to server");
+  }
+}
+
 void setup() {
   Serial.begin(19200);
-  WiFiManager wm; wm.autoConnect(WIFI_AP_NAME);
+  MyWiFi::connect();
+
   Wire.begin(SDA_PIN, SCL_PIN);
   bme.begin(BME280_I2C_ADDRESS);
   initializeJSON();
@@ -47,6 +60,8 @@ void setup() {
       updateJSONData();
       sendWebSocketData();
       lastSendTime = millis();
+    } else if (type == WStype_TEXT) {
+      handleIncomingText(payload, length);
     }
   });
   webSocketClient.setReconnectInterval(WEBSOCKET_RECONNECT_INTERVAL);
