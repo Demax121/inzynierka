@@ -16,11 +16,23 @@ const int LUX_THRESHOLD = 10;
 
 WebSocketsClient webSocket;
 Adafruit_VEML7700 veml;
-StaticJsonDocument<64> jsonPayload;
+StaticJsonDocument<256> jsonPayload;
 
 unsigned int lastSendMs = 0;
 int lastLux = -999;
 bool sensorReady = false;
+
+void initializeJSON() {
+  jsonPayload["identity"] = "lux_sensor";
+  jsonPayload["channel"] = "lux_sensor";
+  JsonObject payload = jsonPayload.createNestedObject("payload");
+  payload["lux"] = -1;
+}
+
+void updateJSONData(int currentLux) {
+  JsonObject payload = jsonPayload["payload"];
+  payload["lux"] = currentLux;
+}
 
 void identifyDevice() {
   StaticJsonDocument<128> idDoc;
@@ -46,9 +58,10 @@ void setup() {
     veml.powerSaveEnable(false);
   }
 
-  jsonPayload["channel"] = "lux_sensor";
-  jsonPayload["lux"] = sensorReady ? (int)veml.readLux() : -1;
-  lastLux = jsonPayload["lux"];
+  initializeJSON();
+  int initialLux = sensorReady ? (int)veml.readLux() : -1;
+  updateJSONData(initialLux);
+  lastLux = initialLux;
 
   webSocket.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT);
   webSocket.setReconnectInterval(WEBSOCKET_RECONNECT_INTERVAL);
@@ -66,9 +79,9 @@ void loop() {
   int currentLux = sensorReady ? (int)veml.readLux() : -1;
 
   if (abs(currentLux - lastLux) >= LUX_THRESHOLD || (now - lastSendMs >= SENSOR_SEND_INTERVAL)) {
-    jsonPayload["lux"] = currentLux;
+    updateJSONData(currentLux);
 
-    char buf[64];
+    char buf[200];
     size_t n = serializeJson(jsonPayload, buf);
     webSocket.sendTXT(buf, n);
     lastLux = currentLux;

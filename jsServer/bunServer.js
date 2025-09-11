@@ -126,7 +126,13 @@ wss.on("connection", (ws) => {
       }
 
       if (data.channel === "lux_sensor") {
-        const lux = data.lux;
+        // Obsługa tylko nowego formatu z payload
+        if (!data.payload) {
+          console.log(`Invalid lux_sensor format - missing payload object`);
+          return;
+        }
+        
+        const lux = data.payload.lux;
         if (typeof lux === 'number') {
           wss.clients.forEach((client) => {
             if (client.readyState === client.OPEN) {
@@ -139,6 +145,7 @@ wss.on("connection", (ws) => {
               }
             }
           });
+          console.log(`Lux amount broadcasted: ${lux} (excluding sender)`);
         }
       }
 
