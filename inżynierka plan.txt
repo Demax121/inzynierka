@@ -1,40 +1,3 @@
-1. Sterowanie roletami po lokalnym wifi - przez API lub nie
-2. Sterowanie oświetleniem po lokalnym wifi - przez API lub nie
-3. Sterowanie ledami przez WLED zintegrować Prismatik z WLED - po wciśnięciu przycisku ambilight w WLED wysłany jest pakiet do programu prismatik, który aktywuje ambilight,
-   po wciśnięciu przycisku innego profilu wyłączany jest ambilight i uruchamiany profil WLED
-4. Sterowanie temperaturą - wysyłamy sygnał do ESP i odpowiada ono w następujący sposób: Ustawiono temperaturę na: [temperatura odczytana z otrzymanego JSON] - jeżeli wyżwsza niżaktualna, 
-    to dodaje komunikat: Rozpoczynam grzanie, jeżeli niższa to: Rozpoczynam chłodzenie
-5. Czujnik zakluczenia/blokady drzwi przycisk krawędziowy wysyła sygnał do ESP32 mini, jak wciśnięte to: Drzwi zablokowane, jak uwolniony przycisk: Drzwi odblokowane
-6. Przetestować wszystkie te rzeczy osobno przes postman, a następnie zorbić UI w przeglądarce
-7. Wszystkie dane mają być wysyłane przez JSON hashowane i zaszyfrowane
-8. Baza danych postgres będzie przechowywać informacje na temat profili w postaci hashu, który będzie następnie konwertowany na JSON
-9. Gdy już wszystko będzie działać spróbowac dodać integrację z google home, botem discord
-10. Do sterowania wykorzystujemy websockets z różnymi kanałami subskrypcji 
-11. Spróbować dodać integrację z wyświetlaczem i przyciskami dodtykowymi, każdy przycisk niech odpowiada za inny element
-
-
-
-
-Przyciski: 
-1. Podłącz rolety - wysyła na serwer zapytanie, które aktywuje skrypt wysyłający zapytanie do API aby się połączyć
-2. Otwórz rolety -  wysyła na serwer zapytanie, które aktywuje skrypt wysyłający komendę do otwarcia rolet
-3. Zamknij rolety -  wysyła na serwer zapytanie, które aktywuje skrypt wysyłający komendę do zamknięcia rolet
-
-
-
-Statystyki pokoju są pobierane za pomocą pliku PHP, na serwerze jest również uruchomiony Crony, który wysyła cykliczne zapytanie do ESP tym samym plikiem
-Serwer robi get request do ESP32 i otrzymuje odpowiedź w formacie JSON zawierającą dane:
-temperatura:
-wilgotność:
-ciśnmienie:
-
-Dane uzyskane automatycznie z co 3 zapytania są zapisywane do bazy danych w tabeli room_stats.
-
-Przycisk krawędziowy do sprawdzania czy drzwi są zamknięte działa na websocket w czasie rzeczywistym
-Wcisnięty: Drzwi zablokowane
-Niewciśnięty: Drzwi odblokowane
-
-
 Zabezpieczenia:
 
 1. Po włączeniu urządzenie robi zapytanie GET do serwera
@@ -51,17 +14,49 @@ Zabezpieczenia:
 
 
 
-Profile:
-Profile będą przechowywane jako pliki JSON w formie hashu w bazie danych
+1. Dodac obsługę lux do blindsController
+Ma mieć input na dolną granicę lux oraz górną granicę lux i przycisk "ustaw granice"
+W dolnej granicy roleta ma się podnieść, a w górnej opuścić
+Musi być dodatkowo flaga manualOverride, gdyby rolety zostały podniesione lub opuszczone kliknięciem przyucisku.
 
-Budowa JSON:
+2. Stworzyć formularz tworzenia profili
+
+Formularz zawiera: 
+
+Główne światła - checkbox (włączone/wyłączone)
+Klimatyzacja - checkbox (włączone/wyłączone) + input na temperaturę
+Rolety - checkbox (Opuszczone/Podciągnięte) + input na dolną granicę lux 
++ input na górną granicę lux + checkbox jak zaznaczony używamy granic jak nie zaznaczony to ignorujemy granice lux
+WLED - do wyboru z listy rozwijanej kilka presetów w tym tryb ambilight
+
+Formularz tworzy plik JSON, który zawiera dane w następującej formie:
+
 {
-Blinds: open/close
-Lights: ON/OFF
-LEDs: WLED/ambilight
-ledColor: HEX - jeżeli jest wybrany wcześniej w LED WLED zamianst ambilight
-Temperature: float
+  "name": "Nazwa profilu",
+  "AC":{
+    channel: "air_conditioning",
+    payload: {
+      requestedTemp: inputTemp.value
+    }
+  }
+  "lights": {
+    channel: "main_lights",
+    payload: {
+      lightON: true/false
+    }
+  },
+  "Blinds": {
+    tutaj wymyślić muszę
+  },
+  "WLED":{
+    "192.168.1.25/json/state": {
+      "on": true/false,
+      "bri": 128,
+      "seg": {
+        "fx": presetNumber
+
+        lub tryb ambilight
+      }
+  }
 }
-
-
 

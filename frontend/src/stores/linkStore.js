@@ -10,8 +10,8 @@ export const useLinkStore = defineStore('linkStore', {
   // State: Holds the base URLs for different services
   state: () => ({
     links: {
-      databaseApi: 'http://localhost:8884/',  // Base URL for PHP API endpoints
-      cdnURL: 'http://localhost:8885/',       // Base URL for CDN/static assets
+      databaseApi: 'http://192.168.1.4:8884/',  // Base URL for PHP API endpoints
+      cdnURL: 'http://192.168.1.4:8885/',       // Base URL for CDN/static assets
     },
   }),
   
@@ -26,6 +26,13 @@ export const useLinkStore = defineStore('linkStore', {
         return null;
       }
       return `${state.links.cdnURL}images/${imageName}`;
+    },
+      getFile: (state) => (fileName) => {
+      if (!fileName || typeof fileName !== 'string') {
+        console.warn('File name must be a non-empty string.');
+        return null;
+      }
+      return `${state.links.cdnURL}config_files/${fileName}`;
     },
 
     // Getter: Constructs full PHP API URLs by combining base API URL with filename

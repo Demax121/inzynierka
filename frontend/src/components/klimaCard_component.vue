@@ -3,29 +3,29 @@
     <div class="card__header">
       <h2 class="card__title card__title--lights">Klimatyzacja</h2>
     </div>
-    <div class="card__body card__body--slider" v-if="loading">
-      <div class="loading-wrapper">⏳ Ładowanie...</div>
-    </div>
-    <div class="card__body card__body--slider" v-else>
-      <div class="card__content card__content--slider">
-        <form class="temp-form" @submit.prevent="submitTemp">
-          <input v-model.number="inputTemp" type="number" min="16" max="30" step="1" placeholder="Wprowadź temperaturę" class="temp-input" required />
-          <button type="submit" class="btn">Ustaw temperaturę</button>
-        </form>
-        <div class="temps-display">
-          <p>Aktualna: <strong>{{ currentTempDisplay }}</strong>°C</p>
-          <p>Docelowa: <strong>{{ targetTempDisplay }}</strong>°C</p>
-          <p v-if="modeLabel">Funkcja: <strong>{{ modeLabel }}</strong></p>
-          <p v-if="manualOverride">Status: <strong>Tryb ręczny</strong></p>
+    <div class="card__body">
+      <div class="klima-wrapper">
+        <div v-if="loading" class="klima-loading">💨</div>
+        <div v-else class="card__content card__content--slider">
+          <form class="temp-form" @submit.prevent="submitTemp">
+            <input v-model.number="inputTemp" type="number" min="16" max="30" step="1" placeholder="Wprowadź temperaturę" class="temp-input" required />
+            <button type="submit" class="btn">Ustaw temperaturę</button>
+          </form>
+          <div class="temps-display">
+            <p>Aktualna: <strong>{{ currentTempDisplay }}</strong>°C</p>
+            <p>Docelowa: <strong>{{ targetTempDisplay }}</strong>°C</p>
+            <p v-if="modeLabel">Funkcja: <strong>{{ modeLabel }}</strong></p>
+            <p v-if="manualOverride">Status: <strong>Tryb ręczny</strong></p>
+          </div>
+          <label class="switch">
+            <input
+              type="checkbox"
+              :checked="isOn"
+              @change="toggleManual"
+            >
+            <span class="slider round"></span>
+          </label>
         </div>
-        <label class="switch">
-          <input
-            type="checkbox"
-            :checked="isOn"
-            @change="toggleManual"
-          >
-          <span class="slider round"></span>
-        </label>
       </div>
     </div>
   </div>
@@ -65,18 +65,16 @@ function connect() {
   loading.value = true;
   ws = new WebSocket('ws://192.168.1.4:8886');
   
-  ws.onopen = () => {
-    console.log('WebSocket połączenie otwarte dla klimatyzacji');
-    loading.value = false; // Wyłącz loading gdy połączenie otwarte
-  };
+  // ws.onopen = () => {
+  // };
   
   ws.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
-      console.log('Odebrane dane klimatyzacji:', data);
       
       // Obsługa payload format (nowy)
       if (data.channel === 'air_conditioning' && data.payload) {
+        loading.value = false; // Set loading to false when we receive device data
         updateAirConditioningState(data.payload);
       }
       // Obsługa room_stats dla temperatury
@@ -87,7 +85,7 @@ function connect() {
       // Obsługa disconnection status
       else if (data.channel === 'air_conditioning' && data.status === 'disconnected') {
         console.log('ESP32 air_conditioning rozłączony');
-        // Nie zmieniaj loading state - pokaż ostatnie dane
+        loading.value = true; // Set loading back to true when device disconnects
       }
     } catch (error) {
       console.error('Błąd parsowania danych klimatyzacji:', error);
@@ -173,6 +171,13 @@ onUnmounted(() => { if (reconnectTimer) clearTimeout(reconnectTimer); if (ws) ws
 </script>
 
 <style lang="scss" scoped>
+.klima-wrapper { display:flex; justify-content:center; align-items:center; min-height:5rem; }
+.klima-loading { font-size: 2.5rem; opacity: .6; animation: bounce 1.4s ease-in-out infinite; }
+@keyframes bounce { 
+  0%, 100% { transform: translateY(0); opacity:.3; } 
+  50% { transform: translateY(-10px); opacity:1; } 
+}
+
 .temp-form {
   display: flex;
   gap: 1rem;
@@ -212,8 +217,6 @@ onUnmounted(() => { if (reconnectTimer) clearTimeout(reconnectTimer); if (ws) ws
 .temp-input:focus { border-color: var(--color); }
 
 $slider-switch-size: 2.5rem;
-
-.card__body--slider { display: grid; justify-content: center; align-items: center; }
 
 .card__content--slider {
   height: fit-content;
