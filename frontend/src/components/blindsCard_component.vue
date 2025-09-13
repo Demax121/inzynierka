@@ -62,38 +62,9 @@ const responseData = ref(null)
 const currentAction = ref('')
 const minLux = ref(0)
 const maxLux = ref(0)
-const blindsConfig = ref(null)
 
 // Initialize the link store
 const linkStore = useLinkStore()
-
-// Function to fetch and parse blinds config JSON
-const loadBlindsConfig = async () => {
-    try {
-        const configUrl = linkStore.getFile('blinds_config.json')
-        
-        const response = await fetch(configUrl)
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`)
-        }
-        
-        const config = await response.json()
-        blindsConfig.value = config
-        console.log('Parsed Blinds Config JSON:', config)
-        
-        // Load existing values into inputs
-        if (config.minLux !== undefined) minLux.value = config.minLux
-        if (config.maxLux !== undefined) maxLux.value = config.maxLux
-        
-    } catch (error) {
-        console.error('Error loading blinds config:', error)
-    }
-}
-
-// Load config on component mount
-onMounted(() => {
-    loadBlindsConfig()
-})
 
 // Generic function to make API calls for blinds control
 const makeApiCall = async (phpFile, actionParam, action, statusMessage, successMessage) => {
@@ -150,50 +121,21 @@ const closeBlinds = async () => {
     await makeApiCall('blindsControl.php', 'close', 'close', 'Zamykanie rolet...', 'Rolety zostały zamknięte!')
 }
 
-// Function to save lux configuration
+
 const saveLuxConfig = async () => {
-    loading.value = true
-    currentAction.value = 'save'
-    status.value = 'Zapisywanie konfiguracji...'
-
-    try {
-        // Update config object
-        const updatedConfig = {
-            ...blindsConfig.value,
-            minLux: minLux.value,
-            maxLux: maxLux.value
-        }
-
-        // Send to PHP endpoint to save the config
-        const response = await fetch(linkStore.getPhpApiUrl('saveBlindsConfig.php'), {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(updatedConfig)
-        })
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`)
-        }
-
-        const result = await response.json()
-        
-        if (result.success) {
-            status.value = 'Konfiguracja została zapisana!'
-            blindsConfig.value = updatedConfig
-        } else {
-            status.value = `Błąd: ${result.msg || 'Nie udało się zapisać konfiguracji'}`
-        }
-
-    } catch (error) {
-        console.error('Error saving blinds config:', error)
-        status.value = `Błąd połączenia: ${error.message}`
-    } finally {
-        loading.value = false
-        currentAction.value = ''
+    status.value = 'Zapisano'
+    if (minLux.value >= maxLux.value) {
+        status.value = 'Błąd: Min lux musi być mniejsze niż Max lux.'
+        return
     }
+  const res = await fetch(linkStore.getPhpApiUrl('saveBlindsConfig.php'), {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json' },
+    body: JSON.stringify({ minLux:minLux.value, maxLux:maxLux.value })
+  })
 }
+
+
 
 </script>
 
