@@ -24,6 +24,8 @@
                     <button class="btn" @click="saveLuxConfig" :disabled="loading">
                         {{ loading && currentAction === 'save' ? 'Zapisywanie...' : 'Ustaw granice' }}
                     </button>
+
+                    
                 </div>
             </div>
         </div>
@@ -40,6 +42,7 @@ const loading = ref(false)
 const currentAction = ref('')
 const minLux = ref(0)
 const maxLux = ref(0)
+const automate = false;
 
 
 const linkStore = useLinkStore()
