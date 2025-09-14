@@ -171,8 +171,19 @@ onUnmounted(() => { if (reconnectTimer) clearTimeout(reconnectTimer); if (ws) ws
 </script>
 
 <style lang="scss" scoped>
-.klima-wrapper { display:flex; justify-content:center; align-items:center; min-height:5rem; }
-.klima-loading { font-size: 2.5rem; opacity: .6; animation: bounce 1.4s ease-in-out infinite; }
+.klima-wrapper { 
+  display: flex; 
+  justify-content: center; 
+  align-items: center; 
+  min-height: 5rem; 
+}
+
+.klima-loading { 
+  font-size: 2.5rem; 
+  opacity: .6; 
+  animation: bounce 1.4s ease-in-out infinite; 
+}
+
 @keyframes bounce { 
   0%, 100% { transform: translateY(0); opacity:.3; } 
   50% { transform: translateY(-10px); opacity:1; } 
@@ -187,8 +198,15 @@ onUnmounted(() => { if (reconnectTimer) clearTimeout(reconnectTimer); if (ws) ws
   margin-bottom: 1.5rem;
 }
 
-.temps-display { text-align:center; margin-bottom: .2rem; line-height:1.3; }
-.temps-display p { margin:.15rem 0; }
+.temps-display { 
+  text-align: center; 
+  margin-bottom: .2rem; 
+  line-height: 1.3; 
+}
+
+.temps-display p { 
+  margin: .15rem 0; 
+}
 
 .loading-wrapper { 
   font-size: 2rem; 
@@ -214,9 +232,9 @@ onUnmounted(() => { if (reconnectTimer) clearTimeout(reconnectTimer); if (ws) ws
   display: block;
 }
 
-.temp-input:focus { border-color: var(--color); }
-
-$slider-switch-size: 2.5rem;
+.temp-input:focus { 
+  border-color: var(--color); 
+}
 
 .card__content--slider {
   height: fit-content;
@@ -226,54 +244,4 @@ $slider-switch-size: 2.5rem;
   justify-content: flex-start;
   gap: 0.8rem;
 }
-
-/* The switch - the box around the slider */
-.switch { position: relative; display: inline-block; width: 8rem; height: 3rem; }
-
-/* Hide default HTML checkbox */
-.switch input { opacity: 0; width: 0; height: 0; }
-
-/* The slider */
-.slider {
-  position: absolute;
-  cursor: pointer; // ZMIANA: było not-allowed
-  top: 0; left: 0; right: 0; bottom: 0;
-  background-color: #222;
-  border-radius: 34px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.4rem;
-  font-weight: bold;
-  color: white;
-  transition: background-color .4s, box-shadow .4s;
-  overflow: hidden;
-}
-
-/* Domyślny tekst OFF */
-.slider::after { content: "OFF"; opacity: 1; transition: opacity .3s ease-in-out; position: relative; z-index: 2; }
-
-/* Wewnętrzne kółko */
-.slider:before {
-  position: absolute;
-  content: "";
-  height: $slider-switch-size;
-  width: $slider-switch-size;
-  left: 4px; bottom: 4px;
-  background-color: white;
-  border-radius: 50%;
-  transition: .4s; z-index: 1;
-}
-
-/* Efekt glow przy ON */
-input:checked + .slider { box-shadow: 0 0 25px 6px #d40fe6; }
-
-/* Zmiana tekstu ON/OFF z fade */
-input:checked + .slider::after { content: "ON"; opacity: 1; animation: fadeText .3s ease-in-out; }
-
-/* Gdy zaznaczony przesuwamy kółko w prawo */
-input:checked + .slider:before { transform: translateX(5rem); }
-
-/* Animacja fade dla tekstu */
-@keyframes fadeText { 0% { opacity: 0; } 50% { opacity: .5; } 100% { opacity: 1; } }
 </style>

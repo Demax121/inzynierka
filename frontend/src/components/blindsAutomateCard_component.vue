@@ -19,10 +19,13 @@
                         <input id="maxLux" v-model.number="maxLux" type="number" class="lux-input" />
                     </div>
 
-                    <!-- added checkbox for "automat" -->
-                    <div class="input-group">
-                        <label for="automat">automat</label>
-                        <input id="automat" type="checkbox" v-model="automate" />
+                    <!-- zmieniony checkbox na slider -->
+                    <div class="input-group input-group--slider">
+                        <span class="slider-label">Tryb automatyczny:</span>
+                        <label class="switch switch--small">
+                            <input type="checkbox" v-model="automate">
+                            <span class="slider"></span>
+                        </label>
                     </div>
                 </div>
 
@@ -65,8 +68,9 @@ const getLuxConfig = async () => {
         if (data && typeof data === 'object') {
             if (data.min_lux !== undefined) minLux.value = Number(data.min_lux)
             if (data.max_lux !== undefined) maxLux.value = Number(data.max_lux)
+            if (data.automate !== undefined) automate.value = Boolean(data.automate)
             status.value = 'Konfiguracja załadowana.'
-            console.log(`Min lux: ${minLux.value}, Max lux: ${maxLux.value}`)
+            console.log(`Min lux: ${minLux.value}, Max lux: ${maxLux.value}, Automat: ${automate.value}`)
         } else {
             status.value = 'Błąd: Nieprawidłowy format odpowiedzi.'
         }
@@ -84,24 +88,44 @@ onMounted(() => {
 
 
 const saveLuxConfig = async () => {
-    status.value = 'Zapisano'
+    loading.value = true
+    currentAction.value = 'save'
+    status.value = 'Zapisywanie...'
+    
     if (minLux.value >= maxLux.value) {
         status.value = 'Błąd: Min lux musi być mniejsze niż Max lux.'
+        loading.value = false
         return
     }
-    const res = await fetch(linkStore.getPhpApiUrl('saveBlindsConfig.php'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ minLux: minLux.value, maxLux: maxLux.value })
-    })
+    
+    try {
+        const res = await fetch(linkStore.getPhpApiUrl('saveBlindsConfig.php'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                minLux: minLux.value, 
+                maxLux: maxLux.value,
+                automate: automate.value 
+            })
+        })
+        
+        const data = await res.json()
+        if (data && data.success) {
+            status.value = 'Zapisano pomyślnie'
+        } else {
+            status.value = 'Błąd podczas zapisywania'
+        }
+    } catch (error) {
+        console.error('Error saving config:', error)
+        status.value = `Błąd połączenia: ${error.message}`
+    } finally {
+        loading.value = false
+        currentAction.value = ''
+    }
 }
-
-
-
 </script>
 
 <style lang="scss" scoped>
-
 $input-width: 120px;
 $input-padding: 6px 10px;
 $input-font-size: 11pt;
@@ -125,6 +149,16 @@ $button-font-size: 12pt;
     margin-bottom: $input-group-gap;
     gap: 1rem;
     justify-content: center;
+    
+    &--slider {
+        margin: 1rem 0;
+    }
+}
+
+.slider-label {
+    min-width: 70px;
+    font-weight: bold;
+    font-size: 14px;
 }
 
 .input-group label {

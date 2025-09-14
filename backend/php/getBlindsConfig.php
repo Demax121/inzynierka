@@ -13,12 +13,13 @@ try {
     );
 
     // pobieramy tylko potrzebne pola
-    $stmt = $pdo->query('SELECT min_lux, max_lux FROM public.blinds_config LIMIT 1');
+    $stmt = $pdo->query('SELECT min_lux, max_lux, automate FROM public.blinds_config LIMIT 1');
     $row = $stmt->fetch();
 
     echo json_encode([
         'min_lux' => (int)($row['min_lux'] ?? 0),
-        'max_lux' => (int)($row['max_lux'] ?? 0)
+        'max_lux' => (int)($row['max_lux'] ?? 0),
+        'automate' => (bool)($row['automate'] ?? false),
     ], JSON_UNESCAPED_UNICODE);
 
 } catch (PDOException $e) {

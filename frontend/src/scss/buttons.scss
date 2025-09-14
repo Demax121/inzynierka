@@ -57,3 +57,126 @@ max-width: 180px;
         gap: 12px;
     }
 }
+
+/* Switch slider styles */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 8rem;
+  height: 3rem;
+  
+  /* For larger variant */
+  &--large {
+    width: 11rem;
+    height: 4rem;
+  }
+  
+  /* For smaller variant */
+  &--small {
+    width: 6rem;
+    height: 2.2rem;
+  }
+
+  /* Hide default HTML checkbox */
+  input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+}
+
+/* The slider */
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #222;
+  border-radius: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  font-weight: bold;
+  color: white;
+  transition: background-color .4s, box-shadow .4s;
+  overflow: hidden;
+
+  /* Domyślny tekst OFF */
+  &::after {
+    content: "OFF";
+    opacity: 1;
+    transition: opacity .3s ease-in-out;
+    position: relative;
+    z-index: 2;
+  }
+
+  /* Wewnętrzne kółko */
+  &:before {
+    position: absolute;
+    content: "";
+    height: 2.5rem;
+    width: 2.5rem;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    border-radius: 50%;
+    transition: .4s;
+    z-index: 1;
+  }
+
+  /* Wariant dla większego slidera */
+  .switch--large & {
+    &:before {
+      height: 3.5rem;
+      width: 3.5rem;
+    }
+  }
+  
+  /* Wariant dla mniejszego slidera */
+  .switch--small & {
+    font-size: 1rem;
+    
+    &:before {
+      height: 1.8rem;
+      width: 1.8rem;
+      left: 3px;
+      bottom: 3px;
+    }
+  }
+}
+
+/* Efekt glow przy ON */
+input:checked + .slider {
+  box-shadow: 0 0 25px 6px #d40fe6; /* glow */
+}
+
+/* Zmiana tekstu ON/OFF z fade */
+input:checked + .slider::after {
+  content: "ON";
+  opacity: 1;
+  animation: fadeText .3s ease-in-out;
+}
+
+/* Gdy zaznaczony przesuwamy kółko w prawo */
+input:checked + .slider:before {
+  transform: translateX(5rem);
+}
+
+.switch--large input:checked + .slider:before {
+  transform: translateX(7rem);
+}
+
+/* Transformacja dla małego slidera */
+.switch--small input:checked + .slider:before {
+  transform: translateX(3.7rem);
+}
+
+/* Animacja fade dla tekstu */
+@keyframes fadeText {
+  0% { opacity: 0; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
