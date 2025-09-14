@@ -9,9 +9,7 @@ const unsigned long WEBSOCKET_RECONNECT_INTERVAL = 5000;
 const int BUTTON_PIN = 21;
 int lastButtonState = HIGH;
 const unsigned long DEBOUNCE_MS = 30;
-const unsigned long HEARTBEAT_INTERVAL_MS = 10000;
 unsigned long lastChangeTime = 0;
-unsigned long lastHeartbeatMs = 0;
 
 WebSocketsClient webSocketClient;
 StaticJsonDocument<256> jsonPayload;
@@ -46,6 +44,18 @@ void sendWebSocketData() {
   webSocketClient.sendTXT(buf, n);
 }
 
+void handleIncomingText(uint8_t* payload, size_t length) {
+  StaticJsonDocument<128> doc;
+  DeserializationError err = deserializeJson(doc, payload, length);
+  if (err) return;
+  
+  // Handle ping message from server
+  if (doc.containsKey("type") && strcmp(doc["type"], "ping") == 0) {
+    updateJSONData(digitalRead(BUTTON_PIN));
+    sendWebSocketData();
+  }
+}
+
 void setup() {
   Serial.begin(19200);
   
@@ -62,6 +72,8 @@ void setup() {
       updateJSONData(currentButtonState);
       sendWebSocketData();
       lastButtonState = currentButtonState;
+    } else if (type == WStype_TEXT) {
+      handleIncomingText(payload, length);
     }
   });
   webSocketClient.setReconnectInterval(WEBSOCKET_RECONNECT_INTERVAL);
@@ -81,11 +93,5 @@ void loop() {
     }
   } else {
     lastChangeTime = 0;
-  }
-  unsigned long now = millis();
-  if (now - lastHeartbeatMs >= HEARTBEAT_INTERVAL_MS) {
-    updateJSONData(digitalRead(BUTTON_PIN));
-    sendWebSocketData();
-    lastHeartbeatMs = now;
   }
 }

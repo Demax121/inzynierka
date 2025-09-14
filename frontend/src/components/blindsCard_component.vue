@@ -8,19 +8,19 @@
 
                 <div class="button-group">
                     <button type="button" class="btn" @click="openBlinds">
-                        {{ currentAction === 'open' }}
+                        Otwórz rolety
                     </button>
 
                     <button type="button" class="btn" @click="closeBlinds">
-                        {{ currentAction === 'close' }}
+                        Zamknij rolety
                     </button>
                     <button type="button" class="btn" @click="fetchStatus()">
-                        {{ 'Pobierz status' }}
+                        Pobierz status
                     </button>
                 </div>
                 <div class="device-info" v-if="batteryLevel !== null || deviceState !== null">
                     <p class="card__text"><b>Poziom baterii: </b> {{ batteryLevel !== null ? batteryLevel + '%' : 'Brak danych' }}</p>
-                    <p class="card__text"><b>Stan rolet: </b> {{ deviceStateText}}</p>
+                    <p class="card__text"><b>Stan rolet: </b> {{ deviceStateText }}</p>
                 </div>
             </div>
         </div>
@@ -31,24 +31,19 @@
 import { ref, onMounted, computed } from 'vue'
 import { useLinkStore } from '@/stores/linkStore'
 
-const currentAction = ref('')
+const responseData = ref(null)
 const batteryLevel = ref(null)
-const deviceState = ref(null)
+const deviceState = ref(null) 
 
 
 const linkStore = useLinkStore()
 
 
-const makeApiCall = async (phpFile, actionParam, action, statusMessage, successMessage) => {
-    loading.value = true
-    currentAction.value = action
-    status.value = statusMessage
-    responseData.value = null
-
+const makeApiCall = async (phpFile, actionParam) => {
     try {
         let apiUrl = linkStore.getPhpApiUrl(phpFile)
 
-
+        
         if (actionParam) {
             apiUrl += `?action=${actionParam}`
         }
@@ -68,20 +63,11 @@ const makeApiCall = async (phpFile, actionParam, action, statusMessage, successM
         responseData.value = data
 
         if (data.success) {
-            status.value = successMessage
-
+            
             fetchStatus().catch(err => console.warn('Failed to refresh status', err))
-        } else {
-            status.value = `Błąd: ${data.msg || 'Nieznany błąd'}`
         }
-
     } catch (error) {
-        console.error(`Error with ${action} action:`, error)
-        status.value = `Błąd połączenia: ${error.message}`
-        responseData.value = { error: error.message }
-    } finally {
-        loading.value = false
-        currentAction.value = ''
+        console.error(`Error with API call:`, error)
     }
 }
 
@@ -99,7 +85,7 @@ const closeBlinds = async () => {
 
 
 const parseStatus = (data) => {
-
+    
     batteryLevel.value = null
     deviceState.value = null
 
@@ -157,13 +143,9 @@ const fetchStatus = async () => {
         responseData.value = data
         if (data.success) {
             parseStatus(data.result ?? data)
-            status.value = 'Pobrano status urządzenia'
-        } else {
-            status.value = `Błąd pobierania statusu: ${data.msg || 'Nieznany błąd'}`
         }
     } catch (err) {
         console.error('fetchStatus error', err)
-        status.value = `Błąd połączenia: ${err.message}`
     }
 }
 
@@ -180,6 +162,7 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
+
 $button-padding: 11px 15px;
 $button-font-size: 12pt;
 

@@ -18,6 +18,12 @@
                         <label for="maxLux">Max lux:</label>
                         <input id="maxLux" v-model.number="maxLux" type="number" class="lux-input" />
                     </div>
+
+                    <!-- added checkbox for "automat" -->
+                    <div class="input-group">
+                        <label for="automat">automat</label>
+                        <input id="automat" type="checkbox" v-model="automate" />
+                    </div>
                 </div>
 
                 <div class="button-group">
@@ -42,7 +48,7 @@ const loading = ref(false)
 const currentAction = ref('')
 const minLux = ref(0)
 const maxLux = ref(0)
-const automate = false;
+const automate = ref(false);
 
 
 const linkStore = useLinkStore()

@@ -2,9 +2,39 @@ import { WebSocketServer } from "ws";
 
 const PORT = 3000;
 const wss = new WebSocketServer({ port: PORT });
+const PING_INTERVAL = 10000; // 10 seconds interval for pinging devices
 
 const clients = new Map();
 let lastRoomTemperature = null; // zapamiętana ostatnia temperatura
+let pingInterval;
+
+// Start ping interval function
+function startPingInterval() {
+  // Clear any existing interval
+  if (pingInterval) {
+    clearInterval(pingInterval);
+  }
+  
+  // Create new interval to ping all ESP32 devices
+  pingInterval = setInterval(() => {
+    let pingCount = 0;
+    wss.clients.forEach(client => {
+      if (client.readyState === client.OPEN) {
+        const clientInfo = clients.get(client);
+        if (clientInfo && clientInfo.type === 'esp32') {
+          client.send(JSON.stringify({
+            type: 'ping',
+            channel: clientInfo.channel
+          }));
+          pingCount++;
+        }
+      }
+    });
+    if (pingCount > 0) {
+      console.log(`Sent ping to ${pingCount} ESP32 devices`);
+    }
+  }, PING_INTERVAL);
+}
 
 wss.on("connection", (ws) => {
   clients.set(ws, { type: 'frontend', channel: null });
@@ -245,6 +275,17 @@ wss.on("connection", (ws) => {
     }
     clients.delete(ws);
   });
+});
+
+// Start the ping interval when server initializes
+startPingInterval();
+
+// Clean up interval when process exits
+process.on('SIGINT', () => {
+  if (pingInterval) {
+    clearInterval(pingInterval);
+  }
+  process.exit();
 });
 
 console.log(`WebSocket server listening on ws://0.0.0.0:${PORT} (door_sensor, room_stats, main_lights, lux_sensor, air_conditioning channels)`);

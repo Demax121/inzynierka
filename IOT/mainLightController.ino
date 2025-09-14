@@ -10,13 +10,11 @@ const int RELAY_ACTIVE_LEVEL = LOW;
 const int RELAY_INACTIVE_LEVEL = HIGH;
 const int BUTTON_ACTIVE_LEVEL = HIGH;
 const unsigned int BUTTON_DEBOUNCE_MS = 50;
-const unsigned int HEARTBEAT_INTERVAL_MS = 10000;
 
 bool State = false;
 int lastButtonState = LOW;
 int buttonState = LOW;
 unsigned int lastButtonChangeMs = 0;
-unsigned int lastHeartbeatMs = 0;
 
 const char* WEBSOCKET_SERVER = "192.168.1.4";
 const int WEBSOCKET_PORT = 8886;
@@ -63,6 +61,14 @@ void handleIncomingText(uint8_t* payload, size_t length) {
   StaticJsonDocument<128> doc;
   DeserializationError err = deserializeJson(doc, payload, length);
   if (err) return;
+  
+  // Handle ping message from server
+  if (doc.containsKey("type") && strcmp(doc["type"], "ping") == 0) {
+    updateJSONData(State);
+    sendWebSocketData();
+    return;
+  }
+  
   if (!doc.containsKey("lightON")) return;
   if (doc.containsKey("channel") && strcmp(doc["channel"], "main_lights") != 0) return;
   bool lightON = doc["lightON"];
@@ -83,7 +89,6 @@ void setup() {
     if (type == WStype_CONNECTED) {
       identifyDevice();
       sendWebSocketData();
-      lastHeartbeatMs = millis();
     } else if (type == WStype_TEXT) {
       handleIncomingText(payload, length);
     }
@@ -116,12 +121,4 @@ void loop() {
   }
   
   lastButtonState = reading;
-
-  // Heartbeat
-  unsigned int now = millis();
-  if (now - lastHeartbeatMs >= HEARTBEAT_INTERVAL_MS) {
-    updateJSONData(State);
-    sendWebSocketData();
-    lastHeartbeatMs = now;
-  }
 }

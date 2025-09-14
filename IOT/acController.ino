@@ -179,6 +179,13 @@ void checkTemperatureControl() {
 void handleIncomingText(uint8_t* payload, size_t length) {
   DeserializationError err = deserializeJson(doc, payload, length);
   if (err) return;
+  
+  // Handle ping message from server
+  if (doc.containsKey("type") && strcmp(doc["type"], "ping") == 0) {
+    sendWebSocketData();
+    return;
+  }
+  
   const char* channel = doc["channel"] | "";
   if (strcmp(channel, "room_stats") == 0) {
     if (doc.containsKey("temperature")) {

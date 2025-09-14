@@ -12,12 +12,14 @@ const unsigned int WEBSOCKET_RECONNECT_INTERVAL = 5000;
 #define SDA_PIN 4
 #define SCL_PIN 5
 const uint8_t BME280_I2C_ADDRESS = 0x76;
-const unsigned int SENSOR_SEND_INTERVAL = 10000;
+const int TEMPERATURE_THRESHOLD = 2;  // 2 stopnie progu zmiany temperatury (jako int)
 
 Adafruit_BME280 bme;
 WebSocketsClient webSocketClient;
-unsigned int lastSendTime = 0;
 StaticJsonDocument<256> jsonPayload;
+
+// Tylko jedna zmienna do śledzenia ostatniej temperatury jako int
+int lastTemperature = -100;  // Inicjalizacja wartością niemożliwą
 
 void initializeJSON() { 
   jsonPayload["identity"] = "room_stats_sensor";
@@ -57,6 +59,9 @@ void setup() {
   Wire.begin(SDA_PIN, SCL_PIN);
   bme.begin(BME280_I2C_ADDRESS);
   initializeJSON();
+  
+  // Pobierz początkową temperaturę w formacie int
+  lastTemperature = (int)round(bme.readTemperature());
   updateJSONData();
   
   webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT);
@@ -65,7 +70,15 @@ void setup() {
       identifyDevice();
       updateJSONData();
       sendWebSocketData();
-      lastSendTime = millis();
+    }
+    else if (type == WStype_TEXT) {
+      // Handle ping from server
+      StaticJsonDocument<128> doc;
+      DeserializationError err = deserializeJson(doc, payload, length);
+      if (!err && doc.containsKey("type") && strcmp(doc["type"], "ping") == 0) {
+        updateJSONData();
+        sendWebSocketData();
+      }
     }
   });
   webSocketClient.setReconnectInterval(WEBSOCKET_RECONNECT_INTERVAL);
@@ -73,10 +86,14 @@ void setup() {
 
 void loop() {
   webSocketClient.loop();
-  unsigned int now = millis();
-  if (now - lastSendTime >= SENSOR_SEND_INTERVAL) {
+  
+  // Odczytaj aktualną temperaturę bezpośrednio jako int
+  int currentTemperature = (int)round(bme.readTemperature());
+  
+  // Sprawdź, czy temperatura zmieniła się o więcej niż próg
+  if (abs(currentTemperature - lastTemperature) >= TEMPERATURE_THRESHOLD) {
     updateJSONData();
     sendWebSocketData();
-    lastSendTime = now;
+    lastTemperature = currentTemperature;
   }
 }

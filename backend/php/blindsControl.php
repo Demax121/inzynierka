@@ -148,18 +148,18 @@ if ($token_data['success']) {
     $access_token = $token_data['result']['access_token'];
     if ($action === 'status') {
         $result = getDeviceStatus($access_token);
-        $battery = getDpValue($result, 'battery_percentage');
-        $control = getDpValue($result, 'control');
-
-        // Zwracamy oryginalne "result" oraz wyekstrahowane pola dla frontendu
-        $payload = [
-            'success' => $result['success'] ?? false,
-            'result' => $result['result'] ?? [],
-            'battery_percentage' => $battery,
-            'control' => $control
+        
+        // Extract only the needed values for a simplified response
+        $battery_percent = getDpValue($result, 'battery_percentage');
+        $control_value = getDpValue($result, 'control');
+        
+        // Create the simplest possible response structure without success field
+        $simplified_response = [
+            'battery_percent' => $battery_percent,
+            'blinds_state' => $control_value
         ];
 
-        echo json_encode($payload, JSON_PRETTY_PRINT);
+        echo json_encode($simplified_response, JSON_PRETTY_PRINT);
     } else {
         $result = controlBlinds($access_token, $action);
         echo json_encode($result, JSON_PRETTY_PRINT);
@@ -167,4 +167,5 @@ if ($token_data['success']) {
 } else {
     echo json_encode($token_data, JSON_PRETTY_PRINT);
 }
+?>
 ?>

@@ -5,12 +5,12 @@
 #include <WebSocketsClient.h>
 
 // Konfiguracja
-#define SDA_PIN 4
-#define SCL_PIN 5
+#define SDA_PIN 21
+#define SCL_PIN 22
 #define WEBSOCKET_SERVER "192.168.1.4"
 #define WEBSOCKET_PORT 8886
 
-const unsigned int SENSOR_SEND_INTERVAL = 10000;
+
 const unsigned int WEBSOCKET_RECONNECT_INTERVAL = 5000;
 const int LUX_THRESHOLD = 10;
 
@@ -18,7 +18,7 @@ WebSocketsClient webSocket;
 Adafruit_VEML7700 veml;
 StaticJsonDocument<256> jsonPayload;
 
-unsigned int lastSendMs = 0;
+
 int lastLux = -999;
 bool sensorReady = false;
 
@@ -41,6 +41,26 @@ void identifyDevice() {
   String idMessage;
   serializeJson(idDoc, idMessage);
   webSocket.sendTXT(idMessage);
+}
+
+void sendWebSocketData() {
+  if (!webSocket.isConnected()) return;
+  char buf[200];
+  size_t n = serializeJson(jsonPayload, buf);
+  webSocket.sendTXT(buf, n);
+}
+
+void handleWebSocketMessage(uint8_t* payload, size_t length) {
+  StaticJsonDocument<128> doc;
+  DeserializationError err = deserializeJson(doc, payload, length);
+  if (err) return;
+  
+  // Handle ping message from server
+  if (doc.containsKey("type") && strcmp(doc["type"], "ping") == 0) {
+    int currentLux = sensorReady ? (int)veml.readLux() : -1;
+    updateJSONData(currentLux);
+    sendWebSocketData();
+  }
 }
 
 void setup() {
@@ -68,23 +88,20 @@ void setup() {
   webSocket.onEvent([](WStype_t type, uint8_t *payload, size_t length) {
     if (type == WStype_CONNECTED) {
       identifyDevice();
+    } else if (type == WStype_TEXT) {
+      handleWebSocketMessage(payload, length);
     }
   });
 }
 
 void loop() {
   webSocket.loop();
-  unsigned int now = millis();
 
   int currentLux = sensorReady ? (int)veml.readLux() : -1;
 
-  if (abs(currentLux - lastLux) >= LUX_THRESHOLD || (now - lastSendMs >= SENSOR_SEND_INTERVAL)) {
+  if (abs(currentLux - lastLux) >= LUX_THRESHOLD) {
     updateJSONData(currentLux);
-
-    char buf[200];
-    size_t n = serializeJson(jsonPayload, buf);
-    webSocket.sendTXT(buf, n);
+    sendWebSocketData();
     lastLux = currentLux;
-    lastSendMs = now;
   }
 }
