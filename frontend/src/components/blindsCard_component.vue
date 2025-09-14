@@ -63,7 +63,6 @@ const makeApiCall = async (phpFile, actionParam) => {
         responseData.value = data
 
         if (data.success) {
-            
             fetchStatus().catch(err => console.warn('Failed to refresh status', err))
         }
     } catch (error) {
@@ -72,16 +71,29 @@ const makeApiCall = async (phpFile, actionParam) => {
 }
 
 
+// Define emits for manual control
+const emit = defineEmits(['manualControl']);
+
 const openBlinds = async () => {
+    // Emit event for manual control
+    emit('manualControl');
     await makeApiCall('blindsControl.php', 'open')
     setTimeout(fetchStatus, 5000);
 }
 
 
 const closeBlinds = async () => {
+    // Emit event for manual control
+    emit('manualControl');
     await makeApiCall('blindsControl.php', 'close')
     setTimeout(fetchStatus, 5000);
 }
+
+// Expose these methods to the parent component
+defineExpose({
+    openBlinds,
+    closeBlinds
+});
 
 
 const parseStatus = (data) => {
@@ -136,13 +148,31 @@ const parseStatus = (data) => {
 
 const fetchStatus = async () => {
     try {
-        const apiUrl = linkStore.getPhpApiUrl('blindsControl.php') + '?action=status'
+        const apiUrl = linkStore.getPhpApiUrl('getBlindsStatus.php')
         const resp = await fetch(apiUrl, { method: 'GET' })
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
         const data = await resp.json()
         responseData.value = data
-        if (data.success) {
-            parseStatus(data.result ?? data)
+        
+        // Handle the new response format directly
+        if (data) {
+            // Set battery level directly from response
+            if (data.battery_percent !== undefined && data.battery_percent !== null) {
+                batteryLevel.value = Number(data.battery_percent)
+            }
+            
+            // Set device state based on blinds_state value
+            if (data.blinds_state !== undefined) {
+                const state = String(data.blinds_state).toLowerCase()
+                if (state === 'open' || state === '1' || state === 'true') {
+                    deviceState.value = 'open'
+                } else if (state === 'close' || state === '0' || state === 'false') {
+                    deviceState.value = 'close'
+                }
+            } else {
+                // If no state in response, try parsing the whole response with the old method
+                parseStatus(data)
+            }
         }
     } catch (err) {
         console.error('fetchStatus error', err)

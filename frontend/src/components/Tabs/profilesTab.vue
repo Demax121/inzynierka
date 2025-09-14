@@ -1,15 +1,17 @@
 
 <script setup>
-import ProfileConfiguration from '../profileConfigurationCard_component.vue'
-import ChooseProfile from '../chooseProfileCard_component.vue'
+
+
+import CreateProfileCard_component from '../CreateProfileCard_component.vue'
+import ChooseProfileCard_component from '../chooseProfileCard_component.vue'
 
 
 </script>
 
 <template>
     <div class="main-container">
-<profile-configuration />
-<choose-profile />
+<create-profile-card_component />
+<choose-profile-card_component />
     </div>
 </template>
 

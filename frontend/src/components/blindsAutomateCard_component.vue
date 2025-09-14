@@ -23,7 +23,7 @@
                     <div class="input-group input-group--slider">
                         <span class="slider-label">Tryb automatyczny:</span>
                         <label class="switch switch--small">
-                            <input type="checkbox" v-model="automate">
+                            <input type="checkbox" v-model="automate" @change="handleAutomateChange">
                             <span class="slider"></span>
                         </label>
                     </div>
@@ -42,9 +42,20 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useLinkStore } from '@/stores/linkStore'
 
+// Define props to receive handlers from parent
+const props = defineProps({
+  openBlindsHandler: {
+    type: Function,
+    required: true
+  },
+  closeBlindsHandler: {
+    type: Function,
+    required: true
+  }
+});
 
 const status = ref('')
 const loading = ref(false)
@@ -53,6 +64,7 @@ const minLux = ref(0)
 const maxLux = ref(0)
 const automate = ref(false);
 
+let ws;
 
 const linkStore = useLinkStore()
 
@@ -82,10 +94,151 @@ const getLuxConfig = async () => {
     }
 }
 
+// Use the handlers from props instead of implementing our own functions
+// Handler for when the automate toggle changes
+const handleAutomateChange = () => {
+    // Save the automate state immediately when it changes
+    saveLuxConfigQuiet();
+    
+    // Update the last change timestamp to prevent immediate automation
+    lastAutomateChange.value = Date.now();
+    
+    if (automate.value) {
+        status.value = 'Automatyka włączona';
+    } else {
+        status.value = 'Automatyka wyłączona';
+    }
+    
+    // Clear status after a delay
+    setTimeout(() => {
+        if (status.value === 'Automatyka włączona' || status.value === 'Automatyka wyłączona') {
+            status.value = '';
+        }
+    }, 3000);
+};
+
+const openBlinds = () => {
+    status.value = 'Otwieranie rolet...'
+    props.openBlindsHandler();
+    // Set status back after a delay to simulate completion
+    setTimeout(() => {
+        status.value = 'Rolety otwarte';
+    }, 2000);
+}
+
+const closeBlinds = () => {
+    status.value = 'Zamykanie rolet...'
+    props.closeBlindsHandler();
+    // Set status back after a delay to simulate completion
+    setTimeout(() => {
+        status.value = 'Rolety zamknięte';
+    }, 2000);
+}
+
+// Automatically control blinds based on lux value and configured thresholds
+const handleLuxAutomation = (luxValue) => {
+    if (!automate.value) {
+        return; // Automation disabled
+    }
+    
+    if (luxValue !== null) {
+        if (luxValue < minLux.value) {
+            // Too dark, close blinds
+            closeBlinds();
+            console.log(`Auto-closing blinds: lux (${luxValue}) < min_lux (${minLux.value})`);
+        } else if (luxValue >= minLux.value && luxValue < maxLux.value) {
+            // Ideal range, open blinds
+            openBlinds();
+            console.log(`Auto-opening blinds: min_lux (${minLux.value}) <= lux (${luxValue}) < max_lux (${maxLux.value})`);
+        } else if (luxValue >= maxLux.value) {
+            // Too bright, close blinds
+            closeBlinds();
+            console.log(`Auto-closing blinds: lux (${luxValue}) >= max_lux (${maxLux.value})`);
+        }
+    }
+}
+
+// Keep track of the last time the automation state was changed
+const lastAutomateChange = ref(Date.now());
+// Debounce time to prevent automation running too soon after toggling (in milliseconds)
+const AUTOMATE_DEBOUNCE = 2000;
+
 onMounted(() => {
-    getLuxConfig()
+    getLuxConfig();
+    
+    // Setup WebSocket connection
+    ws = new WebSocket('ws://192.168.1.4:8886');
+    
+    ws.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            if (data.channel === 'lux_sensor' && data.lux !== undefined) {
+                // Only process automation if we're not in the debounce period after toggling automate
+                if (Date.now() - lastAutomateChange.value > AUTOMATE_DEBOUNCE) {
+                    handleLuxAutomation(data.lux);
+                }
+            }
+        } catch (error) {
+            console.error('WebSocket message error:', error);
+        }
+    };
+    
+    ws.onopen = () => {
+        console.log('WebSocket connected for blinds automation');
+    };
+    
+    ws.onclose = () => {
+        console.log('WebSocket connection closed for blinds automation');
+    };
+    
+    ws.onerror = (error) => {
+        console.error('WebSocket error for blinds automation:', error);
+    };
 })
 
+onUnmounted(() => {
+    if (ws) ws.close();
+})
+
+
+// Function to disable automation when manual control is used
+const disableAutomation = () => {
+    if (automate.value === true) {
+        automate.value = false;
+        // Save the new state to the server to persist it
+        saveLuxConfigQuiet();
+        // Update the last change timestamp
+        lastAutomateChange.value = Date.now();
+        status.value = 'Automatyka wyłączona (sterowanie ręczne)';
+        setTimeout(() => {
+            if (status.value === 'Automatyka wyłączona (sterowanie ręczne)') {
+                status.value = '';
+            }
+        }, 3000);
+    }
+};
+
+// Expose the disableAutomation method to parent component
+defineExpose({
+    disableAutomation
+});
+
+// Save config without showing status messages (used by disableAutomation)
+const saveLuxConfigQuiet = async () => {
+    try {
+        await fetch(linkStore.getPhpApiUrl('saveBlindsConfig.php'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                minLux: minLux.value, 
+                maxLux: maxLux.value,
+                automate: automate.value 
+            })
+        });
+    } catch (error) {
+        console.error('Error saving config quietly:', error);
+    }
+};
 
 const saveLuxConfig = async () => {
     loading.value = true
