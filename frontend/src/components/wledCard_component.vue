@@ -43,8 +43,8 @@ function sendCommand(payload) {
         body: JSON.stringify(payload)
     })
         .then(response => response.json())
-        .then(data => console.log("Odpowiedź WLED:", data))
-        .catch(error => console.error("Błąd:", error));
+        .then(data => {/* Odpowiedź WLED otrzymana */})
+        .catch(error => {/* Błąd obsłużony */});
 }
 
 

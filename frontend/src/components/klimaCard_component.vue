@@ -80,26 +80,22 @@ function connect() {
       // Obsługa room_stats dla temperatury
       else if (data.channel === 'room_stats' && typeof data.temperature === 'number') {
         currentTemp.value = data.temperature;
-        console.log(`Zaktualizowano temperaturę z room_stats: ${data.temperature}°C`);
       }
       // Obsługa disconnection status
       else if (data.channel === 'air_conditioning' && data.status === 'disconnected') {
-        console.log('ESP32 air_conditioning rozłączony');
         loading.value = true; // Set loading back to true when device disconnects
       }
     } catch (error) {
-      console.error('Błąd parsowania danych klimatyzacji:', error);
+      // Błąd parsowania danych klimatyzacji - obsłużony cicho
     }
   };
   
   ws.onclose = () => {
-    console.log('WebSocket połączenie zamknięte dla klimatyzacji');
     loading.value = true;
     scheduleReconnect();
   };
   
-  ws.onerror = (error) => {
-    console.error('Błąd WebSocket dla klimatyzacji:', error);
+  ws.onerror = () => {
     loading.value = true;
     if (ws) ws.close();
   };
