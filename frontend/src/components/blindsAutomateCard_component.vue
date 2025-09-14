@@ -82,7 +82,6 @@ const getLuxConfig = async () => {
             if (data.max_lux !== undefined) maxLux.value = Number(data.max_lux)
             if (data.automate !== undefined) automate.value = Boolean(data.automate)
             status.value = 'Konfiguracja załadowana.'
-            console.log(`Min lux: ${minLux.value}, Max lux: ${maxLux.value}, Automat: ${automate.value}`)
         } else {
             status.value = 'Błąd: Nieprawidłowy format odpowiedzi.'
         }
