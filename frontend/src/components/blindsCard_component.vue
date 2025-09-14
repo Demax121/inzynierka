@@ -63,10 +63,10 @@ const makeApiCall = async (phpFile, actionParam) => {
         responseData.value = data
 
         if (data.success) {
-            fetchStatus().catch(err => console.warn('Failed to refresh status', err))
+            fetchStatus().catch(() => {})
         }
     } catch (error) {
-        console.error(`Error with API call:`, error)
+        // API call error handled silently
     }
 }
 
@@ -175,7 +175,7 @@ const fetchStatus = async () => {
             }
         }
     } catch (err) {
-        console.error('fetchStatus error', err)
+        // fetchStatus error handled silently
     }
 }
 

@@ -86,7 +86,6 @@ const getLuxConfig = async () => {
             status.value = 'Błąd: Nieprawidłowy format odpowiedzi.'
         }
     } catch (error) {
-        console.error('Error fetching lux config:', error)
         status.value = `Błąd połączenia: ${error.message}`
     } finally {
         loading.value = false
@@ -144,15 +143,12 @@ const handleLuxAutomation = (luxValue) => {
         if (luxValue < minLux.value) {
             // Too dark, close blinds
             closeBlinds();
-            console.log(`Auto-closing blinds: lux (${luxValue}) < min_lux (${minLux.value})`);
         } else if (luxValue >= minLux.value && luxValue < maxLux.value) {
             // Ideal range, open blinds
             openBlinds();
-            console.log(`Auto-opening blinds: min_lux (${minLux.value}) <= lux (${luxValue}) < max_lux (${maxLux.value})`);
         } else if (luxValue >= maxLux.value) {
             // Too bright, close blinds
             closeBlinds();
-            console.log(`Auto-closing blinds: lux (${luxValue}) >= max_lux (${maxLux.value})`);
         }
     }
 }
@@ -178,20 +174,20 @@ onMounted(() => {
                 }
             }
         } catch (error) {
-            console.error('WebSocket message error:', error);
+            // WebSocket message error handled silently
         }
     };
     
     ws.onopen = () => {
-        console.log('WebSocket connected for blinds automation');
+        // WebSocket connected
     };
     
     ws.onclose = () => {
-        console.log('WebSocket connection closed for blinds automation');
+        // WebSocket closed
     };
     
-    ws.onerror = (error) => {
-        console.error('WebSocket error for blinds automation:', error);
+    ws.onerror = () => {
+        // WebSocket error handled silently
     };
 })
 
@@ -235,7 +231,7 @@ const saveLuxConfigQuiet = async () => {
             })
         });
     } catch (error) {
-        console.error('Error saving config quietly:', error);
+        // Error saving config quietly - handled silently
     }
 };
 
@@ -268,7 +264,6 @@ const saveLuxConfig = async () => {
             status.value = 'Błąd podczas zapisywania'
         }
     } catch (error) {
-        console.error('Error saving config:', error)
         status.value = `Błąd połączenia: ${error.message}`
     } finally {
         loading.value = false
