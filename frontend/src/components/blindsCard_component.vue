@@ -5,46 +5,22 @@
         </div>
         <div class="card__body">
             <div class="card__content">
-                <div class="status" v-if="status">
-                    <p class="card__text card__text--bold">{{ status }}</p>
-                </div>
-                
-                <div class="lux-config-form">
-                    <div class="input-group">
-                        <label for="minLux">Min lux:</label>
-                        <input 
-                            id="minLux"
-                            v-model.number="minLux" 
-                            type="number" 
-                            min="0" 
-                            placeholder="Minimalna wartość lux"
-                            class="lux-input"
-                        />
-                    </div>
-                    <div class="input-group">
-                        <label for="maxLux">Max lux:</label>
-                        <input 
-                            id="maxLux"
-                            v-model.number="maxLux" 
-                            type="number" 
-                            min="0" 
-                            placeholder="Maksymalna wartość lux"
-                            class="lux-input"
-                        />
-                    </div>
-                    <button class="btn" @click="saveLuxConfig" :disabled="loading">
-                        {{ loading && currentAction === 'save' ? 'Zapisywanie...' : 'Ustaw granice' }}
-                    </button>
-                </div>
 
                 <div class="button-group">
-                    <button class="btn" @click="openBlinds" :disabled="loading">
-                        {{ loading && currentAction === 'open' ? 'Otwieranie...' : 'Otwórz rolety' }}
+                    <button type="button" class="btn" @click="openBlinds">
+                        {{ currentAction === 'open' }}
                     </button>
 
-                    <button class="btn" @click="closeBlinds" :disabled="loading">
-                        {{ loading && currentAction === 'close' ? 'Zamykanie...' : 'Zamknij rolety' }}
+                    <button type="button" class="btn" @click="closeBlinds">
+                        {{ currentAction === 'close' }}
                     </button>
+                    <button type="button" class="btn" @click="fetchStatus()">
+                        {{ 'Pobierz status' }}
+                    </button>
+                </div>
+                <div class="device-info" v-if="batteryLevel !== null || deviceState !== null">
+                    <p class="card__text"><b>Poziom baterii: </b> {{ batteryLevel !== null ? batteryLevel + '%' : 'Brak danych' }}</p>
+                    <p class="card__text"><b>Stan rolet: </b> {{ deviceStateText}}</p>
                 </div>
             </div>
         </div>
@@ -52,21 +28,17 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useLinkStore } from '@/stores/linkStore'
 
-// Reactive state
-const status = ref('')
-const loading = ref(false)
-const responseData = ref(null)
 const currentAction = ref('')
-const minLux = ref(0)
-const maxLux = ref(0)
+const batteryLevel = ref(null)
+const deviceState = ref(null)
 
-// Initialize the link store
+
 const linkStore = useLinkStore()
 
-// Generic function to make API calls for blinds control
+
 const makeApiCall = async (phpFile, actionParam, action, statusMessage, successMessage) => {
     loading.value = true
     currentAction.value = action
@@ -75,8 +47,8 @@ const makeApiCall = async (phpFile, actionParam, action, statusMessage, successM
 
     try {
         let apiUrl = linkStore.getPhpApiUrl(phpFile)
-        
-        // Add action parameter for the unified blinds control
+
+
         if (actionParam) {
             apiUrl += `?action=${actionParam}`
         }
@@ -97,6 +69,8 @@ const makeApiCall = async (phpFile, actionParam, action, statusMessage, successM
 
         if (data.success) {
             status.value = successMessage
+
+            fetchStatus().catch(err => console.warn('Failed to refresh status', err))
         } else {
             status.value = `Błąd: ${data.msg || 'Nieznany błąd'}`
         }
@@ -111,99 +85,119 @@ const makeApiCall = async (phpFile, actionParam, action, statusMessage, successM
     }
 }
 
-// Function to open blinds
+
 const openBlinds = async () => {
-    await makeApiCall('blindsControl.php', 'open', 'open', 'Otwieranie rolet...', 'Rolety zostały otwarte!')
+    await makeApiCall('blindsControl.php', 'open')
+    setTimeout(fetchStatus, 5000);
 }
 
-// Function to close blinds
+
 const closeBlinds = async () => {
-    await makeApiCall('blindsControl.php', 'close', 'close', 'Zamykanie rolet...', 'Rolety zostały zamknięte!')
+    await makeApiCall('blindsControl.php', 'close')
+    setTimeout(fetchStatus, 5000);
 }
 
 
-const saveLuxConfig = async () => {
-    status.value = 'Zapisano'
-    if (minLux.value >= maxLux.value) {
-        status.value = 'Błąd: Min lux musi być mniejsze niż Max lux.'
-        return
+const parseStatus = (data) => {
+
+    batteryLevel.value = null
+    deviceState.value = null
+
+    if (!data) return
+
+
+    const result = data.result ?? data
+
+    let items = []
+    if (Array.isArray(result)) {
+        items = result
+    } else if (result && typeof result === 'object') {
+
+        items = result.list ?? result.status ?? []
+        if (!Array.isArray(items)) items = []
     }
-  const res = await fetch(linkStore.getPhpApiUrl('saveBlindsConfig.php'), {
-    method: 'POST',
-    headers: { 'Content-Type':'application/json' },
-    body: JSON.stringify({ minLux:minLux.value, maxLux:maxLux.value })
-  })
+
+
+    const numericStateCodes = ['control', 'state', 'switch', 'status']
+    const textStateCodes = ['control', 'state', 'switch', 'status']
+
+    for (const it of items) {
+        const code = (it.code || '').toLowerCase()
+        const value = it.value
+
+        if (code.includes('battery') && (typeof value === 'number' || typeof value === 'string')) {
+            const num = Number(value)
+            if (!Number.isNaN(num)) batteryLevel.value = num
+        }
+
+        if (typeof value === 'string' && (textStateCodes.includes(code) || code.includes('control'))) {
+            const v = value.toLowerCase()
+            if (v.includes('open')) deviceState.value = 'open'
+            if (v.includes('close')) deviceState.value = 'close'
+            continue
+        }
+
+
+        if (typeof value === 'number' && numericStateCodes.includes(code)) {
+            if (value === 1) deviceState.value = 'open'
+            else if (value === 0) deviceState.value = 'close'
+        } else if (typeof value === 'boolean' && (textStateCodes.includes(code) || code.includes('control'))) {
+            deviceState.value = value ? 'open' : 'close'
+        }
+    }
 }
 
 
+const fetchStatus = async () => {
+    try {
+        const apiUrl = linkStore.getPhpApiUrl('blindsControl.php') + '?action=status'
+        const resp = await fetch(apiUrl, { method: 'GET' })
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+        const data = await resp.json()
+        responseData.value = data
+        if (data.success) {
+            parseStatus(data.result ?? data)
+            status.value = 'Pobrano status urządzenia'
+        } else {
+            status.value = `Błąd pobierania statusu: ${data.msg || 'Nieznany błąd'}`
+        }
+    } catch (err) {
+        console.error('fetchStatus error', err)
+        status.value = `Błąd połączenia: ${err.message}`
+    }
+}
+
+const deviceStateText = computed(() => {
+    if (deviceState.value === 'open') return 'Otwarte'
+    if (deviceState.value === 'close') return 'Zamknięte'
+    return 'Nieznany'
+})
+
+onMounted(() => {
+    fetchStatus().catch(() => { })
+})
 
 </script>
 
 <style lang="scss" scoped>
-// SCSS Variables for styling
-$input-width: 120px;
-$input-padding: 6px 10px;
-$input-font-size: 11pt;
-$form-margin-bottom: 0rem;
-$input-group-gap: 0.4rem;
 $button-padding: 11px 15px;
 $button-font-size: 12pt;
-
-.lux-config-form {
-    margin-bottom: $form-margin-bottom;
-    padding: 1rem;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    background-color: #f9f9f9;
-    text-align: center;
-}
-
-.input-group {
-    display: flex;
-    align-items: center;
-    margin-bottom: $input-group-gap;
-    gap: 1rem;
-    justify-content: center;
-}
-
-.input-group label {
-    min-width: 70px;
-    font-weight: bold;
-    font-size: 14px;
-}
-
-.lux-input {
-    padding: $input-padding;
-    font-size: $input-font-size;
-    width: $input-width;
-    border: 2px solid #ccc;
-    border-radius: 4px;
-    outline: none;
-    transition: border-color 0.3s;
-}
-
-.lux-input:focus {
-    border-color: var(--color, #007bff);
-}
-
-.lux-config-form .btn,
-.button-group .btn {
-    padding: $button-padding;
-    font-size: $button-font-size;
-}
 
 .button-group {
     margin-top: 0.5rem;
 }
 
 .device-info {
-    border-radius: 10px;
     filter: drop-shadow(0 5px 10px 0 #ffffff);
     width: 15rem;
     height: 5rem;
-    background-color: $background-crl-secondary;
     padding: 1rem;
     color: white;
-    font-family: "Poppins", sans-serif;
+    font-size: 13pt;
+
+}
+
+.card__text {
+    font-size: inherit;
 }
 </style>

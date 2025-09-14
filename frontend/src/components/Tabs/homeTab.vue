@@ -6,7 +6,9 @@ import main_lights from '@/components/światłaCard_component.vue';
 import room_stats from '@/components/roomStatsCard_component.vue';
 import LEDs from '@/components/wledCard_component.vue';
 import AC from '@/components/klimaCard_component.vue';
-import lux_sensorCard_component from '../luxSensorCard_component.vue'
+import lux_sensorCard_component from '../luxSensorCard_component.vue';
+import BlindsAutomateCard_component from '../blindsAutomateCard_component.vue'
+
 
 
 </script>
@@ -16,6 +18,7 @@ import lux_sensorCard_component from '../luxSensorCard_component.vue'
     <Doors />
     <room_stats />
     <Blinds />
+    <BlindsAutomateCard_component />
     <main_lights />
     <LEDs />
     <AC />

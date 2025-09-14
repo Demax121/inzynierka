@@ -12,18 +12,19 @@ try {
         ]
     );
 
-    $stmt = $pdo->query('SELECT * FROM public.blinds_config');
-    $rows = $stmt->fetchAll();
+    // pobieramy tylko potrzebne pola
+    $stmt = $pdo->query('SELECT min_lux, max_lux FROM public.blinds_config LIMIT 1');
+    $row = $stmt->fetch();
 
     echo json_encode([
-        'success' => true,
-        'data' => $rows
+        'min_lux' => (int)($row['min_lux'] ?? 0),
+        'max_lux' => (int)($row['max_lux'] ?? 0)
     ], JSON_UNESCAPED_UNICODE);
 
 } catch (PDOException $e) {
     http_response_code(500);
     echo json_encode([
-        'success' => false,
         'error' => $e->getMessage()
     ], JSON_UNESCAPED_UNICODE);
 }
+?>

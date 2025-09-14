@@ -3,12 +3,13 @@
 *::before,
 *::after {
   box-sizing: border-box;
+  
 }
 /* Remove default margin and padding on everything*/
 *{
   margin: 0;
   padding: 0;
-  font: inherit;
+  font: "Poppins", sans-serif;
 }
 /* Avoid text overflow */
 p, h1, h2, h3, h4, h5, h6 {
