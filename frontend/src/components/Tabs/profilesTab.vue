@@ -2,7 +2,7 @@
 <script setup>
 
 
-import CreateProfileCard_component from '../CreateProfileCard_component.vue'
+import CreateProfileCard_component from '../createProfileCard_component.vue'
 import ChooseProfileCard_component from '../chooseProfileCard_component.vue'
 
 
@@ -18,5 +18,13 @@ import ChooseProfileCard_component from '../chooseProfileCard_component.vue'
 
 
 <style lang="scss" scoped>
+
+.main-container {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 1rem;
+  gap: 1.5rem; /* Odstęp między kartami */
+}
 
 </style>

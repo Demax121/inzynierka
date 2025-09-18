@@ -23,32 +23,108 @@
                         {{ 'Wyłącz LED' }}
                     </button>
                 </div>
+                
+                <div class="presets-container">
+                    <div v-if="loading && !presetsLoaded" class="loading-indicator">
+                        Ładowanie presetów...
+                    </div>
+                    
+                    <div v-if="presets.length > 0" class="preset-select-container">
+                        <select v-model="selectedPreset" class="preset-select" :disabled="loading">
+                            <option disabled value="">Wybierz preset</option>
+                            <!-- Regular presets from WLED -->
+                            <option v-for="preset in presets" :key="preset.id" :value="preset.id">
+                                {{ preset.name }}
+                            </option>
+                        </select>
+                        
+                        <button class="btn" @click="applySelectedPreset" :disabled="!selectedPreset || loading">
+                            Zastosuj
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue';
+import { useLinkStore } from '@/stores/linkStore';
 
-const WLED_IP = "192.168.1.25"; // Adres WLED
-const WLED_ENDPOINT = "/json/state";
+// Use the linkStore for WLED functionality
+const linkStore = useLinkStore();
+const selectedPreset = ref("");
+
+// Get loading and presetsLoaded state for template usage
+const loading = computed(() => linkStore.wledPresetsLoading);
+const presetsLoaded = computed(() => linkStore.wledPresetsLoaded);
+const presets = computed(() => linkStore.wledPresets);
+
+onMounted(() => {
+    linkStore.fetchWledPresets();
+});
 
 function sendCommand(payload) {
-    fetch(WLED_IP + WLED_ENDPOINT, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify(payload)
-    })
-        .then(response => response.json())
-        .then(data => {/* Odpowiedź WLED otrzymana */})
-        .catch(error => {/* Błąd obsłużony */});
+    linkStore.sendWledCommand(payload);
 }
 
-
-
+function applySelectedPreset() {
+    if (selectedPreset.value) {
+        console.log(`Applying selection: ${selectedPreset.value}`);
+        
+        // Handle special options
+        if (selectedPreset.value === 'off') {
+            // Turn off the LEDs
+            sendCommand({
+                on: false
+            });
+        } else if (selectedPreset.value === 'ambilight') {
+            // Enable Ambilight mode
+            sendCommand({
+                on: true,
+                lor: 0 // Ambilight mode
+            });
+        } else {
+            // Apply regular preset
+            sendCommand({
+                on: true,   // Turn on the LEDs
+                ps: selectedPreset.value  // Apply the selected preset
+            });
+        }
+    }
+}
 </script>
 
-<style lang="scss" scoped></style>
+<style lang="scss" scoped>
+.presets-container {
+    margin-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.preset-select-container {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    align-items: center;
+}
+
+.preset-select {
+    flex: 1;
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    border: 1px solid #ccc;
+    background-color: var(--color-background);
+    color: var(--color-text);
+    min-width: 150px;
+}
+
+.loading-indicator {
+    font-style: italic;
+    color: var(--color-text-secondary, #777);
+    margin-bottom: 0.5rem;
+    text-align: center;
+}
+</style>

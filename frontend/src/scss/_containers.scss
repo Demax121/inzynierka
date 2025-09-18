@@ -22,6 +22,10 @@
         transform: translateY(-0.125rem); /* 2px */
     }
 
+    &--big{
+        min-height: 50rem; /* 480px */
+        max-height: 50rem; /* 640px */
+    }
     &__header {
         padding: 1.25rem 1.25rem 1rem; /* 20px 20px 16px */
         border-bottom: 0.0625rem solid #f0f0f0; /* 1px */
