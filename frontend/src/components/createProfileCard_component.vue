@@ -61,6 +61,43 @@
             </div>
           </div>
 
+          <div class="form-group">
+            <label class="group-title">Rolety / Zasłony:</label>
+            <div class="blinds-control">
+              <div class="radio-group">
+                <label class="radio-label">
+                  <input type="radio" v-model="profileSettings.blindsMode" value="open" name="blinds-mode">
+                  <span>Otwarte</span>
+                </label>
+                <label class="radio-label">
+                  <input type="radio" v-model="profileSettings.blindsMode" value="close" name="blinds-mode">
+                  <span>Zamknięte</span>
+                </label>
+                <label class="radio-label">
+                  <input type="radio" v-model="profileSettings.blindsMode" value="auto" name="blinds-mode">
+                  <span>Automatyzacja</span>
+                </label>
+              </div>
+              
+              <!-- Conditional lux settings when auto mode is selected -->
+              <div v-if="profileSettings.blindsMode === 'auto'" class="lux-settings">
+                <div class="lux-config-form">
+                  <div class="input-group">
+                    <label for="minLux">Min lux:</label>
+                    <input id="minLux" v-model.number="profileSettings.minLux" type="number" class="lux-input" required>
+                    <span class="lux-explanation">Powyżej tej wartości zasłony zostaną podniesione</span>
+                  </div>
+                  <div class="input-group">
+                    <label for="maxLux">Max lux:</label>
+                    <input id="maxLux" v-model.number="profileSettings.maxLux" type="number" class="lux-input" required>
+                    <span class="lux-explanation">Powyżej tej wartości zasłony zostaną opuszczone</span>
+                  </div>
+                </div>
+                <div class="form-help-text">Ustaw granice jasności dla automatyki rolet</div>
+              </div>
+            </div>
+          </div>
+
           <!-- Hidden field to store the JSON data for form submission -->
           <input type="hidden" name="profileJSON" :value="JSON.stringify(buildProfileJSON())" />
 
@@ -91,6 +128,9 @@ const profileSettings = reactive({
   wledPreset: '',
   lightsOn: false, // Default state for main lights
   acTemperature: null, // Temperature setting for AC
+  blindsMode: 'open', // Default to 'open', options: 'open', 'close', 'auto'
+  minLux: 5000, // Default min lux value
+  maxLux: 20000, // Default max lux value
   // Add other settings for the profile here
 });
 
@@ -122,6 +162,20 @@ function buildProfileJSON() {
       payload: {
         requestedTemp: profileSettings.acTemperature
       }
+    };
+  }
+
+  // Add blinds settings based on selected mode
+  if (profileSettings.blindsMode === 'open' || profileSettings.blindsMode === 'close') {
+    profileJSON.blinds = {
+      state: profileSettings.blindsMode // 'open' or 'close'
+    };
+  } else if (profileSettings.blindsMode === 'auto') {
+    // For auto mode, include min/max lux settings
+    profileJSON.blinds = {
+      minLux: profileSettings.minLux,
+      maxLux: profileSettings.maxLux,
+      automate: true
     };
   }
 
@@ -164,6 +218,9 @@ function saveProfile() {
   profileSettings.wledPreset = '';
   profileSettings.lightsOn = false; // Reset lightsOn state
   profileSettings.acTemperature = null; // Reset temperature setting
+  profileSettings.blindsMode = 'open'; // Reset blinds mode to default
+  profileSettings.minLux = 5000; // Reset min lux
+  profileSettings.maxLux = 20000; // Reset max lux
 }
 
 // Using HTML required attributes for validation instead
@@ -229,6 +286,64 @@ onMounted(() => {
 .temperature-input {
   width: 100%;
   max-width: 200px;
+}
+
+/* Layout for blinds control */
+.blinds-control {
+  display: flex;
+  flex-direction: column;
+  margin-top: 0.5rem;
+}
+
+.radio-group {
+  display: flex;
+  flex-direction: row;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.lux-settings {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed #ccc;
+}
+
+.lux-config-form {
+  margin-bottom: 0.5rem;
+}
+
+.input-group {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  gap: 1rem;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.lux-input {
+  padding: 6px 10px;
+  font-size: 11pt;
+  width: 120px;
+  border: 2px solid #ccc;
+  border-radius: 4px;
+  outline: none;
+  transition: border-color 0.3s;
+}
+
+.lux-explanation {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary, #777);
+  margin-left: 0.5rem;
+  flex: 1;
 }
 
 .form-help-text {
