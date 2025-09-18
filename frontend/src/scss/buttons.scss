@@ -62,7 +62,7 @@ max-width: 180px;
 .switch {
   position: relative;
   display: inline-block;
-  width: 8rem;
+  width: 10rem;
   height: 3rem;
   
   /* For larger variant */
@@ -162,7 +162,7 @@ input:checked + .slider::after {
 
 /* Gdy zaznaczony przesuwamy kółko w prawo */
 input:checked + .slider:before {
-  transform: translateX(5rem);
+  transform: translateX(7rem);
 }
 
 .switch--large input:checked + .slider:before {

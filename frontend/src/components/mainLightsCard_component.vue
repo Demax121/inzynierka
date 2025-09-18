@@ -7,50 +7,6 @@
       <div class="card__content card__content--slider">
         <div v-if="loading" class="lights-loading">💡</div>
         <label v-else class="switch switch--large">
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
           <input type="checkbox" :checked="isLightOn" @change="toggleLights">
           <span class="slider round"></span>
         </label>

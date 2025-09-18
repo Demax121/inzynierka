@@ -7,18 +7,20 @@
       <div class="card__content">
         <form @submit.prevent="saveProfile" class="profile-form">
           <div class="form-group">
-            <label for="profileName">Nazwa profilu:</label>
-            <input type="text" id="profileName" v-model="profileName" class="form-control" placeholder="Wpisz nazwę profilu" required>
+            <label for="profileName"  class="group-title">Nazwa profilu:</label>
+            <input type="text" id="profileName" v-model="profileName" class="form-control"
+              placeholder="Wpisz nazwę profilu" required>
           </div>
-          
+
           <div class="form-group">
-            <label for="wledPreset">Preset WLED:</label>
+            <label for="wledPreset" class="group-title">Preset WLED:</label>
             <div class="preset-select-container">
               <div v-if="loading && !presetsLoaded" class="loading-indicator">
                 Ładowanie presetów WLED...
               </div>
-              
-              <select v-if="presets.length > 0 || presetsLoaded" v-model="profileSettings.wledPreset" id="wledPreset" class="form-control preset-select" required>
+
+              <select v-if="presets.length > 0 || presetsLoaded" v-model="profileSettings.wledPreset" id="wledPreset"
+                class="form-control preset-select" required>
                 <option disabled value="">Wybierz preset WLED</option>
                 <!-- Special options -->
                 <option value="off">Wyłączony</option>
@@ -31,11 +33,19 @@
             </div>
           </div>
 
-          <!-- Możesz dodać tutaj więcej opcji konfiguracyjnych dla profilu -->
-          
+          <div class="form-group">
+            <label for="mainLights"  class="group-title">Oświetlenie:</label>
+            <div class="lights-control">
+              <label class="switch">
+                <input type="checkbox">
+                <span class="slider round"></span>
+              </label>
+            </div>
+          </div>
+
           <!-- Hidden field to store the JSON data for form submission -->
           <input type="hidden" name="profileJSON" :value="JSON.stringify(buildProfileJSON())" />
-          
+
           <div class="button-group">
             <button type="submit" class="btn" :disabled="!isFormValid">Zapisz profil</button>
           </div>
@@ -61,6 +71,7 @@ const presets = computed(() => linkStore.wledPresets);
 const profileName = ref('');
 const profileSettings = reactive({
   wledPreset: '',
+  lightsOn: false, // Default state for main lights
   // Add other settings for the profile here
 });
 
@@ -79,9 +90,15 @@ function buildProfileJSON() {
       on: true,
       lor: 2,
       ps: null
+    },
+    lights: {
+      channel: "main_lights",
+      payload: {
+        state: profileSettings.lightsOn
+      }
     }
   };
-  
+
   // Configure WLED settings based on the selected option
   if (profileSettings.wledPreset === 'off') {
     // If "Wyłączone" is selected
@@ -101,23 +118,23 @@ function buildProfileJSON() {
     profileJSON.WLED.lor = 2; // Regular WLED preset mode
     profileJSON.WLED.ps = parseInt(profileSettings.wledPreset); // Use the preset ID
   }
-  
+
   return profileJSON;
 }
 
 // Save profile function
 function saveProfile() {
   if (!isFormValid.value) return;
-  
+
   // Build the profile JSON
   const profileData = buildProfileJSON();
-  
+
   // Display the JSON in the console (formatted for readability)
   console.log('Profile JSON:', JSON.stringify(profileData, null, 2));
-  
+
   // Here you would save the profile to your backend or local storage
   // This could be implemented later with a form submission to a PHP endpoint
-  
+
   // Reset form after save
   profileName.value = '';
   profileSettings.wledPreset = '';
@@ -133,7 +150,7 @@ onMounted(() => {
 <style lang="scss" scoped>
 .form-group {
   margin-bottom: 1rem;
-  
+
   label {
     display: block;
     margin-bottom: 0.5rem;
@@ -165,4 +182,19 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
 }
+
+/* Layout for lights control */
+.lights-control {
+  display: flex;
+  justify-content: left;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+
+.group-title{
+  font-size: 13pt;
+  padding-left: 0.75rem;
+}
+
+
 </style>
