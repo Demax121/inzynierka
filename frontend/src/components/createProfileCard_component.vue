@@ -201,11 +201,28 @@ function buildProfileJSON() {
   return profileJSON;
 }
 
+// Define props to receive shared profile names from parent
+const props = defineProps({
+  sharedProfileNames: {
+    type: Object, // Set object
+    default: () => new Set()
+  }
+});
+
+// Define emits to send updates to parent
+const emit = defineEmits(['profile-created']);
+
 // Save profile function
 function saveProfile() {
   // Validate profile name
   if (!profileName.value.trim()) {
     alert('Proszę podać nazwę profilu');
+    return;
+  }
+  
+  // Check if profile name already exists in the shared Set
+  if (props.sharedProfileNames.has(profileName.value)) {
+    alert('Profil o tej nazwie już istnieje. Wybierz inną nazwę.');
     return;
   }
   
@@ -239,6 +256,11 @@ function saveProfile() {
   .then(data => {
     if (data.success) {
       alert('Profil został zapisany!');
+      
+      // Update the shared profile names
+      const updatedNames = new Set(props.sharedProfileNames);
+      updatedNames.add(profileName.value);
+      emit('profile-created', updatedNames);
       
       // Reset form after successful save
       profileName.value = '';
