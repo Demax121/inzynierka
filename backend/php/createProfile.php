@@ -1,10 +1,7 @@
 <?php
-header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST');
-header('Access-Control-Allow-Headers: Content-Type');
+header('Content-Type: application/json; charset=utf-8');
 
-// For preflight OPTIONS request
+// Handle preflight requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit();
@@ -12,74 +9,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 // Only allow POST requests
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-    echo json_encode(['success' => false, 'message' => 'Method not allowed']);
+    http_response_code(405); // Method Not Allowed
+    echo json_encode(['success' => false, 'error' => 'Only POST requests are allowed']);
     exit();
 }
 
-// Read the request body
-$requestBody = file_get_contents('php://input');
-$profile = json_decode($requestBody, true);
+// Get the POST data
+$data = json_decode(file_get_contents('php://input'), true);
 
-// Validate profile data
-if (!$profile || !isset($profile['name']) || empty($profile['name'])) {
-    http_response_code(400);
-    echo json_encode(['success' => false, 'message' => 'Invalid profile data']);
+// Validate required fields
+if (!isset($data['profile_name']) || empty(trim($data['profile_name'])) || !isset($data['profile_json'])) {
+    http_response_code(400); // Bad Request
+    echo json_encode(['success' => false, 'error' => 'Missing required fields: profile_name or profile_json']);
     exit();
 }
 
+// Sanitize inputs
+$profileName = trim($data['profile_name']);
+$profileJson = $data['profile_json'];
+
+// Connect to database and insert profile
 try {
-    // Database connection parameters
-    $host = 'postgres';
-    $dbname = 'inzynierka';
-    $user = 'postgresAdmin';
-    $password = 'postgres123'; // Replace with your actual password
-    
-    // Create connection string
-    $dsn = "pgsql:host=$host;dbname=$dbname";
-    
-    // Create PDO instance
-    $pdo = new PDO($dsn, $user, $password);
-    
-    // Set the PDO error mode to exception
+    // Connect to PostgreSQL
+    $pdo = new PDO("pgsql:host=postgres;port=5432;dbname=inzynierka","postgresAdmin","postgres123");
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
-    // Prepare the SQL statement to insert the profile
-    $stmt = $pdo->prepare("
-        INSERT INTO profiles (profile_name, profile_json)
-        VALUES (:profile_name, :profile_json)
-        RETURNING profile_id
-    ");
+    // Prepare and execute INSERT query
+    $stmt = $pdo->prepare("INSERT INTO profiles (profile_name, profile_json) VALUES (:profile_name, :profile_json) RETURNING profile_id");
     
-    // Execute the statement with the profile data
-    $stmt->execute([
-        ':profile_name' => $profile['name'],
-        ':profile_json' => json_encode($profile)
-    ]);
+    // Convert profile_json to JSON string
+    $profileJsonStr = json_encode($profileJson);
     
-    // Get the newly created profile ID
+    // Bind parameters
+    $stmt->bindParam(':profile_name', $profileName);
+    $stmt->bindParam(':profile_json', $profileJsonStr);
+    
+    // Execute the statement
+    $stmt->execute();
+    
+    // Get the inserted profile ID
     $profileId = $stmt->fetchColumn();
     
     // Return success response
     echo json_encode([
         'success' => true, 
-        'message' => 'Profile saved successfully',
+        'message' => 'Profile saved successfully', 
         'profile_id' => $profileId
     ]);
     
-} catch (PDOException $e) {
-    // Handle database errors
-    http_response_code(500);
-    echo json_encode([
-        'success' => false, 
-        'message' => 'Database error: ' . $e->getMessage()
-    ]);
 } catch (Exception $e) {
-    // Handle other errors
-    http_response_code(500);
-    echo json_encode([
-        'success' => false, 
-        'message' => 'Server error: ' . $e->getMessage()
-    ]);
+    // Return error response
+    http_response_code(500); // Internal Server Error
+    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
 }
 ?>

@@ -138,9 +138,8 @@ const profileSettings = reactive({
 
 // Build the complete profile JSON structure
 function buildProfileJSON() {
-  // Base profile JSON
+  // Base profile JSON (excluding the name, which will be saved separately)
   const profileJSON = {
-    name: profileName.value,
     WLED: {
       // Default values that will be overridden based on selection
       on: true,
@@ -204,23 +203,63 @@ function buildProfileJSON() {
 
 // Save profile function
 function saveProfile() {
+  // Validate profile name
+  if (!profileName.value.trim()) {
+    alert('Proszę podać nazwę profilu');
+    return;
+  }
+  
   // Build the profile JSON
   const profileData = buildProfileJSON();
 
   // Display the JSON in the console (formatted for readability)
   console.log('Profile JSON:', JSON.stringify(profileData, null, 2));
 
-  // Here you would save the profile to your backend or local storage
-  // This could be implemented later with a form submission to a PHP endpoint
-
-  // Reset form after save
-  profileName.value = '';
-  profileSettings.wledPreset = '';
-  profileSettings.lightsOn = false; // Reset lightsOn state
-  profileSettings.acTemperature = null; // Reset temperature setting
-  profileSettings.blindsMode = 'open'; // Reset blinds mode to default
-  profileSettings.minLux = 5000; // Reset min lux
-  profileSettings.maxLux = 20000; // Reset max lux
+  // Send profile to backend
+  const saveData = {
+    profile_name: profileName.value,
+    profile_json: profileData
+  };
+  
+  // Show saving indicator
+  const saveBtn = document.querySelector('.button-group button');
+  const originalText = saveBtn.innerText;
+  saveBtn.innerText = 'Zapisywanie...';
+  saveBtn.disabled = true;
+  
+  // Send to PHP endpoint
+  fetch(linkStore.getPhpApiUrl('createProfile.php'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(saveData)
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      alert('Profil został zapisany!');
+      
+      // Reset form after successful save
+      profileName.value = '';
+      profileSettings.wledPreset = '';
+      profileSettings.lightsOn = false; // Reset lightsOn state
+      profileSettings.acTemperature = null; // Reset temperature setting
+      profileSettings.blindsMode = 'open'; // Reset blinds mode to default
+      profileSettings.minLux = 5000; // Reset min lux
+      profileSettings.maxLux = 20000; // Reset max lux
+    } else {
+      alert('Błąd: ' + (data.error || 'Nie udało się zapisać profilu'));
+    }
+  })
+  .catch(error => {
+    alert('Błąd połączenia: ' + error.message);
+  })
+  .finally(() => {
+    // Restore button state
+    saveBtn.innerText = originalText;
+    saveBtn.disabled = false;
+  });
 }
 
 // Using HTML required attributes for validation instead
