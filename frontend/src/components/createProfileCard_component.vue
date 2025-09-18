@@ -37,9 +37,27 @@
             <label for="mainLights"  class="group-title">Oświetlenie:</label>
             <div class="lights-control">
               <label class="switch">
-                <input type="checkbox">
+                <input type="checkbox" v-model="profileSettings.lightsOn">
                 <span class="slider round"></span>
               </label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="acTemperature" class="group-title">Klimatyzacja:</label>
+            <div class="ac-control">
+              <input 
+                type="number" 
+                id="acTemperature" 
+                v-model.number="profileSettings.acTemperature" 
+                min="16" 
+                max="30" 
+                step="1" 
+                placeholder="Temperatura (16-30°C)" 
+                class="form-control temperature-input"
+                required
+              >
+              <div class="form-help-text">Ustaw temperaturę klimatyzacji dla tego profilu</div>
             </div>
           </div>
 
@@ -47,7 +65,7 @@
           <input type="hidden" name="profileJSON" :value="JSON.stringify(buildProfileJSON())" />
 
           <div class="button-group">
-            <button type="submit" class="btn" :disabled="!isFormValid">Zapisz profil</button>
+            <button type="submit" class="btn">Zapisz profil</button>
           </div>
         </form>
       </div>
@@ -72,13 +90,11 @@ const profileName = ref('');
 const profileSettings = reactive({
   wledPreset: '',
   lightsOn: false, // Default state for main lights
+  acTemperature: null, // Temperature setting for AC
   // Add other settings for the profile here
 });
 
-// Validate form
-const isFormValid = computed(() => {
-  return profileName.value.trim().length > 0 && profileSettings.wledPreset !== '';
-});
+// No custom validation, using HTML required attributes instead
 
 // Build the complete profile JSON structure
 function buildProfileJSON() {
@@ -98,6 +114,16 @@ function buildProfileJSON() {
       }
     }
   };
+  
+  // Add AC settings if temperature is set
+  if (profileSettings.acTemperature !== null && profileSettings.acTemperature !== '') {
+    profileJSON.AC = {
+      channel: "air_conditioning",
+      payload: {
+        requestedTemp: profileSettings.acTemperature
+      }
+    };
+  }
 
   // Configure WLED settings based on the selected option
   if (profileSettings.wledPreset === 'off') {
@@ -124,8 +150,6 @@ function buildProfileJSON() {
 
 // Save profile function
 function saveProfile() {
-  if (!isFormValid.value) return;
-
   // Build the profile JSON
   const profileData = buildProfileJSON();
 
@@ -138,7 +162,11 @@ function saveProfile() {
   // Reset form after save
   profileName.value = '';
   profileSettings.wledPreset = '';
+  profileSettings.lightsOn = false; // Reset lightsOn state
+  profileSettings.acTemperature = null; // Reset temperature setting
 }
+
+// Using HTML required attributes for validation instead
 
 onMounted(() => {
   // Fetch presets when component mounts
@@ -189,6 +217,25 @@ onMounted(() => {
   justify-content: left;
   align-items: center;
   margin-top: 0.5rem;
+}
+
+/* Layout for AC control */
+.ac-control {
+  display: flex;
+  flex-direction: column;
+  margin-top: 0.5rem;
+}
+
+.temperature-input {
+  width: 100%;
+  max-width: 200px;
+}
+
+.form-help-text {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary, #777);
+  margin-top: 0.25rem;
+  margin-left: 0.25rem;
 }
 
 .group-title{
