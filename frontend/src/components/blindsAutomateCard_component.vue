@@ -1,275 +1,209 @@
 <template>
-    <div class="card">
-        <div class="card__header">
-            <h2 class="card__title">Automatyka rolet</h2>
-        </div>
-        <div class="card__body">
-            <div class="card__content">
-                <div class="status" v-if="status">
-                    <p class="card__text card__text--bold">{{ status }}</p>
-                </div>
-
-                <div class="lux-config-form">
-                    <div class="input-group">
-                        <label for="minLux">Min lux:</label>
-                        <input id="minLux" v-model.number="minLux" type="number" class="lux-input" />
-                    </div>
-                    <div class="input-group">
-                        <label for="maxLux">Max lux:</label>
-                        <input id="maxLux" v-model.number="maxLux" type="number" class="lux-input" />
-                    </div>
-
-                    <!-- zmieniony checkbox na slider -->
-                    <div class="input-group input-group--slider">
-                        <span class="slider-label">Tryb automatyczny:</span>
-                        <label class="switch switch--small">
-                            <input type="checkbox" v-model="automate" @change="handleAutomateChange">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="button-group">
-                    <button class="btn" @click="saveLuxConfig" :disabled="loading">
-                        {{ loading && currentAction === 'save' ? 'Zapisywanie...' : 'Ustaw granice' }}
-                    </button>
-
-                    
-                </div>
-            </div>
-        </div>
+  <div class="card">
+    <div class="card__header">
+      <h2 class="card__title">Automatyka rolet</h2>
     </div>
+    <div class="card__body">
+      <div class="card__content">
+        <div class="status" v-if="status">
+          <p class="card__text card__text--bold">{{ status }}</p>
+        </div>
+
+        <div class="lux-config-form">
+          <div class="input-group">
+            <label for="minLux">Min lux:</label>
+            <input id="minLux" v-model.number="config.minLux" type="number" class="lux-input" />
+          </div>
+          <div class="input-group">
+            <label for="maxLux">Max lux:</label>
+            <input id="maxLux" v-model.number="config.maxLux" type="number" class="lux-input" />
+          </div>
+
+          <div class="input-group input-group--slider">
+            <span class="slider-label">Tryb automatyczny:</span>
+            <label class="switch switch--small">
+              <input type="checkbox" v-model="config.automate" @change="toggleAutomate">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="button-group">
+          <button class="btn" @click="saveConfig" :disabled="loading">
+            {{ loading ? 'Zapisywanie...' : 'Ustaw granice' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useLinkStore } from '@/stores/linkStore'
-
-// Define props to receive handlers from parent
-const props = defineProps({
-  openBlindsHandler: {
-    type: Function,
-    required: true
-  },
-  closeBlindsHandler: {
-    type: Function,
-    required: true
-  }
-});
 
 const status = ref('')
 const loading = ref(false)
-const currentAction = ref('')
-const minLux = ref(0)
-const maxLux = ref(0)
-const automate = ref(false);
+const lastAutomateChange = ref(Date.now())
+const AUTOMATE_DEBOUNCE = 2000
+let ws
 
-let ws;
+// Consolidated state
+const config = reactive({
+  minLux: 0,
+  maxLux: 0,
+  automate: false
+})
 
 const linkStore = useLinkStore()
 
+// Fetch configuration from the server
+const getConfig = async () => {
+  loading.value = true
+  status.value = 'Ładowanie konfiguracji...'
+  try {
+    const res = await fetch(linkStore.getPhpApiUrl('getBlindsConfig.php'))
+    const data = await res.json()
 
-const getLuxConfig = async () => {
-    loading.value = true
-    status.value = 'Ładowanie konfiguracji...'
-    try {
-        const res = await fetch(linkStore.getPhpApiUrl('getBlindsConfig.php'))
-        const data = await res.json()
-
-
-        if (data && typeof data === 'object') {
-            if (data.min_lux !== undefined) minLux.value = Number(data.min_lux)
-            if (data.max_lux !== undefined) maxLux.value = Number(data.max_lux)
-            if (data.automate !== undefined) automate.value = Boolean(data.automate)
-            status.value = 'Konfiguracja załadowana.'
-        } else {
-            status.value = 'Błąd: Nieprawidłowy format odpowiedzi.'
-        }
-    } catch (error) {
-        status.value = `Błąd połączenia: ${error.message}`
-    } finally {
-        loading.value = false
-    }
-}
-
-// Use the handlers from props instead of implementing our own functions
-// Handler for when the automate toggle changes
-const handleAutomateChange = () => {
-    // Save the automate state immediately when it changes
-    saveLuxConfigQuiet();
-    
-    // Update the last change timestamp to prevent immediate automation
-    lastAutomateChange.value = Date.now();
-    
-    if (automate.value) {
-        status.value = 'Automatyka włączona';
+    if (data && typeof data === 'object') {
+      config.minLux = Number(data.min_lux ?? 0)
+      config.maxLux = Number(data.max_lux ?? 0)
+      // This is the only place where automate should be updated from server data
+      config.automate = Boolean(data.automate ?? false)
+      status.value = 'Konfiguracja załadowana.'
+      setTimeout(() => { status.value = '' }, 3000)
     } else {
-        status.value = 'Automatyka wyłączona';
+      setStatus('Błąd: Nieprawidłowy format odpowiedzi.')
+    }
+  } catch (error) {
+    setStatus(`Błąd połączenia: ${error.message}`)
+  } finally {
+    loading.value = false
+  }
+}
+
+// Set status with auto-clear after delay
+const setStatus = (message, timeout = 3000) => {
+  status.value = message
+  setTimeout(() => { status.value = '' }, timeout)
+}
+
+// Toggle automation mode and save configuration
+const toggleAutomate = () => {
+  // Save configuration to database
+  loading.value = true
+  status.value = 'Zapisywanie...'
+  
+  saveConfig(true) // Use quiet mode to handle our own loading state
+    .then((res) => {
+      // After save completes, show automation-specific message
+      setStatus(config.automate ? 'Automatyka włączona' : 'Automatyka wyłączona')
+      lastAutomateChange.value = Date.now()
+    })
+    .catch((error) => {
+      // If saving fails, revert the toggle and show error
+      config.automate = !config.automate // Revert the toggle
+      setStatus(`Błąd: ${error.message}`)
+    })
+    .finally(() => {
+      loading.value = false
+    })
+}
+
+// Control blinds
+const controlBlinds = async (action) => {
+  try {
+    await fetch(linkStore.getPhpApiUrl('blindsControl.php') + `?action=${action}`)
+  } catch (error) {
+    // Silent error handling
+  }
+}
+
+// Save configuration to server - update to return a promise for chaining
+const saveConfig = async (quiet = false) => {
+  if (!quiet) {
+    loading.value = true
+    status.value = 'Zapisywanie...'
+  }
+
+  if (config.minLux >= config.maxLux && !quiet) {
+    status.value = 'Błąd: Min lux musi być mniejsze niż Max lux.'
+    loading.value = false
+    return Promise.reject(new Error('Min lux musi być mniejsze niż Max lux'));
+  }
+
+  try {
+    const res = await fetch(linkStore.getPhpApiUrl('saveBlindsConfig.php'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        minLux: config.minLux,
+        maxLux: config.maxLux,
+        automate: config.automate
+      })
+    });
+
+    const data = await res.json();
+    
+    if (!quiet) {
+      setStatus(data?.success ? 'Zapisano pomyślnie' : 'Błąd podczas zapisywania')
     }
     
-    // Clear status after a delay
-    setTimeout(() => {
-        if (status.value === 'Automatyka włączona' || status.value === 'Automatyka wyłączona') {
-            status.value = '';
-        }
-    }, 3000);
-};
-
-const openBlinds = () => {
-    status.value = 'Otwieranie rolet...'
-    props.openBlindsHandler();
-    // Set status back after a delay to simulate completion
-    setTimeout(() => {
-        status.value = 'Rolety otwarte';
-    }, 2000);
+    return data; // Return the data for promise chaining
+  } catch (error) {
+    if (!quiet) {
+      setStatus(`Błąd połączenia: ${error.message}`)
+    }
+    throw error; // Re-throw to allow error handling in the promise chain
+  } finally {
+    if (!quiet) {
+      loading.value = false
+    }
+  }
 }
 
-const closeBlinds = () => {
-    status.value = 'Zamykanie rolet...'
-    props.closeBlindsHandler();
-    // Set status back after a delay to simulate completion
-    setTimeout(() => {
-        status.value = 'Rolety zamknięte';
-    }, 2000);
-}
-
-// Automatically control blinds based on lux value and configured thresholds
+// Handle automation based on lux readings
 const handleLuxAutomation = (luxValue) => {
-    if (!automate.value) {
-        return; // Automation disabled
-    }
-    
-    if (luxValue !== null) {
-        if (luxValue < minLux.value) {
-            // Too dark, close blinds
-            closeBlinds();
-        } else if (luxValue >= minLux.value && luxValue < maxLux.value) {
-            // Ideal range, open blinds
-            openBlinds();
-        } else if (luxValue >= maxLux.value) {
-            // Too bright, close blinds
-            closeBlinds();
-        }
-    }
+  // Store automation state in a local constant to avoid any inadvertent changes
+  const isAutomated = config.automate
+  
+  if (!isAutomated || 
+      Date.now() - lastAutomateChange.value <= AUTOMATE_DEBOUNCE ||
+      luxValue === null) {
+    return
+  }
+  
+  if (luxValue < config.minLux || luxValue >= config.maxLux) {
+    // Too dark or too bright, close blinds
+    controlBlinds('close')
+  } else {
+    // Ideal range, open blinds
+    controlBlinds('open')
+  }
 }
-
-// Keep track of the last time the automation state was changed
-const lastAutomateChange = ref(Date.now());
-// Debounce time to prevent automation running too soon after toggling (in milliseconds)
-const AUTOMATE_DEBOUNCE = 2000;
 
 onMounted(() => {
-    getLuxConfig();
-    
-    // Setup WebSocket connection
-    ws = new WebSocket('ws://192.168.1.4:8886');
-    
-    ws.onmessage = (event) => {
-        try {
-            const data = JSON.parse(event.data);
-            if (data.channel === 'lux_sensor' && data.lux !== undefined) {
-                // Only process automation if we're not in the debounce period after toggling automate
-                if (Date.now() - lastAutomateChange.value > AUTOMATE_DEBOUNCE) {
-                    handleLuxAutomation(data.lux);
-                }
-            }
-        } catch (error) {
-            // WebSocket message error handled silently
-        }
-    };
-    
-    ws.onopen = () => {
-        // WebSocket connected
-    };
-    
-    ws.onclose = () => {
-        // WebSocket closed
-    };
-    
-    ws.onerror = () => {
-        // WebSocket error handled silently
-    };
+  getConfig() // Initial load of config from server
+  
+  // Setup WebSocket
+  ws = new WebSocket('ws://192.168.1.4:8886')
+  
+  ws.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data)
+      if (data.channel === 'lux_sensor' && data.lux !== undefined) {
+        // Just pass the lux value - don't modify any other state
+        handleLuxAutomation(data.lux)
+      }
+    } catch (error) {
+      // Silent error handling
+    }
+  }
 })
 
 onUnmounted(() => {
-    if (ws) ws.close();
+  if (ws) ws.close()
 })
-
-
-// Function to disable automation when manual control is used
-const disableAutomation = () => {
-    if (automate.value === true) {
-        automate.value = false;
-        // Save the new state to the server to persist it
-        saveLuxConfigQuiet();
-        // Update the last change timestamp
-        lastAutomateChange.value = Date.now();
-        status.value = 'Automatyka wyłączona (sterowanie ręczne)';
-        setTimeout(() => {
-            if (status.value === 'Automatyka wyłączona (sterowanie ręczne)') {
-                status.value = '';
-            }
-        }, 3000);
-    }
-};
-
-// Expose the disableAutomation method to parent component
-defineExpose({
-    disableAutomation
-});
-
-// Save config without showing status messages (used by disableAutomation)
-const saveLuxConfigQuiet = async () => {
-    try {
-        await fetch(linkStore.getPhpApiUrl('saveBlindsConfig.php'), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                minLux: minLux.value, 
-                maxLux: maxLux.value,
-                automate: automate.value 
-            })
-        });
-    } catch (error) {
-        // Error saving config quietly - handled silently
-    }
-};
-
-const saveLuxConfig = async () => {
-    loading.value = true
-    currentAction.value = 'save'
-    status.value = 'Zapisywanie...'
-    
-    if (minLux.value >= maxLux.value) {
-        status.value = 'Błąd: Min lux musi być mniejsze niż Max lux.'
-        loading.value = false
-        return
-    }
-    
-    try {
-        const res = await fetch(linkStore.getPhpApiUrl('saveBlindsConfig.php'), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                minLux: minLux.value, 
-                maxLux: maxLux.value,
-                automate: automate.value 
-            })
-        })
-        
-        const data = await res.json()
-        if (data && data.success) {
-            status.value = 'Zapisano pomyślnie'
-        } else {
-            status.value = 'Błąd podczas zapisywania'
-        }
-    } catch (error) {
-        status.value = `Błąd połączenia: ${error.message}`
-    } finally {
-        loading.value = false
-        currentAction.value = ''
-    }
-}
 </script>
 
 <style lang="scss" scoped>
@@ -282,64 +216,64 @@ $button-padding: 11px 15px;
 $button-font-size: 12pt;
 
 .lux-config-form {
-    margin-bottom: $form-margin-bottom;
-    padding: 1rem;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    background-color: #f9f9f9;
-    text-align: center;
+  margin-bottom: $form-margin-bottom;
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background-color: #f9f9f9;
+  text-align: center;
 }
 
 .input-group {
-    display: flex;
-    align-items: center;
-    margin-bottom: $input-group-gap;
-    gap: 1rem;
-    justify-content: center;
-    
-    &--slider {
-        margin: 1rem 0;
-    }
+  display: flex;
+  align-items: center;
+  margin-bottom: $input-group-gap;
+  gap: 1rem;
+  justify-content: center;
+  
+  &--slider {
+    margin: 1rem 0;
+  }
 }
 
 .slider-label {
-    min-width: 70px;
-    font-weight: bold;
-    font-size: 14px;
+  min-width: 70px;
+  font-weight: bold;
+  font-size: 14px;
 }
 
 .input-group label {
-    min-width: 70px;
-    font-weight: bold;
-    font-size: 14px;
+  min-width: 70px;
+  font-weight: bold;
+  font-size: 14px;
 }
 
 .lux-input {
-    padding: $input-padding;
-    font-size: $input-font-size;
-    width: $input-width;
-    border: 2px solid #ccc;
-    border-radius: 4px;
-    outline: none;
-    transition: border-color 0.3s;
+  padding: $input-padding;
+  font-size: $input-font-size;
+  width: $input-width;
+  border: 2px solid #ccc;
+  border-radius: 4px;
+  outline: none;
+  transition: border-color 0.3s;
 }
 
 .lux-input:focus {
-    border-color: var(--color, #007bff);
+  border-color: var(--color, #007bff);
 }
 
 .button-group {
-    margin-top: 0.5rem;
+  margin-top: 0.5rem;
 }
 
 .device-info {
-    border-radius: 10px;
-    filter: drop-shadow(0 5px 10px 0 #ffffff);
-    width: 15rem;
-    height: 5rem;
-    background-color: $background-crl-secondary;
-    padding: 1rem;
-    color: white;
-    font-family: "Poppins", sans-serif;
+  border-radius: 10px;
+  filter: drop-shadow(0 5px 10px 0 #ffffff);
+  width: 15rem;
+  height: 5rem;
+  background-color: $background-crl-secondary;
+  padding: 1rem;
+  color: white;
+  font-family: "Poppins", sans-serif;
 }
 </style>

@@ -182,6 +182,7 @@ function buildProfileJSON() {
   if (profileSettings.wledPreset === 'off') {
     // If "Wyłączone" is selected
     profileJSON.WLED.on = false;
+    profileJSON.WLED.preset_name = "Wyłączony";
     // lor and ps values aren't relevant when off
     delete profileJSON.WLED.lor;
     delete profileJSON.WLED.ps;
@@ -189,6 +190,7 @@ function buildProfileJSON() {
     // If "Ambilight" is selected
     profileJSON.WLED.on = true;
     profileJSON.WLED.lor = 0; // Ambilight mode
+    profileJSON.WLED.preset_name = "Ambilight";
     // ps value isn't used in Ambilight mode
     delete profileJSON.WLED.ps;
   } else {
@@ -196,6 +198,14 @@ function buildProfileJSON() {
     profileJSON.WLED.on = true;
     profileJSON.WLED.lor = 2; // Regular WLED preset mode
     profileJSON.WLED.ps = parseInt(profileSettings.wledPreset); // Use the preset ID
+    
+    // Find the preset name from the preset ID
+    const presetObj = presets.value.find(p => p.id.toString() === profileSettings.wledPreset.toString());
+    if (presetObj) {
+      profileJSON.WLED.preset_name = presetObj.name;
+    } else {
+      profileJSON.WLED.preset_name = `Preset ${profileSettings.wledPreset}`;
+    }
   }
 
   return profileJSON;

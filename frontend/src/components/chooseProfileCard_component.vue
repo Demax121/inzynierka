@@ -29,23 +29,31 @@
                         <h3>Szczegóły profilu</h3>
                         <div class="detail-section">
                             <h4>WLED:</h4>
-                            <div v-if="selectedProfile.profile_json.WLED" class="wled-info">
+                            <div v-if="selectedProfile.profile_json && selectedProfile.profile_json.WLED" class="wled-info">
                                 <p v-if="selectedProfile.profile_json.WLED.on === false">Status: Wyłączony</p>
                                 <p v-else-if="selectedProfile.profile_json.WLED.lor === 0">Status: Ambilight</p>
-                                <p v-else-if="selectedProfile.profile_json.WLED.ps !== null">Preset: {{ selectedProfile.profile_json.WLED.ps }}</p>
+                                <p v-else-if="selectedProfile.profile_json.WLED.preset_name">
+                                    Preset: {{ selectedProfile.profile_json.WLED.preset_name }}
+                                </p>
+                                <p v-else-if="selectedProfile.profile_json.WLED.ps !== null && selectedProfile.profile_json.WLED.ps !== undefined">
+                                    Preset ID: {{ selectedProfile.profile_json.WLED.ps }}
+                                </p>
+                                <p v-else>Status: Włączony</p>
                             </div>
+                            <p v-else>Nie ustawiono</p>
                         </div>
                         
                         <div class="detail-section">
                             <h4>Oświetlenie:</h4>
-                            <p v-if="selectedProfile.profile_json.lights">
+                            <p v-if="selectedProfile.profile_json && selectedProfile.profile_json.lights">
                                 {{ selectedProfile.profile_json.lights.payload.state ? 'Włączone' : 'Wyłączone' }}
                             </p>
+                            <p v-else>Nie ustawiono</p>
                         </div>
                         
                         <div class="detail-section">
                             <h4>Klimatyzacja:</h4>
-                            <p v-if="selectedProfile.profile_json.AC">
+                            <p v-if="selectedProfile.profile_json && selectedProfile.profile_json.AC">
                                 Temperatura: {{ selectedProfile.profile_json.AC.payload.requestedTemp }}°C
                             </p>
                             <p v-else>Nie ustawiono</p>
@@ -53,13 +61,13 @@
                         
                         <div class="detail-section">
                             <h4>Rolety:</h4>
-                            <p v-if="selectedProfile.profile_json.blinds && selectedProfile.profile_json.blinds.state === 'open'">
+                            <p v-if="selectedProfile.profile_json && selectedProfile.profile_json.blinds && selectedProfile.profile_json.blinds.state === 'open'">
                                 Status: Otwarte
                             </p>
-                            <p v-else-if="selectedProfile.profile_json.blinds && selectedProfile.profile_json.blinds.state === 'close'">
+                            <p v-else-if="selectedProfile.profile_json && selectedProfile.profile_json.blinds && selectedProfile.profile_json.blinds.state === 'close'">
                                 Status: Zamknięte
                             </p>
-                            <p v-else-if="selectedProfile.profile_json.blinds && selectedProfile.profile_json.blinds.automate">
+                            <p v-else-if="selectedProfile.profile_json && selectedProfile.profile_json.blinds && selectedProfile.profile_json.blinds.automate">
                                 Status: Automatyczne (Min: {{ selectedProfile.profile_json.blinds.minLux }}, Max: {{ selectedProfile.profile_json.blinds.maxLux }})
                             </p>
                             <p v-else>Nie ustawiono</p>
@@ -103,7 +111,12 @@ const selectedProfileId = ref('');
 // Computed property to get selected profile details
 const selectedProfile = computed(() => {
     if (!selectedProfileId.value) return null;
-    return profiles.value.find(profile => profile.profile_id === selectedProfileId.value);
+    const profile = profiles.value.find(profile => profile.profile_id === selectedProfileId.value);
+    
+    if (!profile) return null;
+    
+    // No need to parse JSON as the backend now returns it already parsed
+    return profile;
 });
 
 // Fetch profiles from the database
@@ -150,7 +163,7 @@ async function applyProfile() {
     // Apply each component of the profile
     
     // 1. Apply WLED settings if present
-    if (profile.WLED) {
+    if (profile && profile.WLED) {
         try {
             await linkStore.sendWledCommand(profile.WLED);
             console.log('Applied WLED settings');
@@ -160,19 +173,19 @@ async function applyProfile() {
     }
     
     // 2. Apply lights settings if present (implement this functionality)
-    if (profile.lights) {
+    if (profile && profile.lights) {
         console.log('Would apply lights settings:', profile.lights);
         // TODO: Implement lights control via WebSocket
     }
     
     // 3. Apply AC settings if present (implement this functionality)
-    if (profile.AC) {
+    if (profile && profile.AC) {
         console.log('Would apply AC settings:', profile.AC);
         // TODO: Implement AC control via WebSocket
     }
     
     // 4. Apply blinds settings if present (implement this functionality)
-    if (profile.blinds) {
+    if (profile && profile.blinds) {
         console.log('Would apply blinds settings:', profile.blinds);
         // TODO: Implement blinds control via WebSocket or API
     }

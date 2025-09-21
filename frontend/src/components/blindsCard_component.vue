@@ -35,14 +35,11 @@ const responseData = ref(null)
 const batteryLevel = ref(null)
 const deviceState = ref(null) 
 
-
 const linkStore = useLinkStore()
-
 
 const makeApiCall = async (phpFile, actionParam) => {
     try {
         let apiUrl = linkStore.getPhpApiUrl(phpFile)
-
         
         if (actionParam) {
             apiUrl += `?action=${actionParam}`
@@ -70,31 +67,15 @@ const makeApiCall = async (phpFile, actionParam) => {
     }
 }
 
-
-// Define emits for manual control
-const emit = defineEmits(['manualControl']);
-
 const openBlinds = async () => {
-    // Emit event for manual control
-    emit('manualControl');
     await makeApiCall('blindsControl.php', 'open')
     setTimeout(fetchStatus, 5000);
 }
 
-
 const closeBlinds = async () => {
-    // Emit event for manual control
-    emit('manualControl');
     await makeApiCall('blindsControl.php', 'close')
     setTimeout(fetchStatus, 5000);
 }
-
-// Expose these methods to the parent component
-defineExpose({
-    openBlinds,
-    closeBlinds
-});
-
 
 const parseStatus = (data) => {
     
@@ -102,7 +83,6 @@ const parseStatus = (data) => {
     deviceState.value = null
 
     if (!data) return
-
 
     const result = data.result ?? data
 
@@ -114,7 +94,6 @@ const parseStatus = (data) => {
         items = result.list ?? result.status ?? []
         if (!Array.isArray(items)) items = []
     }
-
 
     const numericStateCodes = ['control', 'state', 'switch', 'status']
     const textStateCodes = ['control', 'state', 'switch', 'status']
@@ -135,7 +114,6 @@ const parseStatus = (data) => {
             continue
         }
 
-
         if (typeof value === 'number' && numericStateCodes.includes(code)) {
             if (value === 1) deviceState.value = 'open'
             else if (value === 0) deviceState.value = 'close'
@@ -144,7 +122,6 @@ const parseStatus = (data) => {
         }
     }
 }
-
 
 const fetchStatus = async () => {
     try {
@@ -188,11 +165,9 @@ const deviceStateText = computed(() => {
 onMounted(() => {
     fetchStatus().catch(() => { })
 })
-
 </script>
 
 <style lang="scss" scoped>
-
 $button-padding: 11px 15px;
 $button-font-size: 12pt;
 
@@ -207,7 +182,6 @@ $button-font-size: 12pt;
     padding: 1rem;
     color: white;
     font-size: 13pt;
-
 }
 
 .card__text {

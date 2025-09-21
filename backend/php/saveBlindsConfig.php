@@ -5,7 +5,9 @@ $data = json_decode(file_get_contents('php://input'), true);
 
 $minLux = (int)($data['minLux'] ?? 0);
 $maxLux = (int)($data['maxLux'] ?? 0);
-$automate = isset($data['automate']) ? ($data['automate'] ? 'true' : 'false') : 'false';
+// Convert the automate value to string 'true' or 'false' for database storage
+$automate = isset($data['automate']) ? (bool)$data['automate'] : false;
+
 
 try {
     $pdo = new PDO("pgsql:host=postgres;port=5432;dbname=inzynierka","postgresAdmin","postgres123");
@@ -18,7 +20,12 @@ try {
         $stmt->execute([':min' => $minLux, ':max' => $maxLux, ':automate' => $automate]);
     }
 
-    echo json_encode(['success'=>true,'minLux'=>$minLux,'maxLux'=>$maxLux,'automate'=>$data['automate']]);
+    echo json_encode([
+        'success' => true,
+        'minLux' => $minLux,
+        'maxLux' => $maxLux,
+        'automate' => $data['automate']
+    ]);
 } catch (Exception $e) {
     echo json_encode(['success'=>false,'error'=>$e->getMessage()]);
 }
