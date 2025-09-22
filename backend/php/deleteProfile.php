@@ -1,7 +1,6 @@
 <?php
-// deleteProfile.php - Script to delete a profile from the database
-
 header('Content-Type: application/json; charset=utf-8');
+
 // Handle preflight OPTIONS request
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
@@ -27,16 +26,16 @@ if (!isset($data['profile_id']) || empty($data['profile_id'])) {
 
 $profile_id = $data['profile_id'];
 
-// Database connection parameters
-$host = 'postgres';
-$dbname = 'inzynierka';
-$user = 'postgresAdmin';
-$password = 'postgres123';
+// Dołącz konfigurację bazy
+require_once 'config.php';
 
 try {
     // Connect to PostgreSQL database
-    $dsn = "pgsql:host=$host;dbname=$dbname;user=$user;password=$password";
-    $pdo = new PDO($dsn);
+    $pdo = new PDO(
+        "pgsql:host=" . DB_HOST . ";dbname=" . DB_NAME,
+        DB_USER,
+        DB_PASS
+    );
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
     // Prepare DELETE query

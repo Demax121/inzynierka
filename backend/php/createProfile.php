@@ -28,10 +28,16 @@ if (!isset($data['profile_name']) || empty(trim($data['profile_name'])) || !isse
 $profileName = trim($data['profile_name']);
 $profileJson = $data['profile_json'];
 
-// Connect to database and insert profile
+// Dołącz konfigurację bazy
+require_once 'config.php';
+
 try {
     // Connect to PostgreSQL
-    $pdo = new PDO("pgsql:host=postgres;port=5432;dbname=inzynierka","postgresAdmin","postgres123");
+    $pdo = new PDO(
+        "pgsql:host=" . DB_HOST . ";dbname=" . DB_NAME,
+        DB_USER,
+        DB_PASS
+    );
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
     // Prepare and execute INSERT query

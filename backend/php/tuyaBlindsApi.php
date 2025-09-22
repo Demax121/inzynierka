@@ -1,9 +1,11 @@
 <?php
+require_once 'config.php';
+
 // Ustawienia
-$client_id = "qs7usxh347ecdnwhqq4y";
-$client_secret = "0a6e950020a245a5867b932193ee20e2";
-$device_id = "bfc1799d3b6346bedb2ygr";
-$api_endpoint = "https://openapi.tuyaeu.com";
+$client_id = TUYA_CLIENT_ID;
+$client_secret = TUYA_CLIENT_SECRET;
+$device_id = TUYA_DEVICE_ID;
+$api_endpoint = TUYA_API_ENDPOINT;
 
 header('Content-Type: application/json; charset=utf-8');
 ini_set('display_errors', 1);

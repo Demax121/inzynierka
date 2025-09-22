@@ -1,6 +1,8 @@
 <?php
 header('Content-Type: application/json; charset=utf-8');
 
+require_once 'config.php';
+
 $data = json_decode(file_get_contents('php://input'), true);
 
 $min_lux = (int)($data['min_lux'] ?? 0);
@@ -9,7 +11,11 @@ $max_lux = (int)($data['max_lux'] ?? 0);
 $automate = isset($data['automate']) && $data['automate'] ? 'true' : 'false';
 
 try {
-    $pdo = new PDO("pgsql:host=postgres;port=5432;dbname=inzynierka","postgresAdmin","postgres123");
+    $pdo = new PDO(
+        "pgsql:host=" . DB_HOST . ";dbname=" . DB_NAME,
+        DB_USER,
+        DB_PASS
+    );
 
     $stmt = $pdo->prepare('UPDATE public.blinds_config SET min_lux = :min, max_lux = :max, automate = :automate');
     $stmt->execute([':min' => $min_lux, ':max' => $max_lux, ':automate' => $automate]);

@@ -1,13 +1,19 @@
 <?php
 header('Content-Type: application/json; charset=utf-8');
 
+require_once 'config.php';
+
 $data = json_decode(file_get_contents('php://input'), true);
 
 // Wymuś typ boolean i zamień na 'true'/'false' string dla Postgresa
 $automate = isset($data['automate']) && $data['automate'] ? 'true' : 'false';
 
 try {
-    $pdo = new PDO("pgsql:host=postgres;port=5432;dbname=inzynierka","postgresAdmin","postgres123");
+    $pdo = new PDO(
+        "pgsql:host=" . DB_HOST . ";dbname=" . DB_NAME,
+        DB_USER,
+        DB_PASS
+    );
 
     // Aktualizuj tylko pole automate
     $stmt = $pdo->prepare('UPDATE public.blinds_config SET automate = :automate');
