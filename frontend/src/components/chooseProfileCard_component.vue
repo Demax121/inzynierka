@@ -147,7 +147,6 @@ async function fetchProfiles() {
             throw new Error(data.error || 'Failed to fetch profiles');
         }
     } catch (err) {
-        console.error('Error fetching profiles:', err);
         error.value = `Błąd podczas ładowania profilów: ${err.message}`;
     } finally {
         loading.value = false;
@@ -166,27 +165,22 @@ async function applyProfile() {
     if (profile && profile.WLED) {
         try {
             await linkStore.sendWledCommand(profile.WLED);
-            console.log('Applied WLED settings');
         } catch (err) {
-            console.error('Failed to apply WLED settings:', err);
         }
     }
     
     // 2. Apply lights settings if present (implement this functionality)
     if (profile && profile.lights) {
-        console.log('Would apply lights settings:', profile.lights);
         // TODO: Implement lights control via WebSocket
     }
     
     // 3. Apply AC settings if present (implement this functionality)
     if (profile && profile.AC) {
-        console.log('Would apply AC settings:', profile.AC);
         // TODO: Implement AC control via WebSocket
     }
     
     // 4. Apply blinds settings if present (implement this functionality)
     if (profile && profile.blinds) {
-        console.log('Would apply blinds settings:', profile.blinds);
         // TODO: Implement blinds control via WebSocket or API
     }
     
@@ -230,7 +224,6 @@ async function deleteProfile() {
             throw new Error(data.error || 'Nie udało się usunąć profilu');
         }
     } catch (err) {
-        console.error('Error deleting profile:', err);
         alert(`Błąd podczas usuwania profilu: ${err.message}`);
     }
 }

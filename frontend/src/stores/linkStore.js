@@ -28,7 +28,6 @@ export const useLinkStore = defineStore('linkStore', {
     // Getter: Constructs full image URLs from CDN
     getImage: (state) => (imageName) => {
       if (!imageName || typeof imageName !== 'string') {
-        console.warn('Image name must be a non-empty string.');
         return null;
       }
       return `${state.links.cdnURL}images/${imageName}`;
@@ -36,7 +35,6 @@ export const useLinkStore = defineStore('linkStore', {
     
     getFile: (state) => (fileName) => {
       if (!fileName || typeof fileName !== 'string') {
-        console.warn('File name must be a non-empty string.');
         return null;
       }
       return `${state.links.cdnURL}config_files/${fileName}`;
@@ -45,7 +43,6 @@ export const useLinkStore = defineStore('linkStore', {
     // Getter: Constructs full PHP API URLs by combining base API URL with filename
     getPhpApiUrl: (state) => (phpFileName) => {
       if (!phpFileName || typeof phpFileName !== 'string') {
-        console.warn('PHP filename must be a non-empty string.');
         return state.links.databaseApi;
       }
       
@@ -70,7 +67,6 @@ export const useLinkStore = defineStore('linkStore', {
       this.wledPresets = [];
       
       try {
-        console.log("Fetching WLED presets...");
         const response = await fetch(`${this.links.wledIP}${WLED_PRESETS_ENDPOINT}`);
         
         if (!response.ok) {
@@ -78,7 +74,6 @@ export const useLinkStore = defineStore('linkStore', {
         }
         
         const data = await response.json();
-        console.log("WLED presets:", data);
         
         // Process presets data
         if (data) {
@@ -99,12 +94,11 @@ export const useLinkStore = defineStore('linkStore', {
           processedPresets.sort((a, b) => a.id - b.id);
           this.wledPresets = processedPresets;
           this.wledPresetsLoaded = true;
-          console.log(`Found ${processedPresets.length} presets`);
         } else {
           console.log("No presets found or invalid data format");
         }
       } catch (error) {
-        console.error("Error fetching WLED presets:", error);
+        // removed: console.error("Error fetching WLED presets:", error);
       } finally {
         this.wledPresetsLoading = false;
       }
@@ -125,10 +119,8 @@ export const useLinkStore = defineStore('linkStore', {
         });
         
         const data = await response.json();
-        console.log("WLED response:", data);
         return data;
       } catch (error) {
-        console.error("Error sending command to WLED:", error);
         throw error;
       } finally {
         this.wledPresetsLoading = false;

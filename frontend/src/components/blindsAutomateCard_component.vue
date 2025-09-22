@@ -11,12 +11,12 @@
 
         <div class="lux-config-form">
           <div class="input-group">
-            <label for="minLux">Min lux:</label>
-            <input id="minLux" v-model.number="config.minLux" type="number" class="lux-input" />
+            <label for="min_lux">Min lux:</label>
+            <input id="min_lux" v-model.number="config.min_lux" type="number" class="lux-input" />
           </div>
           <div class="input-group">
-            <label for="maxLux">Max lux:</label>
-            <input id="maxLux" v-model.number="config.maxLux" type="number" class="lux-input" />
+            <label for="max_lux">Max lux:</label>
+            <input id="max_lux" v-model.number="config.max_lux" type="number" class="lux-input" />
           </div>
 
           <div class="input-group input-group--slider">
@@ -41,6 +41,7 @@
 <script setup>
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useLinkStore } from '@/stores/linkStore'
+import { useAutomateStore } from '@/stores/automateStore'
 
 const status = ref('')
 const loading = ref(false)
@@ -48,16 +49,17 @@ const lastAutomateChange = ref(Date.now())
 const AUTOMATE_DEBOUNCE = 2000
 let ws
 
+const linkStore = useLinkStore()
+const automateStore = useAutomateStore()
+
 // Consolidated state
 const config = reactive({
-  minLux: 0,
-  maxLux: 0,
-  automate: false
+  min_lux: 0,
+  max_lux: 0,
+  get automate() { return automateStore.automate_flag },
+  set automate(val) { automateStore.automate_flag = val }
 })
 
-const linkStore = useLinkStore()
-
-// Fetch configuration from the server
 const getConfig = async () => {
   loading.value = true
   status.value = 'Ładowanie konfiguracji...'
@@ -65,22 +67,24 @@ const getConfig = async () => {
     const res = await fetch(linkStore.getPhpApiUrl('getBlindsConfig.php'))
     const data = await res.json()
 
-    if (data && typeof data === 'object') {
-      config.minLux = Number(data.min_lux ?? 0)
-      config.maxLux = Number(data.max_lux ?? 0)
-      // This is the only place where automate should be updated from server data
-      config.automate = Boolean(data.automate ?? false)
-      status.value = 'Konfiguracja załadowana.'
-      setTimeout(() => { status.value = '' }, 3000)
-    } else {
-      setStatus('Błąd: Nieprawidłowy format odpowiedzi.')
+    if (data?.error) {
+      setStatus(`Błąd: ${data.error}`)
+      return
     }
+
+    config.min_lux = Number(data.min_lux ?? 0)
+    config.max_lux = Number(data.max_lux ?? 0)
+    automateStore.automate_flag = Boolean(data.automate ?? false)
+
+    status.value = 'Konfiguracja załadowana.'
+    setTimeout(() => { status.value = '' }, 3000)
   } catch (error) {
     setStatus(`Błąd połączenia: ${error.message}`)
   } finally {
     loading.value = false
   }
 }
+
 
 // Set status with auto-clear after delay
 const setStatus = (message, timeout = 3000) => {
@@ -119,17 +123,16 @@ const controlBlinds = async (action) => {
   }
 }
 
-// Save configuration to server - update to return a promise for chaining
 const saveConfig = async (quiet = false) => {
   if (!quiet) {
     loading.value = true
     status.value = 'Zapisywanie...'
   }
 
-  if (config.minLux >= config.maxLux && !quiet) {
+  if (config.min_lux >= config.max_lux && !quiet) {
     status.value = 'Błąd: Min lux musi być mniejsze niż Max lux.'
     loading.value = false
-    return Promise.reject(new Error('Min lux musi być mniejsze niż Max lux'));
+    return Promise.reject(new Error('Min lux musi być mniejsze niż Max lux'))
   }
 
   try {
@@ -137,30 +140,35 @@ const saveConfig = async (quiet = false) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        minLux: config.minLux,
-        maxLux: config.maxLux,
-        automate: config.automate
+        min_lux: config.min_lux,
+        max_lux: config.max_lux,
+        automate: automateStore.automate_flag
       })
-    });
+    })
 
-    const data = await res.json();
-    
-    if (!quiet) {
-      setStatus(data?.success ? 'Zapisano pomyślnie' : 'Błąd podczas zapisywania')
+    const data = await res.json()
+
+    if (data?.error) {
+      if (!quiet) setStatus(`Błąd podczas zapisywania: ${data.error}`)
+      throw new Error(data.error)
     }
-    
-    return data; // Return the data for promise chaining
+
+    // aktualizacja configu po zapisie
+    config.min_lux = Number(data.min_lux)
+    config.max_lux = Number(data.max_lux)
+    config.automate = Boolean(data.automate)
+
+    if (!quiet) setStatus('Zapisano pomyślnie')
+
+    return data
   } catch (error) {
-    if (!quiet) {
-      setStatus(`Błąd połączenia: ${error.message}`)
-    }
-    throw error; // Re-throw to allow error handling in the promise chain
+    if (!quiet) setStatus(`Błąd połączenia: ${error.message}`)
+    throw error
   } finally {
-    if (!quiet) {
-      loading.value = false
-    }
+    if (!quiet) loading.value = false
   }
 }
+
 
 // Handle automation based on lux readings
 const handleLuxAutomation = (luxValue) => {
@@ -173,7 +181,7 @@ const handleLuxAutomation = (luxValue) => {
     return
   }
   
-  if (luxValue < config.minLux || luxValue >= config.maxLux) {
+  if (luxValue < config.min_lux || luxValue >= config.max_lux) {
     // Too dark or too bright, close blinds
     controlBlinds('close')
   } else {

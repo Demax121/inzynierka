@@ -168,4 +168,3 @@ if ($token_data['success']) {
     echo json_encode($token_data, JSON_PRETTY_PRINT);
 }
 ?>
-?>

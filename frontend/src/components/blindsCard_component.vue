@@ -30,12 +30,27 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useLinkStore } from '@/stores/linkStore'
+import { useAutomateStore } from '@/stores/automateStore'
 
 const responseData = ref(null)
 const batteryLevel = ref(null)
 const deviceState = ref(null) 
 
 const linkStore = useLinkStore()
+const automateStore = useAutomateStore()
+
+const setAutomateFalse = async () => {
+    automateStore.automate_flag = false
+    try {
+        await fetch(linkStore.getPhpApiUrl('setBlindsAutomate.php'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ automate: false })
+        })
+    } catch (e) {
+        // Silent error
+    }
+}
 
 const makeApiCall = async (phpFile, actionParam) => {
     try {
@@ -68,11 +83,13 @@ const makeApiCall = async (phpFile, actionParam) => {
 }
 
 const openBlinds = async () => {
+    await setAutomateFalse()
     await makeApiCall('blindsControl.php', 'open')
     setTimeout(fetchStatus, 5000);
 }
 
 const closeBlinds = async () => {
+    await setAutomateFalse()
     await makeApiCall('blindsControl.php', 'close')
     setTimeout(fetchStatus, 5000);
 }

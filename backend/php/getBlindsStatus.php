@@ -104,4 +104,4 @@ if ($token_data['success']) {
 } else {
     echo json_encode(['error' => 'Failed to get token'], JSON_PRETTY_PRINT);
 }
-// No closing PHP tag to prevent any whitespace issues
+?>

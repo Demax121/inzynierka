@@ -300,7 +300,6 @@ const fetchWledPresets = async () => {
       selectedPreset.value = presetArray[0].id;
     }
   } catch (error) {
-    console.error('Failed to fetch WLED presets:', error);
     // Keep the default presets if API fetch fails
   }
 };
@@ -340,7 +339,6 @@ const saveProfile = async () => {
       throw new Error(data.message || 'Wystąpił błąd podczas zapisywania profilu.');
     }
   } catch (error) {
-    console.error('Error saving profile:', error);
     statusMessage.value = {
       type: 'error',
       text: error.message || 'Wystąpił błąd podczas zapisywania profilu.'
