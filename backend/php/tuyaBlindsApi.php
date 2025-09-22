@@ -1,25 +1,18 @@
 <?php
 require_once 'config.php';
 
-// Ustawienia
-$client_id = TUYA_CLIENT_ID;
-$client_secret = TUYA_CLIENT_SECRET;
-$device_id = TUYA_DEVICE_ID;
-$api_endpoint = TUYA_API_ENDPOINT;
-
 header('Content-Type: application/json; charset=utf-8');
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
 // --- Funkcje wspólne ---
 function tuyaToken() {
-    global $client_id, $client_secret, $api_endpoint;
-    $url = "$api_endpoint/v1.0/token?grant_type=1";
+    $url = TUYA_API_ENDPOINT . "/v1.0/token?grant_type=1";
     $t = strval(floor(microtime(true) * 1000));
-    $sign_str = $client_id . $t . "GET\n" . hash("sha256", "") . "\n\n" . "/v1.0/token?grant_type=1";
-    $sign = strtoupper(hash_hmac("sha256", $sign_str, $client_secret));
+    $sign_str = TUYA_CLIENT_ID . $t . "GET\n" . hash("sha256", "") . "\n\n" . "/v1.0/token?grant_type=1";
+    $sign = strtoupper(hash_hmac("sha256", $sign_str, TUYA_CLIENT_SECRET));
     $headers = [
-        "client_id: $client_id",
+        "client_id: " . TUYA_CLIENT_ID,
         "sign: $sign",
         "t: $t",
         "sign_method: HMAC-SHA256"
@@ -34,20 +27,19 @@ function tuyaToken() {
 }
 
 function tuyaRequest($method, $path, $access_token, $bodyArr = null) {
-    global $client_id, $client_secret, $api_endpoint;
     $t = strval(floor(microtime(true) * 1000));
     $body = $bodyArr ? json_encode($bodyArr, JSON_UNESCAPED_SLASHES) : "";
-    $sign_str = $client_id . $access_token . $t . "$method\n" . hash("sha256", $body) . "\n\n" . $path;
-    $sign = strtoupper(hash_hmac("sha256", $sign_str, $client_secret));
+    $sign_str = TUYA_CLIENT_ID . $access_token . $t . "$method\n" . hash("sha256", $body) . "\n\n" . $path;
+    $sign = strtoupper(hash_hmac("sha256", $sign_str, TUYA_CLIENT_SECRET));
     $headers = [
-        "client_id: $client_id",
+        "client_id: " . TUYA_CLIENT_ID,
         "access_token: $access_token",
         "sign: $sign",
         "t: $t",
         "sign_method: HMAC-SHA256",
         "Content-Type: application/json"
     ];
-    $url = "https://openapi.tuyaeu.com$path";
+    $url = TUYA_API_ENDPOINT . $path;
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -60,8 +52,8 @@ function tuyaRequest($method, $path, $access_token, $bodyArr = null) {
     return json_decode($resp, true);
 }
 
-function getBlindsStatusSimple($access_token, $device_id) {
-    $path = "/v1.0/iot-03/devices/$device_id/status";
+function getBlindsStatusSimple($access_token) {
+    $path = "/v1.0/iot-03/devices/" . TUYA_DEVICE_ID . "/status";
     $result = tuyaRequest("GET", $path, $access_token);
     $battery = null; $state = null;
     if (isset($result['result']) && is_array($result['result'])) {
@@ -70,27 +62,30 @@ function getBlindsStatusSimple($access_token, $device_id) {
             if ($dp['code'] === 'control') $state = $dp['value'];
         }
     }
-    return ['battery_percent' => $battery, 'blinds_state' => $state];
+    return ['success' => true, 'battery_percent' => $battery, 'blinds_state' => $state];
 }
 
 // --- Routing ---
-$action = $_GET['action'] ?? $_POST['action'] ?? null;
-if (!$action) $action = basename($_SERVER['SCRIPT_NAME']) === 'getBlindsStatus.php' ? 'status' : null;
+$action = $_GET['action'] ?? $_POST['action'] ?? 'status';
 
 $access_token = tuyaToken();
 if (!$access_token) {
-    echo json_encode(['success'=>false, 'error'=>'Opis błędu']);
+    echo json_encode(['success'=>false, 'error'=>'Brak tokena Tuya']);
     exit;
 }
 
-if ($action === 'status') {
-    echo json_encode(getBlindsStatusSimple($access_token, $device_id), JSON_PRETTY_PRINT);
-} elseif ($action === 'open' || $action === 'close') {
-    $path = "/v1.0/devices/$device_id/commands";
-    $body = ["commands" => [["code" => "control", "value" => $action]]];
-    $result = tuyaRequest("POST", $path, $access_token, $body);
-    echo json_encode($result, JSON_PRETTY_PRINT);
-} else {
-    echo json_encode(['success'=>false, 'msg'=>'Invalid or missing action. Use ?action=open|close|status']);
+switch ($action) {
+    case 'status':
+        echo json_encode(getBlindsStatusSimple($access_token), JSON_UNESCAPED_UNICODE);
+        break;
+    case 'open':
+    case 'close':
+        $path = "/v1.0/devices/" . TUYA_DEVICE_ID . "/commands";
+        $body = ["commands" => [["code" => "control", "value" => $action]]];
+        $result = tuyaRequest("POST", $path, $access_token, $body);
+        echo json_encode(['success' => $result['success'] ?? false, 'result' => $result['result'] ?? null, 'error' => $result['msg'] ?? null], JSON_UNESCAPED_UNICODE);
+        break;
+    default:
+        echo json_encode(['success'=>false, 'error'=>'Invalid or missing action. Use ?action=open|close|status']);
 }
 ?>
