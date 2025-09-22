@@ -1,0 +1,120 @@
+Zabezpieczenia:
+
+1. Po włączeniu urządzenie robi zapytanie GET do serwera
+2. Serwer towrzy tymczasowy klucz szyfrujący i wysyła go do urządzenia
+3. Urządzenie tworzy plik JSON zawierający klucz API/UID urządzenia oraz adres MAC urządzenia
+4. JSON jest hashowany i następnie szyfrowany uzyskanym tymczasowym kluczem
+5. Zaszyfrowany JSON jest wysyany do serwera
+6. Serwer odszyfrowuje JSON tym samym kluczem i sprawdza dane z pliku czy znajdują się one w bazie danych
+7. Jeśli dane znajdują się w bazie serwer odsyła hashowany? zaszyfrowany JSON z kluczem szyfrowania z bazy odpowiadający urządzeniu
+8. Serwer usuwa tymczasowy klucz
+9. urządzenie odszyfrowuje JSON i od tej pory wykorzystuje stały klucz szyfrujący do komunikacji z serwerem
+10. Urządzenie usuwa/nadpisuje tymczasowy klucz 
+
+
+
+
+1. Dodac obsługę lux do blindsController
+Ma mieć input na dolną granicę lux oraz górną granicę lux i przycisk "ustaw granice"
+W dolnej granicy roleta ma się podnieść, a w górnej opuścić
+Musi być dodatkowo flaga manualOverride, gdyby rolety zostały podniesione lub opuszczone kliknięciem przyucisku.
+
+2. Stworzyć formularz tworzenia profili
+
+Formularz zawiera: 
+
+Główne światła - checkbox (włączone/wyłączone)
+Klimatyzacja - checkbox (włączone/wyłączone) + input na temperaturę
+Rolety - checkbox (Opuszczone/Podciągnięte) + input na dolną granicę lux 
++ input na górną granicę lux + checkbox jak zaznaczony używamy granic jak nie zaznaczony to ignorujemy granice lux
+WLED - do wyboru z listy rozwijanej kilka presetów w tym tryb ambilight
+
+Formularz tworzy plik JSON, który zawiera dane w następującej formie:
+
+{
+  "name": "Nazwa profilu",
+  "AC":{
+  "channel": "air_conditioning",
+  "payload": {
+    "targetTemp": ,
+    "status": true
+  }
+},
+  "lights": {
+  "channel": "main_lights",
+  "payload": {
+    "state": true
+  }
+},
+  "Blinds": {
+    automate: true,
+    min_lux: ,
+    max_lux:
+  },
+  "WLED":{
+    "192.168.1.25/json/state": {
+      "on": true/false,
+      "bri": 128,
+      "seg": {
+        "fx": presetNumber
+      }
+  }
+}
+}
+
+
+{
+  "name": "Nazwa profilu",
+  "AC":{
+  "channel": "air_conditioning",
+  "payload": {
+    "targetTemp": 22,
+    "status": true
+  }
+},
+  "lights": {
+  "channel": "main_lights",
+  "payload": {
+    "state": true
+  }
+},
+  "Blinds": {
+    status: open / close
+  },
+  "WLED":{
+    "192.168.1.25/json/state": {
+      "on": true/false,
+      "bri": 128,
+      "seg": {
+        "fx": presetNumber
+      }
+  }
+}
+}
+
+
+#codebase
+
+Create a Vue 3 component (createProfileCard.vue) that lets a user build and save a profile to PostgreSQL.
+
+The component should have:
+1. Input for profile name.
+
+2. Section for Air Conditioning with numeric input for target temp and ON/OFF toggle. (using switch slider styling from buttons.scss)
+
+3. Section for Lights with ON/OFF slider toggle (same behavior as mainLightsCard_component.vue).
+
+4. Section for Blinds with 3 radio buttons (Open, Close, Automate). When Automate is selected, show inputs for min_lux and max_lux.
+
+4. ection for WLED with dropdown of presets (fetched from WLED API if possible), Ambilight mode, and LED off option. Also include brightness slider and effect preset number input.
+On save, the component should assemble JSON in the format:
+
+{
+"name": "Profile Name",
+"AC": { "channel": "air_conditioning", "payload": { "targetTemp": 22, "status": true } },
+"lights": { "channel": "main_lights", "payload": { "state": true } },
+"Blinds": { "status": "Open" or "Close" or { "automate": true, "min_lux": X, "max_lux": Y } },
+"WLED": { "192.168.1.25/json/state": { "on": true, "bri": 128, "seg": { "fx": presetNumber } } }
+}
+
+Save the profile into a profiles PostgreSQL table with columns: profile_id, profile_name, profile_json (jsonb).

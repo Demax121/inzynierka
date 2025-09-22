@@ -1,1 +1,22 @@
 @use "@/scss/colors" as *;
+@use "@/scss/containers";
+
+:root {
+  /* Keep in sync with actual navbar height (Navbar.vue height: 60px = 3.75rem) */
+  --nav-height: 3.75rem;
+}
+
+html, body, #app {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Utility class if needed elsewhere */
+.fill-screen-under-nav {
+  min-height: calc(100vh - var(--nav-height));
+}

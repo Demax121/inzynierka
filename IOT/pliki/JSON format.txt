@@ -1,0 +1,119 @@
+Każdy plik JSON ma 128/256 (jeszcze sprawdzić)
+2. Każdy plik JSON ma taką składnię:
+
+Na połączeniu:
+
+{
+type: esp32_identification
+channel: value
+}
+
+
+{
+identity: name_of_device
+channel: channel_name
+payload: {
+    key: value
+    key: value
+}
+}
+
+
+
+
+
+
+
+1. JSON dla światłaSterownik.ino
+
+Na połączeniu:
+
+{
+type: esp32_identification
+channel: main_lights
+}
+
+identity: lights_controller
+channel: main_lights
+payload: {
+    lightON: true/false
+}
+
+
+2.JSON dla drzwiSensor.ino
+
+Na połączeniu:
+
+{
+type: esp32_identification
+channel: door_sensor
+}
+
+
+identity: main_door_sensor
+channel: door_sensor
+payload: {
+    doorOpen: true/false
+}
+
+
+
+
+
+
+3. JSON dla roomStats.ino
+
+Na połączeniu:
+
+{
+type: esp32_identification
+channel: room_stats
+}
+
+identity: door_sensor
+channel: room_stats
+payload: {
+    temperature: int
+    pressure: int
+    humidity: int
+}
+
+
+
+4. JSON dla luxSensor.ino
+
+Na połączeniu:
+
+{
+type: esp32_identification
+channel: lux_sensor
+}
+
+identity: lux_sensor
+channel: lux_sensor
+payload: {
+    lux: int
+
+}
+
+5.JSON dla klimatyzacja.ino
+
+Na połączeniu:
+
+{
+type: esp32_identification
+channel: air_conditioning
+}
+
+identity: air_conditioning
+channel: air_conditioning
+payload: {
+    requestedTemp: int
+    function: string
+    klimaON: true/false
+    manualOverride: true/false
+
+}
+
+
+

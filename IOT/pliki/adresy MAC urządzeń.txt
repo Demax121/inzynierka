@@ -1,0 +1,6 @@
+air_conditioning MAC:	  84:1f:e8:1b:35:dc
+Sterownik światła MAC:	  4c:c3:82:cc:e1:08
+Czujnik temperatury MAC:  34:cd:b0:cd:f3:10
+Czujnik drzwi MAC:	  8c:d0:b2:a9:98:64
+Czujnik światła MAC:	  8c:d0:b2:a9:82:96
+WLED MAC:		  84:1f:e8:1a:a7:58

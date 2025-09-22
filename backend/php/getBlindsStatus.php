@@ -36,16 +36,16 @@ function getToken() {
 
 function getDeviceStatus($access_token) {
     global $client_id, $client_secret, $device_id, $api_endpoint;
-    
-    $url = "$api_endpoint/v1.0/devices/$device_id/status";
+
+    $url = "$api_endpoint/v1.0/iot-03/devices/$device_id/status";
     $timestamp = strval(floor(microtime(true) * 1000));
-    
+
     $sign_str = $client_id . $access_token . $timestamp . "GET\n" . 
                 hash("sha256", "") . "\n\n" . 
-                "/v1.0/devices/$device_id/status";
-    
+                "/v1.0/iot-03/devices/$device_id/status";
+
     $signature = strtoupper(hash_hmac("sha256", $sign_str, $client_secret));
-    
+
     $headers = [
         "client_id: $client_id",
         "access_token: $access_token",
@@ -53,7 +53,7 @@ function getDeviceStatus($access_token) {
         "t: $timestamp",
         "sign_method: HMAC-SHA256"
     ];
-    
+
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
@@ -63,21 +63,45 @@ function getDeviceStatus($access_token) {
     curl_setopt($ch, CURLOPT_TIMEOUT, 0);
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
     curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
-    
+
     $response = curl_exec($ch);
     curl_close($ch);
-    
+
     return json_decode($response, true);
 }
 
+function getDpValue(array $deviceStatus, string $code) {
+    if (!isset($deviceStatus['result']) || !is_array($deviceStatus['result'])) {
+        return null;
+    }
+    foreach ($deviceStatus['result'] as $dp) {
+        if (isset($dp['code']) && $dp['code'] === $code) {
+            return $dp['value'] ?? null;
+        }
+    }
+    return null;
+}
+
 header('Content-Type: application/json');
+
 $token_data = getToken();
 
 if ($token_data['success']) {
     $access_token = $token_data['result']['access_token'];
     $result = getDeviceStatus($access_token);
-    echo json_encode($result, JSON_PRETTY_PRINT);
+    
+    // Extract only the needed values for a simplified response
+    $battery_percent = getDpValue($result, 'battery_percentage');
+    $control_value = getDpValue($result, 'control');
+    
+    // Create the response structure
+    $response = [
+        'battery_percent' => $battery_percent,
+        'blinds_state' => $control_value
+    ];
+
+    echo json_encode($response, JSON_PRETTY_PRINT);
 } else {
-    echo json_encode($token_data, JSON_PRETTY_PRINT);
+    echo json_encode(['error' => 'Failed to get token'], JSON_PRETTY_PRINT);
 }
 ?>
