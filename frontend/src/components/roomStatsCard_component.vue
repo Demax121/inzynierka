@@ -26,8 +26,13 @@
     </div>
 </template>
 
+
+
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
+import { useWsStore } from '@/stores/wsStore';
+
+const wsStore = useWsStore();
 
 const statsInfo = ref(null);
 let ws;
@@ -55,12 +60,11 @@ const formatPressure = (pressure) => {
 };
 
 onMounted(() => {
-  ws = new WebSocket('ws://192.168.1.4:8886');
+  ws = new WebSocket(wsStore.wsUrl);
   ws.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
       if (data.channel === 'room_stats') {
-        // Obsługa tylko nowego formatu - serwer już wysyła w starym formacie
         statsInfo.value = { 
           temperature: data.temperature, 
           humidity: data.humidity, 
@@ -75,6 +79,8 @@ onMounted(() => {
 
 onUnmounted(() => { if (ws) ws.close(); });
 </script>
+
+
 
 <style lang="scss" scoped>
 .card__content--loading { display: flex; flex-direction: column; align-items: center; gap: .75rem; }

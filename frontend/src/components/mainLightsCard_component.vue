@@ -15,10 +15,15 @@
   </div>
 </template>
 
+
+
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useLinkStore } from '@/stores/linkStore';
+import { useWsStore } from '@/stores/wsStore';
+
 const linkStore = useLinkStore();
+const wsStore = useWsStore();
 
 const lightStatus = ref(false);
 const loading = ref(true);
@@ -35,7 +40,7 @@ const toggleLights = () => {
 };
 
 function connect() {
-  ws = new WebSocket('ws://192.168.1.4:8886');
+  ws = new WebSocket(wsStore.wsUrl); // Użyj wsStore.wsUrl
   ws.onopen = () => { /* czekamy na pierwszą wiadomość push */ };
   ws.onmessage = (event) => {
     try {
@@ -58,6 +63,8 @@ function scheduleReconnect() {
 onMounted(connect);
 onUnmounted(() => { if (reconnectTimer) clearTimeout(reconnectTimer); if (ws) ws.close(); });
 </script>
+
+
 
 <style lang="scss" scoped>
 .card__body--slider {

@@ -31,8 +31,12 @@
   </div>
 </template>
 
+
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useWsStore } from '@/stores/wsStore';
+
+const wsStore = useWsStore();
 
 let ws = null;
 let reconnectTimer;
@@ -63,10 +67,7 @@ const modeLabel = computed(() => {
 
 function connect() {
   loading.value = true;
-  ws = new WebSocket('ws://192.168.1.4:8886');
-  
-  // ws.onopen = () => {
-  // };
+  ws = new WebSocket(wsStore.wsUrl); // Użyj wsStore.wsUrl
   
   ws.onmessage = (event) => {
     try {
@@ -165,6 +166,8 @@ function toggleManual() {
 onMounted(connect);
 onUnmounted(() => { if (reconnectTimer) clearTimeout(reconnectTimer); if (ws) ws.close(); });
 </script>
+
+
 
 <style lang="scss" scoped>
 .klima-wrapper { 

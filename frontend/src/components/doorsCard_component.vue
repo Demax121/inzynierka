@@ -22,17 +22,21 @@
     </div>
   </div>
 </template>
+
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useLinkStore } from '@/stores/linkStore';
+import { useWsStore } from '@/stores/wsStore'; // Dodaj import wsStore
+
 const linkStore = useLinkStore();
+const wsStore = useWsStore(); // Użyj wsStore
 
 // Stan początkowy utrzymany aż do pierwszej wiadomości z ESP
 const door_sensor = ref('Łączenie...');
 let ws;
 
 onMounted(() => {
-  ws = new WebSocket('ws://192.168.1.4:8886');
+  ws = new WebSocket(wsStore.wsUrl); // Użyj wsStore.wsUrl
 
   ws.onopen = () => {
     // Po nawiązaniu połączenia czekamy na pierwszą wiadomość z kanału door_sensor
@@ -67,6 +71,8 @@ onUnmounted(() => {
   if (ws) ws.close();
 });
 </script>
+
+
 
 <style lang="scss" scoped>
 .card__icon {

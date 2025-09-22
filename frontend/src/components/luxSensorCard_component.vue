@@ -14,12 +14,15 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
+import { useWsStore } from '@/stores/wsStore';
+
+const wsStore = useWsStore();
 
 const lux = ref(null);
 let ws;
 
 onMounted(() => {
-  ws = new WebSocket('ws://192.168.1.4:8886');
+  ws = new WebSocket(wsStore.wsUrl);
   ws.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
