@@ -20,6 +20,13 @@ const char* WEBSOCKET_SERVER = "192.168.1.4";
 const int WEBSOCKET_PORT = 8886;
 const unsigned int WEBSOCKET_RECONNECT_INTERVAL = 5000;
 
+
+// Watchdog WebSocket
+unsigned long lastWsConnected = 0;
+unsigned long lastWsAttempt = 0;
+const unsigned long WS_RECONNECT_TIMEOUT = 15000;
+
+
 StaticJsonDocument<256> jsonPayload;
 
 void initializeJSON() { 
@@ -87,6 +94,7 @@ void setup() {
   webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
   webSocketClient.onEvent([](WStype_t type, uint8_t* payload, size_t length) {
     if (type == WStype_CONNECTED) {
+      lastWsConnected = millis(); // aktualizuj czas połączenia
       identifyDevice();
       sendWebSocketData();
     } else if (type == WStype_TEXT) {
@@ -94,6 +102,8 @@ void setup() {
     }
   });
   webSocketClient.setReconnectInterval(WEBSOCKET_RECONNECT_INTERVAL);
+    lastWsConnected = millis();
+  lastWsAttempt = millis();
 }
 
 void loop() {
@@ -121,4 +131,17 @@ void loop() {
   }
   
   lastButtonState = reading;
+
+
+
+    // Watchdog WebSocket
+  if (!webSocketClient.isConnected()) {
+    if (millis() - lastWsConnected > WS_RECONNECT_TIMEOUT && millis() - lastWsAttempt > 5000) {
+      Serial.println("WebSocket nie odpowiada, restart połączenia...");
+      webSocketClient.disconnect();
+      delay(100);
+      webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
+      lastWsAttempt = millis();
+    }
+  }
 }

@@ -14,6 +14,11 @@ const unsigned int WEBSOCKET_RECONNECT_INTERVAL = 5000;
 const uint8_t BME280_I2C_ADDRESS = 0x76;
 const int TEMPERATURE_THRESHOLD = 2;  // 2 stopnie progu zmiany temperatury (jako int)
 
+// Watchdog WebSocket
+unsigned long lastWsConnected = 0;
+unsigned long lastWsAttempt = 0;
+const unsigned long WS_RECONNECT_TIMEOUT = 15000;
+
 Adafruit_BME280 bme;
 WebSocketsClient webSocketClient;
 StaticJsonDocument<256> jsonPayload;
@@ -67,6 +72,7 @@ void setup() {
   webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT);
   webSocketClient.onEvent([](WStype_t type, uint8_t* payload, size_t length) {
     if (type == WStype_CONNECTED) {
+      lastWsConnected = millis(); // aktualizuj czas połączenia
       identifyDevice();
       updateJSONData();
       sendWebSocketData();
@@ -82,6 +88,8 @@ void setup() {
     }
   });
   webSocketClient.setReconnectInterval(WEBSOCKET_RECONNECT_INTERVAL);
+    lastWsConnected = millis();
+  lastWsAttempt = millis();
 }
 
 void loop() {
@@ -95,5 +103,16 @@ void loop() {
     updateJSONData();
     sendWebSocketData();
     lastTemperature = currentTemperature;
+  }
+
+    // Watchdog WebSocket
+  if (!webSocketClient.isConnected()) {
+    if (millis() - lastWsConnected > WS_RECONNECT_TIMEOUT && millis() - lastWsAttempt > 5000) {
+      Serial.println("WebSocket nie odpowiada, restart połączenia...");
+      webSocketClient.disconnect();
+      delay(100);
+      webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT);
+      lastWsAttempt = millis();
+    }
   }
 }

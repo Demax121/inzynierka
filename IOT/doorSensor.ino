@@ -15,6 +15,11 @@ WebSocketsClient webSocketClient;
 StaticJsonDocument<256> jsonPayload;
 bool doorOpen = false;
 
+// Watchdog WebSocket
+unsigned long lastWsConnected = 0;
+unsigned long lastWsAttempt = 0;
+const unsigned long WS_RECONNECT_TIMEOUT = 15000;
+
 void initializeJSON() { 
   jsonPayload["identity"] = "main_door_sensor";
   jsonPayload["channel"] = "door_sensor";
@@ -67,6 +72,7 @@ void setup() {
   webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT);
   webSocketClient.onEvent([](WStype_t type, uint8_t* payload, size_t length) {
     if (type == WStype_CONNECTED) {
+      lastWsConnected = millis(); // aktualizuj czas połączenia
       identifyDevice();
       int currentButtonState = digitalRead(BUTTON_PIN);
       updateJSONData(currentButtonState);
@@ -77,6 +83,8 @@ void setup() {
     }
   });
   webSocketClient.setReconnectInterval(WEBSOCKET_RECONNECT_INTERVAL);
+  lastWsConnected = millis();
+  lastWsAttempt = millis();
 }
 
 void loop() {
@@ -93,5 +101,16 @@ void loop() {
     }
   } else {
     lastChangeTime = 0;
+  }
+
+  // Watchdog WebSocket
+  if (!webSocketClient.isConnected()) {
+    if (millis() - lastWsConnected > WS_RECONNECT_TIMEOUT && millis() - lastWsAttempt > 5000) {
+      Serial.println("WebSocket nie odpowiada, restart połączenia...");
+      webSocketClient.disconnect();
+      delay(100);
+      webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT);
+      lastWsAttempt = millis();
+    }
   }
 }

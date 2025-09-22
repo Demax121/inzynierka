@@ -18,6 +18,11 @@ WebSocketsClient webSocket;
 Adafruit_VEML7700 veml;
 StaticJsonDocument<256> jsonPayload;
 
+// Watchdog WebSocket
+unsigned long lastWsConnected = 0;
+unsigned long lastWsAttempt = 0;
+const unsigned long WS_RECONNECT_TIMEOUT = 15000;
+
 
 int lastLux = -999;
 bool sensorReady = false;
@@ -92,6 +97,9 @@ void setup() {
       handleWebSocketMessage(payload, length);
     }
   });
+
+    lastWsConnected = millis();
+  lastWsAttempt = millis();
 }
 
 void loop() {
@@ -103,5 +111,16 @@ void loop() {
     updateJSONData(currentLux);
     sendWebSocketData();
     lastLux = currentLux;
+  }
+
+    // Watchdog WebSocket
+  if (!webSocket.isConnected()) {
+    if (millis() - lastWsConnected > WS_RECONNECT_TIMEOUT && millis() - lastWsAttempt > 5000) {
+      Serial.println("WebSocket nie odpowiada, restart połączenia...");
+      webSocket.disconnect();
+      delay(100);
+      webSocket.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT);
+      lastWsAttempt = millis();
+    }
   }
 }

@@ -28,6 +28,13 @@ int requestedTemp = 25;
 const int HISTERAZA = 2;
 char currentFunction[16] = "";
 
+
+
+unsigned long lastWsConnected = 0;
+unsigned long lastWsAttempt = 0;
+const unsigned long WS_RECONNECT_TIMEOUT = 15000;
+
+
 StaticJsonDocument<256> doc;
 StaticJsonDocument<512> jsonPayload;
 
@@ -243,37 +250,7 @@ void handleIncomingText(uint8_t* payload, size_t length) {
   }
 }
 
-void setup() {
-  Serial.begin(19200);
-  delay(500);
-  pinMode(buttonPin, INPUT_PULLUP);
-  initializeDisplay();
 
-  MyWiFi::connect();
-
-  initializeJSON();
-
-  webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
-  webSocketClient.onEvent([](WStype_t type, uint8_t* payload, size_t length) {
-    if (type == WStype_CONNECTED) {
-      Serial.println("Połączono z WS – identyfikacja kanału air_conditioning");
-      identifyDevice();
-      sendWebSocketData();
-      updateDisplay();
-    } else if (type == WStype_TEXT) {
-      handleIncomingText(payload, length);
-    }
-  });
-  webSocketClient.setReconnectInterval(RECONNECT_INTERVAL);
-}
-
-void loop() {
-  // Obsługa przycisku na początku - niezależnie od WebSocket
-  handleButton();
-  
-  // WebSocket loop - może blokować podczas reconnect
-  webSocketClient.loop();
-}
 
 void handleButton() {
   static bool lastButton = HIGH;
@@ -309,3 +286,56 @@ void handleButton() {
 
   lastButton = reading;
 }
+
+
+
+
+
+
+void setup() {
+  Serial.begin(19200);
+  delay(500);
+  pinMode(buttonPin, INPUT_PULLUP);
+  initializeDisplay();
+
+  MyWiFi::connect();
+
+  initializeJSON();
+
+  webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
+  lastWsConnected = millis();
+  lastWsAttempt = millis();
+  webSocketClient.onEvent([](WStype_t type, uint8_t* payload, size_t length) {
+    if (type == WStype_CONNECTED) {
+      lastWsConnected = millis();
+      Serial.println("Połączono z WS – identyfikacja kanału air_conditioning");
+      identifyDevice();
+      sendWebSocketData();
+      updateDisplay();
+    } else if (type == WStype_TEXT) {
+      handleIncomingText(payload, length);
+    }
+  });
+  webSocketClient.setReconnectInterval(RECONNECT_INTERVAL);
+}
+
+void loop() {
+  // Obsługa przycisku na początku - niezależnie od WebSocket
+  handleButton();
+  
+  // WebSocket loop - może blokować podczas reconnect
+  webSocketClient.loop();
+
+if (!webSocketClient.isConnected()) {
+  if (millis() - lastWsConnected > WS_RECONNECT_TIMEOUT && millis() - lastWsAttempt > 5000) {
+    Serial.println("WebSocket nie odpowiada, restart połączenia...");
+    webSocketClient.disconnect();
+    delay(100);
+    webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
+    lastWsAttempt = millis();
+  }
+}
+
+
+}
+
