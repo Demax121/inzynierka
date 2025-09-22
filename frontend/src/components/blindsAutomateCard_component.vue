@@ -117,7 +117,7 @@ const toggleAutomate = () => {
 // Control blinds
 const controlBlinds = async (action) => {
   try {
-    await fetch(linkStore.getPhpApiUrl('blindsControl.php') + `?action=${action}`)
+    await fetch(linkStore.getPhpApiUrl('tuyaBlindsApi.php') + `?action=${action}`)
   } catch (error) {
     // Silent error handling
   }

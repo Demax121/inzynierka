@@ -239,8 +239,7 @@ function saveProfile() {
   // Build the profile JSON
   const profileData = buildProfileJSON();
 
-  // Display the JSON in the console (formatted for readability)
-  console.log('Profile JSON:', JSON.stringify(profileData, null, 2));
+
 
   // Send profile to backend
   const saveData = {

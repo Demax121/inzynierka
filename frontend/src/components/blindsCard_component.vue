@@ -52,10 +52,9 @@ const setAutomateFalse = async () => {
     }
 }
 
-const makeApiCall = async (phpFile, actionParam) => {
+const makeApiCall = async (actionParam) => {
     try {
-        let apiUrl = linkStore.getPhpApiUrl(phpFile)
-        
+        let apiUrl = linkStore.getPhpApiUrl('tuyaBlindsApi.php')
         if (actionParam) {
             apiUrl += `?action=${actionParam}`
         }
@@ -78,19 +77,19 @@ const makeApiCall = async (phpFile, actionParam) => {
             fetchStatus().catch(() => {})
         }
     } catch (error) {
-        // API call error handled silently
+        console.error('API error:', error)
     }
 }
 
 const openBlinds = async () => {
     await setAutomateFalse()
-    await makeApiCall('blindsControl.php', 'open')
+    await makeApiCall('open')
     setTimeout(fetchStatus, 5000);
 }
 
 const closeBlinds = async () => {
     await setAutomateFalse()
-    await makeApiCall('blindsControl.php', 'close')
+    await makeApiCall('close')
     setTimeout(fetchStatus, 5000);
 }
 
@@ -142,7 +141,7 @@ const parseStatus = (data) => {
 
 const fetchStatus = async () => {
     try {
-        const apiUrl = linkStore.getPhpApiUrl('getBlindsStatus.php')
+        const apiUrl = linkStore.getPhpApiUrl('tuyaBlindsApi.php?action=status')
         const resp = await fetch(apiUrl, { method: 'GET' })
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
         const data = await resp.json()
@@ -150,12 +149,9 @@ const fetchStatus = async () => {
         
         // Handle the new response format directly
         if (data) {
-            // Set battery level directly from response
             if (data.battery_percent !== undefined && data.battery_percent !== null) {
                 batteryLevel.value = Number(data.battery_percent)
             }
-            
-            // Set device state based on blinds_state value
             if (data.blinds_state !== undefined) {
                 const state = String(data.blinds_state).toLowerCase()
                 if (state === 'open' || state === '1' || state === 'true') {
@@ -164,7 +160,6 @@ const fetchStatus = async () => {
                     deviceState.value = 'close'
                 }
             } else {
-                // If no state in response, try parsing the whole response with the old method
                 parseStatus(data)
             }
         }
