@@ -31,8 +31,12 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useWsStore } from '@/stores/wsStore';
-
 const wsStore = useWsStore();
+
+import { useSaveStatsStore } from '@/stores/saveStatsStore'
+const saveStore = useSaveStatsStore()
+
+
 
 const statsInfo = ref(null);
 let ws;
@@ -70,6 +74,7 @@ onMounted(() => {
           humidity: data.humidity, 
           pressure: data.pressure 
         };
+        saveStore.setStats({ temperature: data.temperature, humidity: data.humidity, pressure: data.pressure })
       }
     } catch {}
   };
