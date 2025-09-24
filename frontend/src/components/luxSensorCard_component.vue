@@ -5,7 +5,7 @@
     </div>
     <div class="card__body">
       <div class="lux-wrapper">
-        <div v-if="lux === null" class="lux-loading">☀️</div>
+        <LoadingCard v-if="lux === null" />
         <div v-else class="lux-value">{{ lux }} <span class="unit">lux</span></div>
       </div>
     </div>
@@ -15,6 +15,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useWsStore } from '@/stores/wsStore';
+import LoadingCard from '@/components/LoadingCard.vue';
 
 const wsStore = useWsStore();
 
@@ -38,8 +39,6 @@ onUnmounted(() => { if (ws) ws.close(); });
 
 <style scoped>
 .lux-wrapper { display:flex; justify-content:center; align-items:center; min-height:5rem; }
-.lux-loading { font-size:2.5rem; opacity:.6; animation: blink 1.4s ease-in-out infinite; }
-@keyframes blink { 0%,100% { opacity:.3; } 50% { opacity:1; } }
 .lux-value { font-size:2rem; font-weight:600; color:black; }
 .unit { font-size:2rem; margin-left:.4rem; opacity:.7; }
 </style>

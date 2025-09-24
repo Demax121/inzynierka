@@ -18,10 +18,7 @@
                     <span class="card__value">{{ formatPressure(statsInfo.pressure) }}</span>
                 </div>
             </div>
-            <div class="card__content card__content--loading" v-else>
-                <div class="loading-icon">☁️</div>
-                <p class="card__text">Oczekiwanie danych...</p>
-            </div>
+            <LoadingCard v-else />
         </div>
     </div>
 </template>
@@ -35,6 +32,8 @@ const wsStore = useWsStore();
 
 import { useSaveStatsStore } from '@/stores/saveStatsStore'
 const saveStore = useSaveStatsStore()
+
+import LoadingCard from '@/components/LoadingCard.vue'
 
 
 

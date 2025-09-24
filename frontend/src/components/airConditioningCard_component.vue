@@ -5,7 +5,7 @@
     </div>
     <div class="card__body">
       <div class="klima-wrapper">
-        <div v-if="loading" class="klima-loading">💨</div>
+        <LoadingCard v-if="loading" />
         <div v-else class="card__content card__content--slider">
           <form class="temp-form" @submit.prevent="submitTemp">
             <input v-model.number="inputTemp" type="number" min="16" max="30" step="1" placeholder="Wprowadź temperaturę" class="temp-input" required />
@@ -31,10 +31,10 @@
   </div>
 </template>
 
-
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useWsStore } from '@/stores/wsStore';
+import LoadingCard from '@/components/LoadingCard.vue';
 
 const wsStore = useWsStore();
 
@@ -167,25 +167,12 @@ onMounted(connect);
 onUnmounted(() => { if (reconnectTimer) clearTimeout(reconnectTimer); if (ws) ws.close(); });
 </script>
 
-
-
 <style lang="scss" scoped>
 .klima-wrapper { 
   display: flex; 
   justify-content: center; 
   align-items: center; 
   min-height: 5rem; 
-}
-
-.klima-loading { 
-  font-size: 2.5rem; 
-  opacity: .6; 
-  animation: bounce 1.4s ease-in-out infinite; 
-}
-
-@keyframes bounce { 
-  0%, 100% { transform: translateY(0); opacity:.3; } 
-  50% { transform: translateY(-10px); opacity:1; } 
 }
 
 .temp-form {

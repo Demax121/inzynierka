@@ -5,7 +5,7 @@
     </div>
     <div class="card__body card__body--slider">
       <div class="card__content card__content--slider">
-        <div v-if="loading" class="lights-loading">💡</div>
+        <LoadingCard v-if="loading" />
         <label v-else class="switch switch--large">
           <input type="checkbox" :checked="isLightOn" @change="toggleLights">
           <span class="slider round"></span>
@@ -15,12 +15,11 @@
   </div>
 </template>
 
-
-
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useLinkStore } from '@/stores/linkStore';
 import { useWsStore } from '@/stores/wsStore';
+import LoadingCard from '@/components/LoadingCard.vue';
 
 const linkStore = useLinkStore();
 const wsStore = useWsStore();
@@ -63,8 +62,6 @@ function scheduleReconnect() {
 onMounted(connect);
 onUnmounted(() => { if (reconnectTimer) clearTimeout(reconnectTimer); if (ws) ws.close(); });
 </script>
-
-
 
 <style lang="scss" scoped>
 .card__body--slider {

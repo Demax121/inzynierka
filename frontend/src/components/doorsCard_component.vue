@@ -4,7 +4,7 @@
       <h2 class="card__title">Główne drzwi</h2>
     </div>
     <div class="card__body">
-      <div class="card__content">
+      <div class="card__content" v-if="door_sensor === 'Drzwi otwarte' || door_sensor === 'Drzwi zamknięte'">
         <div class="card__info-item">
           <span class="card__label">Status:</span>
           <span class="card__value">{{ door_sensor }}</span>
@@ -19,6 +19,7 @@
           </div>
         </div>
       </div>
+      <LoadingCard v-else />
     </div>
   </div>
 </template>
@@ -26,20 +27,21 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useLinkStore } from '@/stores/linkStore';
-import { useWsStore } from '@/stores/wsStore'; // Dodaj import wsStore
+import { useWsStore } from '@/stores/wsStore';
+import { useDoorStatusStore } from '@/stores/doorStatusStore';
+import LoadingCard from '@/components/LoadingCard.vue';
 
 const linkStore = useLinkStore();
-const wsStore = useWsStore(); // Użyj wsStore
+const wsStore = useWsStore();
+const saveStore = useDoorStatusStore();
 
-// Stan początkowy utrzymany aż do pierwszej wiadomości z ESP
 const door_sensor = ref('Łączenie...');
 let ws;
 
 onMounted(() => {
-  ws = new WebSocket(wsStore.wsUrl); // Użyj wsStore.wsUrl
+  ws = new WebSocket(wsStore.wsUrl);
 
   ws.onopen = () => {
-    // Po nawiązaniu połączenia czekamy na pierwszą wiadomość z kanału door_sensor
     door_sensor.value = 'Oczekiwanie danych...';
   };
 
@@ -60,6 +62,7 @@ onMounted(() => {
       const data = JSON.parse(event.data);
       if (data.channel === 'door_sensor' && typeof data.doorOpen === 'boolean') {
         door_sensor.value = data.doorOpen ? 'Drzwi otwarte' : 'Drzwi zamknięte';
+        saveStore.saveDoorStatus(door_sensor.value);
       }
     } catch {
       // Ignoruj błędne pakiety
@@ -71,8 +74,6 @@ onUnmounted(() => {
   if (ws) ws.close();
 });
 </script>
-
-
 
 <style lang="scss" scoped>
 .card__icon {
