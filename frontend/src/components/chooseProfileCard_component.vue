@@ -5,15 +5,13 @@
         </div>
         <div class="card__body">
             <div class="card__content">
-                <div v-if="loading" class="loading-text">
-                    Ładowanie profilów...
-                </div>
-                <div v-else-if="error" class="error-text">
-                    {{ error }}
-                </div>
-                <div v-else-if="profiles.length === 0" class="empty-text">
-                    Brak zapisanych profilów
-                </div>
+
+                <!-- Loading / Error / Empty -->
+                <div v-if="loading" class="loading-text">Ładowanie profilów...</div>
+                <div v-else-if="error" class="error-text">{{ error }}</div>
+                <div v-else-if="profiles.length === 0" class="empty-text">Brak zapisanych profilów</div>
+
+                <!-- Profile Selector -->
                 <div v-else class="profile-selector">
                     <div class="profile-dropdown">
                         <label for="profile-select" class="profile-label">Wybierz profil:</label>
@@ -24,125 +22,110 @@
                             </option>
                         </select>
                     </div>
-                    
+
+                    <!-- Profile Details -->
                     <div class="profile-details" v-if="selectedProfile">
                         <h3>Szczegóły profilu</h3>
+
+                        <!-- WLED -->
                         <div class="detail-section">
                             <h4>WLED:</h4>
-                            <div v-if="selectedProfile.profile_json && selectedProfile.profile_json.WLED" class="wled-info">
-                                <p v-if="selectedProfile.profile_json.WLED.on === false">Status: Wyłączony</p>
-                                <p v-else-if="selectedProfile.profile_json.WLED.lor === 0">Status: Ambilight</p>
-                                <p v-else-if="selectedProfile.profile_json.WLED.preset_name">
-                                    Preset: {{ selectedProfile.profile_json.WLED.preset_name }}
-                                </p>
-                                <p v-else-if="selectedProfile.profile_json.WLED.ps !== null && selectedProfile.profile_json.WLED.ps !== undefined">
-                                    Preset ID: {{ selectedProfile.profile_json.WLED.ps }}
-                                </p>
+                            <p v-if="!wled">Nie ustawiono</p>
+                            <template v-else>
+                                <p v-if="wled.on === false">Status: Wyłączony</p>
+                                <p v-else-if="wled.lor === 0">Status: Ambilight</p>
+                                <p v-else-if="wled.preset_name">Preset: {{ wled.preset_name }}</p>
+                                <p v-else-if="wled.ps != null">Preset ID: {{ wled.ps }}</p>
                                 <p v-else>Status: Włączony</p>
-                            </div>
-                            <p v-else>Nie ustawiono</p>
+                            </template>
                         </div>
-                        
+
+                        <!-- Lights -->
                         <div class="detail-section">
                             <h4>Oświetlenie:</h4>
-                            <p v-if="selectedProfile.profile_json && selectedProfile.profile_json.lights">
-                                {{ selectedProfile.profile_json.lights.payload.state ? 'Włączone' : 'Wyłączone' }}
-                            </p>
+                            <p v-if="lights">{{ lights.payload.state ? 'Włączone' : 'Wyłączone' }}</p>
                             <p v-else>Nie ustawiono</p>
                         </div>
-                        
+
+                        <!-- AC -->
                         <div class="detail-section">
                             <h4>Klimatyzacja:</h4>
-                            <p v-if="selectedProfile.profile_json && selectedProfile.profile_json.AC">
-                                Temperatura: {{ selectedProfile.profile_json.AC.payload.requestedTemp }}°C
-                            </p>
+                            <p v-if="ac">Temperatura: {{ ac.payload.requestedTemp }}°C</p>
                             <p v-else>Nie ustawiono</p>
                         </div>
-                        
+
+                        <!-- Blinds -->
                         <div class="detail-section">
                             <h4>Rolety:</h4>
-                            <p v-if="selectedProfile.profile_json && selectedProfile.profile_json.blinds && selectedProfile.profile_json.blinds.state === 'open'">
-                                Status: Otwarte
-                            </p>
-                            <p v-else-if="selectedProfile.profile_json && selectedProfile.profile_json.blinds && selectedProfile.profile_json.blinds.state === 'close'">
-                                Status: Zamknięte
-                            </p>
-                            <p v-else-if="selectedProfile.profile_json && selectedProfile.profile_json.blinds && selectedProfile.profile_json.blinds.automate">
-                                Status: Automatyczne (Min: {{ selectedProfile.profile_json.blinds.minLux }}, Max: {{ selectedProfile.profile_json.blinds.maxLux }})
+                            <p v-if="blinds?.state === 'open'">Status: Otwarte</p>
+                            <p v-else-if="blinds?.state === 'close'">Status: Zamknięte</p>
+                            <p v-else-if="blinds?.automate">
+                                Status: Automatyczne (Min: {{ blinds.minLux }}, Max: {{ blinds.maxLux }})
                             </p>
                             <p v-else>Nie ustawiono</p>
                         </div>
-                        
+
+                        <!-- Actions -->
                         <div class="profile-actions">
                             <button class="btn btn-apply" @click="applyProfile">Zastosuj profil</button>
                             <button class="btn btn-delete" @click="deleteProfile">Usuń</button>
                         </div>
                     </div>
                 </div>
+
             </div>
         </div>
     </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
+import { useAutomateStore } from '@/stores/automateStore';
 import { useLinkStore } from '@/stores/linkStore';
+import { useWsStore } from '@/stores/wsStore';
 
-// Get linkStore for API access
+const automateStore = useAutomateStore();
 const linkStore = useLinkStore();
+const wsStore = useWsStore();
 
-// Define props to receive shared profile names from parent
 const props = defineProps({
-    sharedProfileNames: {
-        type: Set,
-        default: () => new Set()
-    }
+    sharedProfileNames: { type: Set, default: () => new Set() }
 });
-
-// Define emits to send updates to parent
 const emit = defineEmits(['update-profiles']);
 
-// Component state
 const profiles = ref([]);
 const loading = ref(true);
 const error = ref(null);
 const selectedProfileId = ref('');
 
-// Computed property to get selected profile details
-const selectedProfile = computed(() => {
-    if (!selectedProfileId.value) return null;
-    const profile = profiles.value.find(profile => profile.profile_id === selectedProfileId.value);
-    
-    if (!profile) return null;
-    
-    // No need to parse JSON as the backend now returns it already parsed
-    return profile;
-});
+const selectedProfile = computed(() =>
+    profiles.value.find(p => p.profile_id === selectedProfileId.value) || null
+);
 
-// Fetch profiles from the database
+// --- Computed dla sekcji ---
+const wled = computed(() => selectedProfile.value?.profile_json?.WLED);
+const lights = computed(() => selectedProfile.value?.profile_json?.lights);
+const ac = computed(() => selectedProfile.value?.profile_json?.AC);
+const blinds = computed(() => selectedProfile.value?.profile_json?.blinds);
+
+// --- WebSocket helper ---
+function sendViaWebSocket(payload) {
+    const ws = new WebSocket(wsStore.wsUrl);
+    ws.onopen = () => ws.send(JSON.stringify(payload));
+    ws.onmessage = ws.onerror = ws.onclose = () => ws.close();
+}
+
+// --- Fetch profiles ---
 async function fetchProfiles() {
     loading.value = true;
     error.value = null;
-    
     try {
         const response = await fetch(linkStore.getPhpApiUrl('chooseProfile.php'));
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        
+        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
         const data = await response.json();
-        
         if (data.success) {
             profiles.value = data.profiles;
-            
-            // Update shared profile names
-            const profileNameSet = new Set();
-            profiles.value.forEach(profile => {
-                profileNameSet.add(profile.profile_name);
-            });
-            emit('update-profiles', profileNameSet);
-            
+            emit('update-profiles', new Set(data.profiles.map(p => p.profile_name)));
         } else {
             throw new Error(data.error || 'Failed to fetch profiles');
         }
@@ -153,72 +136,40 @@ async function fetchProfiles() {
     }
 }
 
-// Apply the selected profile
+// --- Apply profile ---
 async function applyProfile() {
     if (!selectedProfile.value) return;
-    
     const profile = selectedProfile.value.profile_json;
-    
-    // Apply each component of the profile
-    
-    // 1. Apply WLED settings if present
-    if (profile && profile.WLED) {
-        try {
-            await linkStore.sendWledCommand(profile.WLED);
-        } catch (err) {
-        }
+
+    const handlers = {
+        WLED: (w) => linkStore.sendWledCommand(w),
+        lights: (l) => sendViaWebSocket({ channel: l.channel, lightON: l.payload.state }),
+        AC: (a) => sendViaWebSocket(a),
+        blinds: (b) => applyBlindsPayload(b)
+    };
+
+    for (const [key, fn] of Object.entries(handlers)) {
+        if (profile?.[key]) await fn(profile[key]);
     }
-    
-    // 2. Apply lights settings if present (implement this functionality)
-    if (profile && profile.lights) {
-        // TODO: Implement lights control via WebSocket
-    }
-    
-    // 3. Apply AC settings if present (implement this functionality)
-    if (profile && profile.AC) {
-        // TODO: Implement AC control via WebSocket
-    }
-    
-    // 4. Apply blinds settings if present (implement this functionality)
-    if (profile && profile.blinds) {
-        // TODO: Implement blinds control via WebSocket or API
-    }
-    
+
     alert('Profil został zastosowany!');
 }
 
-// Delete the selected profile
+// --- Delete profile ---
 async function deleteProfile() {
     if (!selectedProfile.value) return;
     if (!confirm(`Czy na pewno chcesz usunąć profil "${selectedProfile.value.profile_name}"?`)) return;
-    
     try {
-        // Call the API to delete the profile
         const response = await fetch(linkStore.getPhpApiUrl('deleteProfile.php'), {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                profile_id: selectedProfile.value.profile_id
-            })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ profile_id: selectedProfile.value.profile_id })
         });
-        
         const data = await response.json();
-        
         if (data.success) {
-            // Remove from local list
-            const deletedProfileName = selectedProfile.value.profile_name;
             profiles.value = profiles.value.filter(p => p.profile_id !== selectedProfile.value.profile_id);
             selectedProfileId.value = '';
-            
-            // Update shared profile names
-            const updatedNames = new Set();
-            profiles.value.forEach(profile => {
-                updatedNames.add(profile.profile_name);
-            });
-            emit('update-profiles', updatedNames);
-            
+            emit('update-profiles', new Set(profiles.value.map(p => p.profile_name)));
             alert('Profil został usunięty!');
         } else {
             throw new Error(data.error || 'Nie udało się usunąć profilu');
@@ -228,34 +179,44 @@ async function deleteProfile() {
     }
 }
 
-// Fetch profiles on component mount
-onMounted(() => {
-    fetchProfiles();
-});
+// --- Blinds payload ---
+async function applyBlindsPayload(payload) {
+    if (typeof payload.state === 'string') {
+        automateStore.automate_flag = false;
+        await fetch(linkStore.getPhpApiUrl('setBlindsAutomate.php'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ automate: false })
+        });
+        await fetch(linkStore.getPhpApiUrl('tuyaBlindsApi.php') + `?action=${payload.state}`);
+        return;
+    }
 
-// Watch for changes in props.sharedProfileNames
+    if (typeof payload.maxLux === 'number' && typeof payload.minLux === 'number' && typeof payload.automate === 'boolean') {
+        automateStore.automate_flag = payload.automate;
+        await fetch(linkStore.getPhpApiUrl('saveBlindsConfig.php'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ min_lux: payload.minLux, max_lux: payload.maxLux, automate: payload.automate })
+        });
+    }
+}
+
+// --- Lifecycle ---
+onMounted(fetchProfiles);
+
+// --- Watch sharedProfileNames ---
 watch(() => props.sharedProfileNames, async (newNames) => {
-    // If a new profile was added externally, refresh profiles list
-    const currentProfileNames = new Set(profiles.value.map(p => p.profile_name));
-    let needsRefresh = false;
-    
-    // Check if any new profile names are in the shared list
-    for (const name of newNames) {
-        if (!currentProfileNames.has(name)) {
-            needsRefresh = true;
-            break;
-        }
-    }
-    
-    // If we found a new profile name, refresh the list
-    if (needsRefresh) {
-        await fetchProfiles();
-    }
+    const currentNames = new Set(profiles.value.map(p => p.profile_name));
+    const needsRefresh = [...newNames].some(name => !currentNames.has(name));
+    if (needsRefresh) await fetchProfiles();
 }, { deep: true });
 </script>
 
 <style lang="scss" scoped>
-.loading-text, .error-text, .empty-text {
+.loading-text,
+.error-text,
+.empty-text {
     padding: 1.5rem;
     text-align: center;
 }
@@ -296,7 +257,7 @@ watch(() => props.sharedProfileNames, async (newNames) => {
     border: 1px solid #ddd;
     border-radius: 8px;
     background-color: rgba(255, 255, 255, 0.05);
-    
+
     h3 {
         margin-top: 0;
         margin-bottom: 1rem;
@@ -309,17 +270,17 @@ watch(() => props.sharedProfileNames, async (newNames) => {
     margin-bottom: 1rem;
     padding-bottom: 0.75rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    
+
     &:last-child {
         border-bottom: none;
     }
-    
+
     h4 {
         margin: 0.5rem 0;
         font-size: 1rem;
         color: var(--color-heading);
     }
-    
+
     p {
         margin: 0.25rem 0;
         font-size: 0.9rem;
@@ -331,7 +292,7 @@ watch(() => props.sharedProfileNames, async (newNames) => {
     justify-content: space-between;
     margin-top: 1.5rem;
     gap: 1rem;
-    
+
     button {
         flex: 1;
     }
@@ -344,11 +305,11 @@ watch(() => props.sharedProfileNames, async (newNames) => {
     border-radius: 4px;
     cursor: pointer;
     transition: background-color 0.2s, transform 0.1s;
-    
+
     &:hover {
         filter: brightness(1.1);
     }
-    
+
     &:active {
         transform: translateY(1px);
     }
