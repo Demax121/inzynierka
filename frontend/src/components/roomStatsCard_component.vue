@@ -17,6 +17,7 @@
                     <span class="card__label">Ciśnienie:</span>
                     <span class="card__value">{{ formatPressure(statsInfo.pressure) }}</span>
                 </div>
+                <!-- <button @click="saveDatas">Zapisz statystyki</button> -->
             </div>
             <LoadingCard v-else />
         </div>
@@ -35,7 +36,9 @@ const saveStore = useSaveStatsStore()
 
 import LoadingCard from '@/components/LoadingCard.vue'
 
-
+function saveDatas(){
+  saveStore.forceSaveNow();
+}
 
 const statsInfo = ref(null);
 let ws;

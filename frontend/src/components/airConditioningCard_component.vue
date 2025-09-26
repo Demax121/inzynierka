@@ -7,11 +7,12 @@
       <div class="klima-wrapper">
         <LoadingCard v-if="loading" />
         <div v-else class="card__content card__content--slider">
-          <div class="temp-form">
-            <button type="button" class="temp-btn" @click="changeTemp(-1)">-1</button>
-            <span class="temp-display">{{ inputTemp }}°C</span>
-            <button type="button" class="temp-btn" @click="changeTemp(1)">+1</button>
-          </div>
+<div class="temp-form">
+  <button type="button" class="btn btn--square" @click="changeTemp(-1)">-1</button>
+  <span class="temp-display">{{ inputTemp }}°C</span>
+  <button type="button" class="btn btn--square" @click="changeTemp(1)">+1</button>
+</div>
+
           <div class="temps-display">
             <p>Aktualna: <strong>{{ currentTempDisplay }}</strong>°C</p>
             <p>Docelowa: <strong>{{ targetTempDisplay }}</strong>°C</p>
@@ -176,21 +177,15 @@ onUnmounted(() => { if (reconnectTimer) clearTimeout(reconnectTimer); if (ws) ws
   margin-bottom: 1.5rem;
 }
 
-.temp-btn {
+.btn--square {
   width: 2.5rem;
   height: 2.5rem;
-  font-size: 1.5rem;
-  padding: 0.5rem;
-  border: 2px solid #ccc;
-
-  background: #f5f5f5;
-  cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
-  user-select: none;
-}
-.temp-btn:hover {
-  background: #e0e0e0;
-  border-color: #888;
+  padding: 2rem !important; // żeby wymusić równe boki
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem; // dopasuj do gustu
+  font-weight: 600;
 }
 
 .temp-display {
