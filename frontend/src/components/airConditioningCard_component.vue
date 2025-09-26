@@ -7,10 +7,11 @@
       <div class="klima-wrapper">
         <LoadingCard v-if="loading" />
         <div v-else class="card__content card__content--slider">
-          <form class="temp-form" @submit.prevent="submitTemp">
-            <input v-model.number="inputTemp" type="number" min="16" max="30" step="1" placeholder="Wprowadź temperaturę" class="temp-input" required />
-            <button type="submit" class="btn">Ustaw temperaturę</button>
-          </form>
+          <div class="temp-form">
+            <button type="button" class="temp-btn" @click="changeTemp(-1)">-1</button>
+            <span class="temp-display">{{ inputTemp }}°C</span>
+            <button type="button" class="temp-btn" @click="changeTemp(1)">+1</button>
+          </div>
           <div class="temps-display">
             <p>Aktualna: <strong>{{ currentTempDisplay }}</strong>°C</p>
             <p>Docelowa: <strong>{{ targetTempDisplay }}</strong>°C</p>
@@ -44,7 +45,7 @@ let reconnectTimer;
 // State variables
 const currentTemp = ref(null);
 const requestedTemp = ref(null);
-const inputTemp = ref("");
+const inputTemp = ref(22); // domyślna wartość
 const klimaON = ref(false);
 const functionState = ref('');
 const manualOverride = ref(false);
@@ -67,28 +68,24 @@ const modeLabel = computed(() => {
 
 function connect() {
   loading.value = true;
-  ws = new WebSocket(wsStore.wsUrl); // Użyj wsStore.wsUrl
+  ws = new WebSocket(wsStore.wsUrl);
   
   ws.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
-      
-      // Obsługa payload format (nowy)
       if (data.channel === 'air_conditioning' && data.payload) {
-        loading.value = false; // Set loading to false when we receive device data
+        loading.value = false;
         updateAirConditioningState(data.payload);
-      }
-      // Obsługa room_stats dla temperatury
-      else if (data.channel === 'room_stats' && typeof data.temperature === 'number') {
+        // Synchronizuj inputTemp z docelową temperaturą
+        if (typeof data.payload.requestedTemp === 'number') {
+          inputTemp.value = data.payload.requestedTemp;
+        }
+      } else if (data.channel === 'room_stats' && typeof data.temperature === 'number') {
         currentTemp.value = data.temperature;
+      } else if (data.channel === 'air_conditioning' && data.status === 'disconnected') {
+        loading.value = true;
       }
-      // Obsługa disconnection status
-      else if (data.channel === 'air_conditioning' && data.status === 'disconnected') {
-        loading.value = true; // Set loading back to true when device disconnects
-      }
-    } catch (error) {
-      // Błąd parsowania danych klimatyzacji - obsłużony cicho
-    }
+    } catch {}
   };
   
   ws.onclose = () => {
@@ -103,24 +100,18 @@ function connect() {
 }
 
 function updateAirConditioningState(payload) {
-  // loading już wyłączony w onopen
-  
   if (payload.hasOwnProperty('klimaON')) {
     klimaON.value = payload.klimaON;
   }
-  
   if (payload.hasOwnProperty('currentTemp')) {
     currentTemp.value = payload.currentTemp;
   }
-  
   if (payload.hasOwnProperty('requestedTemp')) {
     requestedTemp.value = payload.requestedTemp;
   }
-  
   if (payload.hasOwnProperty('function')) {
     functionState.value = payload.function;
   }
-  
   if (payload.hasOwnProperty('manualOverride')) {
     manualOverride.value = payload.manualOverride;
   }
@@ -131,25 +122,28 @@ function scheduleReconnect() {
   reconnectTimer = setTimeout(connect, 5000);
 }
 
-function submitTemp() {
-  if (!inputTemp.value || inputTemp.value < 16 || inputTemp.value > 30) return;
-  
+function changeTemp(delta) {
+  let newTemp = inputTemp.value + delta;
+  if (newTemp < 16) newTemp = 16;
+  if (newTemp > 30) newTemp = 30;
+  inputTemp.value = newTemp;
+  sendRequestedTemp(newTemp);
+}
+
+function sendRequestedTemp(temp) {
   const message = {
     channel: "air_conditioning",
     payload: {
-      requestedTemp: inputTemp.value
+      requestedTemp: temp
     }
   };
-  
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(message));
-    inputTemp.value = "";
   }
 }
 
 function toggleManual() {
   const newState = !klimaON.value;
-  
   const message = {
     channel: "air_conditioning", 
     payload: {
@@ -157,7 +151,6 @@ function toggleManual() {
       manualOverride: true
     }
   };
-  
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(message));
   }
@@ -180,8 +173,31 @@ onUnmounted(() => { if (reconnectTimer) clearTimeout(reconnectTimer); if (ws) ws
   gap: 1rem;
   align-items: center;
   justify-content: center;
-  flex-direction: column;
   margin-bottom: 1.5rem;
+}
+
+.temp-btn {
+  width: 2.5rem;
+  height: 2.5rem;
+  font-size: 1.5rem;
+  padding: 0.5rem;
+  border: 2px solid #ccc;
+
+  background: #f5f5f5;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  user-select: none;
+}
+.temp-btn:hover {
+  background: #e0e0e0;
+  border-color: #888;
+}
+
+.temp-display {
+  font-size: 1.5rem;
+  min-width: 3.5rem;
+  text-align: center;
+  font-weight: 600;
 }
 
 .temps-display { 
@@ -205,21 +221,6 @@ onUnmounted(() => { if (reconnectTimer) clearTimeout(reconnectTimer); if (ws) ws
 @keyframes pulse { 
   0%, 100% { opacity: .3; }
   50% { opacity: 1; }
-}
-
-.temp-input {
-  padding: 8px;
-  font-size: 12pt;
-  width: 14rem;
-  border: 2px solid #ccc;
-  border-radius: 4px;
-  outline: none;
-  transition: border-color 0.3s;
-  display: block;
-}
-
-.temp-input:focus { 
-  border-color: var(--color); 
 }
 
 .card__content--slider {

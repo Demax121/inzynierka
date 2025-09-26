@@ -44,7 +44,7 @@ const char PROGMEM status_text[] = "STATUS:";
 const char PROGMEM funkcja_text[] = "FUNKCJA:";
 const char PROGMEM on_text[] = "ON";
 const char PROGMEM off_text[] = "OFF";
-const char PROGMEM spoczynku_text[] = "W SPOCYNKU";
+const char PROGMEM spoczynku_text[] = "W SPOCZYNKU";
 const char PROGMEM space_c[] = " C";
 const char PROGMEM dash_c[] = "-- C";
 const char PROGMEM chlodzenie_text[] = "CHLODZIMY!!!";
@@ -156,7 +156,7 @@ void checkTemperatureControl() {
   char previousFunction[16];
   strcpy(previousFunction, currentFunction);
   
-  if (tempDiff > HISTERAZA) {
+  if (tempDiff >= HISTERAZA) {
     klimaOn = true;
     strcpy_P(currentFunction, chlodzenie_text);
     if (!previousState || strcmp(previousFunction, currentFunction) != 0) {
@@ -164,7 +164,7 @@ void checkTemperatureControl() {
       sendWebSocketData();
       updateDisplay();
     }
-  } else if (tempDiff < -HISTERAZA) {
+  } else if (tempDiff <= -HISTERAZA) {
     klimaOn = true;
     strcpy_P(currentFunction, grzanie_text);
     if (!previousState || strcmp(previousFunction, currentFunction) != 0) {
@@ -245,6 +245,7 @@ void handleIncomingText(uint8_t* payload, size_t length) {
         Serial.printf("[air_conditioning] Requested temperature: %d°C\n", reqTemp);
         updateDisplay();
         checkTemperatureControl();
+        sendWebSocketData();
       }
     }
   }
