@@ -1,8 +1,8 @@
 <template>
         <div class="hero">
             <div class="hero__text">
-                <h1 class="hero__title">Welcome to Smart Home</h1>
-                <p class="hero__subtitle">Your centralized hub for managing all smart devices.</p>
+                <h1 class="hero__title">Welcome to Simply Smart UI</h1>
+                <p class="hero__subtitle">Centralized hub for your smart devices.</p>
             </div>
             <button class="hero__scroll-btn" type="button" @click="scrollToMainContainer">
                 <img class="hero__icon" :src="linkStore.getImage('arrow-down-icon.svg')" alt="Scroll down" />
@@ -23,30 +23,37 @@ const scrollToMainContainer = () => {
     el.scrollIntoView({ behavior: 'smooth' });
 };
 
-
-
 </script>
 
 <style lang="scss" scoped>
 // BEM: .hero (block), __element, --modifier
+
+// Mixin dla urządzeń mobilnych
+@mixin mobile {
+  @media (max-width: 600px) {
+    @content;
+  }
+}
+
 .hero {
     position: relative;
     width: 100%;
-    height: 100vh;
+    height: 100dvh; // pełna wysokość ekranu, także na mobile
+    min-height: 100dvh;
+    max-height: 100dvh;
     display: flex;
     flex-direction: column;
-    justify-content: center; // centers text container
+    justify-content: center;
     align-items: center;
     text-align: center;
     overflow: hidden;
 
-    &::before { // decorative background (not an element)
+    &::before {
         content: '';
         position: absolute;
         inset: 0;
-        background: url('@/static assets/bg-photo-1.jpg') center/cover no-repeat;
-        filter: blur(4px);
-        transform: scale(1.05);
+        background: linear-gradient(120deg, #fffbe6 0%, #ffe082 50%, #ffb74d 100%);
+        opacity: 0.85;
         z-index: 0;
     }
 
@@ -57,15 +64,19 @@ const scrollToMainContainer = () => {
         display: flex;
         flex-direction: column;
         justify-content: center;
-        max-width: 70ch;
+        max-width: fit-content;
     }
 
     &__title {
         position: relative;
         z-index: 1;
         margin: 0 0 .75rem;
-        font-size: 32pt;
+        font-size: 72pt;
         font-weight: 600;
+        font-family: inherit;
+        @include mobile {
+            font-size: 32pt;
+        }
     }
 
     &__subtitle {
@@ -74,12 +85,16 @@ const scrollToMainContainer = () => {
         margin: 0 0 1.25rem;
         font-size: 24pt;
         font-weight: 300;
+        font-family: inherit;
+        @include mobile {
+            font-size: 14pt;
+        }
     }
 
     &__scroll-btn {
         position: absolute;
         left: 50%;
-        bottom: .25rem;
+        bottom: 1.5rem;
         transform: translateX(-50%);
         z-index: 1;
         background: transparent;
@@ -91,13 +106,20 @@ const scrollToMainContainer = () => {
         transition: opacity .3s ease;
         &:hover { opacity: .75; }
         &:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
+        @include mobile {
+            bottom: 1rem;
+        }
     }
 
     &__icon {
-        max-width: 5rem;
-        max-height: 5rem;
+        max-width: 4rem;
+        max-height: 4rem;
         margin: 0 auto;
         display: block;
+        @include mobile {
+            max-width: 2.5rem;
+            max-height: 2.5rem;
+        }
     }
 }
 </style>

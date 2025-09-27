@@ -17,7 +17,7 @@ const Tabs = { HomeTab, WeatherTab, WledTab, ProfilesTab };
 <template>
     <div class="app">
         <HeroSection />
-        <Navbar @changeTab="currentTab = $event" />
+        <Navbar :activeTab="currentTab" @changeTab="currentTab = $event" />
 
         <KeepAlive>
         <component :is="Tabs[currentTab]" />
