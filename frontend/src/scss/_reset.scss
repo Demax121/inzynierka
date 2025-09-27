@@ -1,3 +1,4 @@
+@use 'colors.scss' as *;
 /* Box sizing rules */
 *,
 *::before,
@@ -34,7 +35,7 @@ body {
 body {
   text-rendering: optimizeSpeed;
   line-height: 1.5;
-  
+  background: linear-gradient(360deg, #e2ddc6 0%, #ffe082 50%, #ffb74d 100%);
 }
 /* A elements that don't have a class get default styles */
 a:not([class]) {
