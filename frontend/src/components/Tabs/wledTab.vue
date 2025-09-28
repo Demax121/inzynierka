@@ -2,7 +2,8 @@
     <div class="big-container wled">
         <iframe
             class="wled__iframe"
-            src="http://192.168.1.25/#Colors" frameborder="0"
+            :src="wledUrl"
+            frameborder="0"
             title="WLED Controller"
             loading="lazy"
         ></iframe>
@@ -10,7 +11,11 @@
 </template>
 
 <script setup>
+import { useLinkStore } from '@/stores/linkStore';
+import { computed } from 'vue';
 
+const linkStore = useLinkStore();
+const wledUrl = computed(() => `${linkStore.links.wledIP}/#Colors`);
 </script>
 
 <style lang="scss" scoped>
