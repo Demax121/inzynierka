@@ -1,26 +1,26 @@
 <template>
     <div class="card">
         <div class="card__header">
-            <h2 class="card__title">Sterowanie roletami</h2>
+            <h2 class="card__title">Blinds Control</h2>
         </div>
         <div class="card__body">
             <div class="card__content">
 
                 <div class="button-group">
                     <button type="button" class="btn" @click="openBlinds">
-                        Otwórz rolety
+                        Open blinds
                     </button>
 
                     <button type="button" class="btn" @click="closeBlinds">
-                        Zamknij rolety
+                        Close blinds
                     </button>
                     <button type="button" class="btn" @click="fetchStatus()">
-                        Pobierz status
+                        Get status
                     </button>
                 </div>
                 <div class="device-info" v-if="batteryLevel !== null || deviceState !== null">
-                    <p class="card__text"><b>Poziom baterii: </b> {{ batteryLevel !== null ? batteryLevel + '%' : 'Brak danych' }}</p>
-                    <p class="card__text"><b>Stan rolet: </b> {{ deviceStateText }}</p>
+                    <p class="card__text"><b>Battery level: </b> {{ batteryLevel !== null ? batteryLevel + '%' : 'No data' }}</p>
+                    <p class="card__text"><b>Blinds state: </b> {{ deviceStateText }}</p>
                 </div>
             </div>
         </div>
@@ -169,9 +169,9 @@ const fetchStatus = async () => {
 }
 
 const deviceStateText = computed(() => {
-    if (deviceState.value === 'open') return 'Otwarte'
-    if (deviceState.value === 'close') return 'Zamknięte'
-    return 'Nieznany'
+    if (deviceState.value === 'open') return 'Open'
+    if (deviceState.value === 'close') return 'Closed'
+    return 'Unknown'
 })
 
 onMounted(() => {

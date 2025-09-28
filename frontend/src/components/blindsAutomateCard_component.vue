@@ -1,7 +1,7 @@
 <template>
   <div class="card">
     <div class="card__header">
-      <h2 class="card__title">Automatyka rolet</h2>
+      <h2 class="card__title">Blinds Automation</h2>
     </div>
     <div class="card__body">
       <div class="card__content">
@@ -20,7 +20,7 @@
           </div>
 
           <div class="input-group input-group--slider">
-            <span class="slider-label">Tryb automatyczny:</span>
+            <span class="slider-label">Automatic mode:</span>
             <label class="switch switch--small">
               <input type="checkbox" v-model="config.automate" @change="toggleAutomate">
               <span class="slider"></span>
@@ -30,7 +30,7 @@
 
         <div class="button-group">
           <button class="btn" @click="saveConfig" :disabled="loading">
-            {{ loading ? 'Zapisywanie...' : 'Ustaw granice' }}
+            {{ loading ? 'Saving...' : 'Set limits' }}
           </button>
         </div>
       </div>
@@ -62,13 +62,13 @@ const config = reactive({
 
 const getConfig = async () => {
   loading.value = true
-  status.value = 'Ładowanie konfiguracji...'
+  status.value = 'Loading configuration...'
   try {
     const res = await fetch(linkStore.getPhpApiUrl('getBlindsConfig.php'))
     const data = await res.json()
 
     if (data?.error) {
-      setStatus(`Błąd: ${data.error}`)
+      setStatus(`Error: ${data.error}`)
       return
     }
 
@@ -76,10 +76,10 @@ const getConfig = async () => {
     config.max_lux = Number(data.max_lux ?? 0)
     automateStore.automate_flag = Boolean(data.automate ?? false)
 
-    status.value = 'Konfiguracja załadowana.'
+    status.value = 'Configuration loaded.'
     setTimeout(() => { status.value = '' }, 3000)
   } catch (error) {
-    setStatus(`Błąd połączenia: ${error.message}`)
+    setStatus(`Connection error: ${error.message}`)
   } finally {
     loading.value = false
   }
@@ -96,18 +96,18 @@ const setStatus = (message, timeout = 3000) => {
 const toggleAutomate = () => {
   // Save configuration to database
   loading.value = true
-  status.value = 'Zapisywanie...'
+  status.value = 'Saving...'
   
   saveConfig(true) // Use quiet mode to handle our own loading state
     .then((res) => {
       // After save completes, show automation-specific message
-      setStatus(config.automate ? 'Automatyka włączona' : 'Automatyka wyłączona')
+      setStatus(config.automate ? 'Automation enabled' : 'Automation disabled')
       lastAutomateChange.value = Date.now()
     })
     .catch((error) => {
       // If saving fails, revert the toggle and show error
       config.automate = !config.automate // Revert the toggle
-      setStatus(`Błąd: ${error.message}`)
+      setStatus(`Error: ${error.message}`)
     })
     .finally(() => {
       loading.value = false
@@ -126,13 +126,13 @@ const controlBlinds = async (action) => {
 const saveConfig = async (quiet = false) => {
   if (!quiet) {
     loading.value = true
-    status.value = 'Zapisywanie...'
+    status.value = 'Saving...'
   }
 
   if (config.min_lux >= config.max_lux && !quiet) {
-    status.value = 'Błąd: Min lux musi być mniejsze niż Max lux.'
+    status.value = 'Error: Min lux must be less than Max lux.'
     loading.value = false
-    return Promise.reject(new Error('Min lux musi być mniejsze niż Max lux'))
+    return Promise.reject(new Error('Min lux must be less than Max lux'))
   }
 
   try {
@@ -149,20 +149,20 @@ const saveConfig = async (quiet = false) => {
     const data = await res.json()
 
     if (data?.error) {
-      if (!quiet) setStatus(`Błąd podczas zapisywania: ${data.error}`)
+      if (!quiet) setStatus(`Error while saving: ${data.error}`)
       throw new Error(data.error)
     }
 
-    // aktualizacja configu po zapisie
+    // update config after save
     config.min_lux = Number(data.min_lux)
     config.max_lux = Number(data.max_lux)
     config.automate = Boolean(data.automate)
 
-    if (!quiet) setStatus('Zapisano pomyślnie')
+    if (!quiet) setStatus('Saved successfully')
 
     return data
   } catch (error) {
-    if (!quiet) setStatus(`Błąd połączenia: ${error.message}`)
+    if (!quiet) setStatus(`Connection error: ${error.message}`)
     throw error
   } finally {
     if (!quiet) loading.value = false

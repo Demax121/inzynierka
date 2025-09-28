@@ -1,7 +1,7 @@
 <template>
   <div class="card">
     <div class="card__header">
-      <h2 class="card__title card__title--lights">Sterowanie głównym oświetleniem</h2>
+      <h2 class="card__title card__title--lights">Main Lighting Control</h2>
     </div>
     <div class="card__body card__body--slider">
       <div class="card__content card__content--slider">
@@ -39,8 +39,8 @@ const toggleLights = () => {
 };
 
 function connect() {
-  ws = new WebSocket(wsStore.wsUrl); // Użyj wsStore.wsUrl
-  ws.onopen = () => { /* czekamy na pierwszą wiadomość push */ };
+  ws = new WebSocket(wsStore.wsUrl);
+  ws.onopen = () => { /* wait for first push message */ };
   ws.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);

@@ -1,7 +1,7 @@
 <template>
   <div class="card">
     <div class="card__header">
-      <h2 class="card__title">Natężenie światła</h2>
+      <h2 class="card__title">Light Sensor</h2>
     </div>
     <div class="card__body">
       <div class="lux-wrapper">
@@ -38,7 +38,9 @@ onUnmounted(() => { if (ws) ws.close(); });
 </script>
 
 <style scoped>
-.lux-wrapper { display:flex; justify-content:center; align-items:center; min-height:5rem; }
-.lux-value { font-size:2rem; font-weight:600; color:black; }
+
+
+.lux-wrapper { display:flex; justify-content:center; align-items:center; min-height:5rem; margin-top: 4rem; }
+.lux-value { font-size:4rem; font-weight:600; color:black; }
 .unit { font-size:2rem; margin-left:.4rem; opacity:.7; }
 </style>

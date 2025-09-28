@@ -1,22 +1,22 @@
 <template>
     <div class="card card--big">
         <div class="card__header">
-            <h2 class="card__title">Wybierz Profil</h2>
+            <h2 class="card__title">Choose Profile</h2>
         </div>
         <div class="card__body">
             <div class="card__content">
 
                 <!-- Loading / Error / Empty -->
-                <div v-if="loading" class="loading-text">Ładowanie profilów...</div>
+                <div v-if="loading" class="loading-text">Loading Profiles...</div>
                 <div v-else-if="error" class="error-text">{{ error }}</div>
-                <div v-else-if="profiles.length === 0" class="empty-text">Brak zapisanych profilów</div>
+                <div v-else-if="profiles.length === 0" class="empty-text">No profiles to show</div>
 
                 <!-- Profile Selector -->
                 <div v-else class="profile-selector">
                     <div class="profile-dropdown">
-                        <label for="profile-select" class="profile-label">Wybierz profil:</label>
+                        <label for="profile-select" class="profile-label">Choose profile:</label>
                         <select id="profile-select" v-model="selectedProfileId" class="profile-select">
-                            <option disabled value="">-- Wybierz profil --</option>
+                            <option disabled value="">-- Choose Profile --</option>
                             <option v-for="profile in profiles" :key="profile.profile_id" :value="profile.profile_id">
                                 {{ profile.profile_name }}
                             </option>
@@ -25,50 +25,50 @@
 
                     <!-- Profile Details -->
                     <div class="profile-details" v-if="selectedProfile">
-                        <h3>Szczegóły profilu</h3>
+                        <h3>Profile configuration settings</h3>
 
                         <!-- WLED -->
                         <div class="detail-section">
                             <h4>WLED:</h4>
-                            <p v-if="!wled">Nie ustawiono</p>
+                            <p v-if="!wled">Not set</p>
                             <template v-else>
-                                <p v-if="wled.on === false">Status: Wyłączony</p>
+                                <p v-if="wled.on === false">Status: Turned Off</p>
                                 <p v-else-if="wled.lor === 0">Status: Ambilight</p>
                                 <p v-else-if="wled.preset_name">Preset: {{ wled.preset_name }}</p>
                                 <p v-else-if="wled.ps != null">Preset ID: {{ wled.ps }}</p>
-                                <p v-else>Status: Włączony</p>
+                                <p v-else>Status: Turned Off</p>
                             </template>
                         </div>
 
                         <!-- Lights -->
                         <div class="detail-section">
-                            <h4>Oświetlenie:</h4>
+                            <h4>Main lights:</h4>
                             <p v-if="lights">{{ lights.payload.state ? 'Włączone' : 'Wyłączone' }}</p>
-                            <p v-else>Nie ustawiono</p>
+                            <p v-else>Not Set</p>
                         </div>
 
                         <!-- AC -->
                         <div class="detail-section">
-                            <h4>Klimatyzacja:</h4>
-                            <p v-if="ac">Temperatura: {{ ac.payload.requestedTemp }}°C</p>
-                            <p v-else>Nie ustawiono</p>
+                            <h4>Air Conditioning:</h4>
+                            <p v-if="ac">Set Temperature: {{ ac.payload.requestedTemp }}°C</p>
+                            <p v-else>Not set</p>
                         </div>
 
                         <!-- Blinds -->
                         <div class="detail-section">
-                            <h4>Rolety:</h4>
-                            <p v-if="blinds?.state === 'open'">Status: Otwarte</p>
-                            <p v-else-if="blinds?.state === 'close'">Status: Zamknięte</p>
+                            <h4>Window Blinds:</h4>
+                            <p v-if="blinds?.state === 'open'">Status: Open</p>
+                            <p v-else-if="blinds?.state === 'close'">Status: Closed</p>
                             <p v-else-if="blinds?.automate">
-                                Status: Automatyczne (Min: {{ blinds.minLux }}, Max: {{ blinds.maxLux }})
+                                Status: Automatic (Min: {{ blinds.minLux }}, Max: {{ blinds.maxLux }})
                             </p>
-                            <p v-else>Nie ustawiono</p>
+                            <p v-else>Not set</p>
                         </div>
 
                         <!-- Actions -->
                         <div class="profile-actions">
-                            <button class="btn btn-apply" @click="applyProfile">Zastosuj profil</button>
-                            <button class="btn btn-delete" @click="deleteProfile">Usuń</button>
+                            <button class="btn btn-apply" @click="applyProfile">Use profile</button>
+                            <button class="btn btn-delete" @click="deleteProfile">Delete profile</button>
                         </div>
                     </div>
                 </div>

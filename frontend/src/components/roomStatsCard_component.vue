@@ -1,23 +1,23 @@
 <template>
     <div class="card">
         <div class="card__header">
-            <h2 class="card__title">Statystyki pomieszczenia</h2>
+            <h2 class="card__title">Room Statistics</h2>
         </div>
         <div class="card__body">
             <div class="card__content" v-if="statsInfo">
                 <div class="card__info-item">
-                    <span class="card__label">Temperatura:</span>
+                    <span class="card__label">Temperature:</span>
                     <span class="card__value">{{ formatTemperature(statsInfo.temperature) }}</span>
                 </div>
                 <div class="card__info-item">
-                    <span class="card__label">Wilgotność:</span>
+                    <span class="card__label">Humidity:</span>
                     <span class="card__value">{{ formatHumidity(statsInfo.humidity) }}</span>
                 </div>
                 <div class="card__info-item">
-                    <span class="card__label">Ciśnienie:</span>
+                    <span class="card__label">Pressure:</span>
                     <span class="card__value">{{ formatPressure(statsInfo.pressure) }}</span>
                 </div>
-                <!-- <button @click="saveDatas">Zapisz statystyki</button> -->
+                <!-- <button @click="saveDatas">Save statistics</button> -->
             </div>
             <LoadingCard v-else />
         </div>
@@ -43,7 +43,7 @@ function saveDatas(){
 const statsInfo = ref(null);
 let ws;
 
-// Funkcje formatujące
+// Formatting functions
 const formatTemperature = (temp) => {
   if (typeof temp === 'number') {
     return `${temp.toFixed(1)} °C`;

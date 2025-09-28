@@ -1,29 +1,29 @@
 <template>
   <div class="card card--big">
     <div class="card__header">
-      <h2 class="card__title">Konfigurator Profili</h2>
+      <h2 class="card__title">Profile generator</h2>
     </div>
     <div class="card__body">
       <div class="card__content">
         <form @submit.prevent="saveProfile" class="profile-form">
           <div class="form-group">
-            <label for="profileName"  class="group-title">Nazwa profilu:</label>
+            <label for="profileName"  class="group-title">Profile Name:</label>
             <input type="text" id="profileName" v-model="profileName" class="form-control"
               placeholder="Wpisz nazwę profilu" required>
           </div>
 
           <div class="form-group">
-            <label for="wledPreset" class="group-title">Preset WLED:</label>
+            <label for="wledPreset" class="group-title">WLED Preset:</label>
             <div class="preset-select-container">
               <div v-if="loading && !presetsLoaded" class="loading-indicator">
-                Ładowanie presetów WLED...
+                Loading presets...
               </div>
 
               <select v-if="presets.length > 0 || presetsLoaded" v-model="profileSettings.wledPreset" id="wledPreset"
                 class="form-control preset-select" required>
-                <option disabled value="">Wybierz preset WLED</option>
+                <option disabled value="">Choose WLED Preset</option>
                 <!-- Special options -->
-                <option value="off">Wyłączony</option>
+                <option value="off">OFF</option>
                 <option value="ambilight">Ambilight</option>
                 <!-- Regular presets from WLED -->
                 <option v-for="preset in presets" :key="preset.id" :value="preset.id">
@@ -34,7 +34,7 @@
           </div>
 
           <div class="form-group">
-            <label for="mainLights"  class="group-title">Oświetlenie:</label>
+            <label for="mainLights"  class="group-title">Main Lights:</label>
             <div class="lights-control">
               <label class="switch">
                 <input type="checkbox" v-model="profileSettings.lightsOn">
@@ -44,7 +44,7 @@
           </div>
 
           <div class="form-group">
-            <label for="acTemperature" class="group-title">Klimatyzacja:</label>
+            <label for="acTemperature" class="group-title">AC Control:</label>
             <div class="ac-control">
               <input 
                 type="number" 
@@ -53,47 +53,49 @@
                 min="16" 
                 max="30" 
                 step="1" 
-                placeholder="Temperatura (16-30°C)" 
+                placeholder="Set temperature (16-30°C)" 
                 class="form-control temperature-input"
                 required
               >
-              <div class="form-help-text">Ustaw temperaturę klimatyzacji dla tego profilu</div>
+              
             </div>
           </div>
 
           <div class="form-group">
-            <label class="group-title">Rolety / Zasłony:</label>
+            <label class="group-title">Window Blinds:</label>
             <div class="blinds-control">
               <div class="radio-group">
                 <label class="radio-label">
                   <input type="radio" v-model="profileSettings.blindsMode" value="open" name="blinds-mode">
-                  <span>Otwarte</span>
+                  <span>Open</span>
                 </label>
                 <label class="radio-label">
                   <input type="radio" v-model="profileSettings.blindsMode" value="close" name="blinds-mode">
-                  <span>Zamknięte</span>
+                  <span>Closed</span>
                 </label>
                 <label class="radio-label">
                   <input type="radio" v-model="profileSettings.blindsMode" value="auto" name="blinds-mode">
-                  <span>Automatyzacja</span>
+                  <span>Automate</span>
                 </label>
               </div>
               
               <!-- Conditional lux settings when auto mode is selected -->
               <div v-if="profileSettings.blindsMode === 'auto'" class="lux-settings">
+                <div class="form-help-text">Set treshold limits for this profile below:</div>
                 <div class="lux-config-form">
                   <div class="input-group">
+                    
                     <label for="minLux">Min lux:</label>
                     <input id="minLux" v-model.number="profileSettings.minLux" type="number" class="lux-input" required>
-                    <span class="lux-explanation">Powyżej tej wartości zasłony zostaną podniesione</span>
+                    <span class="lux-explanation">Above this treshold blinds will open</span>
                   </div>
                   <div class="input-group">
                     <label for="maxLux">Max lux:</label>
                     <input id="maxLux" v-model.number="profileSettings.maxLux" type="number" class="lux-input" required>
-                    <span class="lux-explanation">Powyżej tej wartości zasłony zostaną opuszczone</span>
+                    <span class="lux-explanation">Above this treshold blinds will be closed</span>
                   </div>
                 </div>
-                <div class="form-help-text">Ustaw granice jasności dla automatyki rolet</div>
+                
               </div>
             </div>
           </div>
@@ -102,7 +104,7 @@
           <input type="hidden" name="profileJSON" :value="JSON.stringify(buildProfileJSON())" />
 
           <div class="button-group">
-            <button type="submit" class="btn">Zapisz profil</button>
+            <button type="submit" class="btn">Save profile</button>
           </div>
         </form>
       </div>
@@ -182,7 +184,7 @@ function buildProfileJSON() {
   if (profileSettings.wledPreset === 'off') {
     // If "Wyłączone" is selected
     profileJSON.WLED.on = false;
-    profileJSON.WLED.preset_name = "Wyłączony";
+    profileJSON.WLED.preset_name = "OFF";
     // lor and ps values aren't relevant when off
     delete profileJSON.WLED.lor;
     delete profileJSON.WLED.ps;
@@ -344,6 +346,7 @@ onMounted(() => {
   justify-content: left;
   align-items: center;
   margin-top: 0.5rem;
+  
 }
 
 /* Layout for AC control */
@@ -417,15 +420,17 @@ onMounted(() => {
 }
 
 .form-help-text {
-  font-size: 0.85rem;
+  font-size: .9rem;
   color: var(--color-text-secondary, #777);
-  margin-top: 0.25rem;
-  margin-left: 0.25rem;
+  margin: .25rem;
+  text-decoration: underline;
+  font-weight: 700;
 }
 
 .group-title{
   font-size: 13pt;
   padding-left: 0.75rem;
+  
 }
 
 

@@ -1,7 +1,7 @@
 <template>
   <div class="card__content card__content--loading">
     <div class="loading-icon">☁️</div>
-    <p class="card__text">Oczekiwanie danych...</p>
+    <p class="card__text">Waiting for data...</p>
   </div>
 </template>
 

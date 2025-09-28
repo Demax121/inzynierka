@@ -1,7 +1,7 @@
 <template>
     <div class="card">
         <div class="card__header">
-            <h2 class="card__title">Sterowanie WLED</h2>
+            <h2 class="card__title">WLED Control</h2>
         </div>
         <div class="card__body">
             <div class="card__content">
@@ -12,26 +12,26 @@
                         ps: 1
                     })" 
                     :disabled="loading">
-                        {{ 'Tryb WLED' }}
+                        {{ 'WLED Mode' }}
                     </button>
 
                     <button class="btn" @click="sendCommand({ on: true, lor: 0 })" :disabled="loading">
-                        {{ 'Tryb Ambilight' }}
+                        {{ 'Ambilight Mode' }}
                     </button>
 
                     <button class="btn" @click="sendCommand({ on: false })" :disabled="loading">
-                        {{ 'Wyłącz LED' }}
+                        {{ 'Turn off LED' }}
                     </button>
                 </div>
                 
                 <div class="presets-container">
                     <div v-if="loading && !presetsLoaded" class="loading-indicator">
-                        Ładowanie presetów...
+                        Loading presets...
                     </div>
                     
                     <div v-if="presets.length > 0" class="preset-select-container">
                         <select v-model="selectedPreset" class="preset-select" :disabled="loading">
-                            <option disabled value="">Wybierz preset</option>
+                            <option disabled value="">Select preset</option>
                             <!-- Regular presets from WLED -->
                             <option v-for="preset in presets" :key="preset.id" :value="preset.id">
                                 {{ preset.name }}
@@ -39,7 +39,7 @@
                         </select>
                         
                         <button class="btn" @click="applySelectedPreset" :disabled="!selectedPreset || loading">
-                            Zastosuj
+                            Apply
                         </button>
                     </div>
                 </div>

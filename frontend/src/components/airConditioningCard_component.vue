@@ -1,23 +1,23 @@
 <template>
   <div class="card">
     <div class="card__header">
-      <h2 class="card__title card__title--lights">Klimatyzacja</h2>
+      <h2 class="card__title card__title--lights">Air Conditioning</h2>
     </div>
     <div class="card__body">
       <div class="klima-wrapper">
         <LoadingCard v-if="loading" />
         <div v-else class="card__content card__content--slider">
-<div class="temp-form">
-  <button type="button" class="btn btn--square" @click="changeTemp(-1)">-1</button>
-  <span class="temp-display">{{ inputTemp }}°C</span>
-  <button type="button" class="btn btn--square" @click="changeTemp(1)">+1</button>
-</div>
+          <div class="temp-form">
+            <button type="button" class="btn btn--square" @click="changeTemp(-1)">-1</button>
+            <span class="temp-display">{{ inputTemp }}°C</span>
+            <button type="button" class="btn btn--square" @click="changeTemp(1)">+1</button>
+          </div>
 
           <div class="temps-display">
-            <p>Aktualna: <strong>{{ currentTempDisplay }}</strong>°C</p>
-            <p>Docelowa: <strong>{{ targetTempDisplay }}</strong>°C</p>
-            <p v-if="modeLabel">Funkcja: <strong>{{ modeLabel }}</strong></p>
-            <p v-if="manualOverride">Status: <strong>Tryb ręczny</strong></p>
+            <p>Current: <strong>{{ currentTempDisplay }}</strong>°C</p>
+            <p>Target: <strong>{{ targetTempDisplay }}</strong>°C</p>
+            <p v-if="modeLabel">Mode: <strong>{{ modeLabel }}</strong></p>
+            <p v-if="manualOverride">Status: <strong>Manual mode</strong></p>
           </div>
           <label class="switch">
             <input
@@ -46,7 +46,7 @@ let reconnectTimer;
 // State variables
 const currentTemp = ref(null);
 const requestedTemp = ref(null);
-const inputTemp = ref(22); // domyślna wartość
+const inputTemp = ref(22); // default value
 const klimaON = ref(false);
 const functionState = ref('');
 const manualOverride = ref(false);
@@ -60,9 +60,9 @@ const modeLabel = computed(() => {
   if (!functionState.value) return null;
   
   switch(functionState.value) {
-    case 'C': return 'Chłodzenie';
-    case 'H': return 'Grzanie';
-    case 'F': return 'Wentylator';
+    case 'CHLODZIMY!!!': return 'Cooling Mode';
+    case 'GRZEJEMY!!!': return 'Heating Mode';
+    case 'W SPOCZYNKU': return 'Idle Mode';
     default: return functionState.value;
   }
 });
@@ -77,7 +77,7 @@ function connect() {
       if (data.channel === 'air_conditioning' && data.payload) {
         loading.value = false;
         updateAirConditioningState(data.payload);
-        // Synchronizuj inputTemp z docelową temperaturą
+        // Synchronize inputTemp with target temperature
         if (typeof data.payload.requestedTemp === 'number') {
           inputTemp.value = data.payload.requestedTemp;
         }
@@ -180,11 +180,11 @@ onUnmounted(() => { if (reconnectTimer) clearTimeout(reconnectTimer); if (ws) ws
 .btn--square {
   width: 2.5rem;
   height: 2.5rem;
-  padding: 2rem !important; // żeby wymusić równe boki
+  padding: 2rem !important; // force equal sides
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.2rem; // dopasuj do gustu
+  font-size: 1.2rem; // adjust as needed
   font-weight: 600;
 }
 
