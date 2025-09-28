@@ -118,3 +118,14 @@ On save, the component should assemble JSON in the format:
 }
 
 Save the profile into a profiles PostgreSQL table with columns: profile_id, profile_name, profile_json (jsonb).
+
+
+
+
+
+Kolejny etap:
+
+
+1. Pobrać obrazy wraz z ich danymi:
+
+Baza danych; bun-api; backend caddy; cdn caddy; 
