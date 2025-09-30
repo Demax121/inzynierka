@@ -2,7 +2,7 @@
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>
 
-const char* WEBSOCKET_SERVER = "192.168.1.4";
+String WEBSOCKET_SERVER = "192.168.1.2";
 const int WEBSOCKET_PORT = 8886;
 const unsigned long WEBSOCKET_RECONNECT_INTERVAL = 5000;
 
@@ -44,18 +44,19 @@ void identifyDevice() {
 
 void sendWebSocketData() {
   if (!webSocketClient.isConnected()) return;
-  char buf[200];
-  size_t n = serializeJson(jsonPayload, buf, sizeof(buf));
-  webSocketClient.sendTXT(buf, n);
+  String jsonStr;
+  serializeJson(jsonPayload, jsonStr);
+  webSocketClient.sendTXT(jsonStr);
 }
 
 void handleIncomingText(uint8_t* payload, size_t length) {
   StaticJsonDocument<128> doc;
-  DeserializationError err = deserializeJson(doc, payload, length);
+  String msg = "";
+  for (size_t i = 0; i < length; i++) msg += (char)payload[i];
+  DeserializationError err = deserializeJson(doc, msg);
   if (err) return;
-  
   // Handle ping message from server
-  if (doc.containsKey("type") && strcmp(doc["type"], "ping") == 0) {
+  if (doc.containsKey("type") && String((const char*)doc["type"]) == "ping") {
     updateJSONData(digitalRead(BUTTON_PIN));
     sendWebSocketData();
   }

@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 
-const database_link = 'http://192.168.1.4:8884/saveRoomStats.php'
+const database_link = 'http://192.168.1.2:8884/saveRoomStats.php'
 const SAVE_INTERVAL = 60 * 60 * 1000
 const LAST_SAVED_KEY = 'roomStats_lastSaved'
 
@@ -14,9 +14,9 @@ export const useSaveStatsStore = defineStore('saveStats', {
     // ustaw dane (np. z komponentu) i uruchom wysyłkę co godzinę
     setStats(stats) {
       this.latest = {
-        temperature: Number(stats.temperature),
-        humidity: Number(stats.humidity),
-        pressure: Number(stats.pressure)
+        temperature: parseFloat(stats.temperature),
+        humidity: parseFloat(stats.humidity),
+        pressure: parseFloat(stats.pressure)
       }
       // jeśli nie mamy zaplanowanych timerów -> uruchom planowanie
       if (!this.intervalId && !this.startupTimeoutId) this.startHourlySave()
@@ -69,9 +69,9 @@ export const useSaveStatsStore = defineStore('saveStats', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            temperature: this.latest.temperature,
-            humidity: this.latest.humidity,
-            pressure: this.latest.pressure
+            temperature: parseFloat(this.latest.temperature),
+            humidity: parseFloat(this.latest.humidity),
+            pressure: parseFloat(this.latest.pressure)
           })
         })
         if (res.ok) {

@@ -11,8 +11,8 @@ export const useLinkStore = defineStore('linkStore', {
   // State: Holds the base URLs for different services
   state: () => ({
     links: {
-      databaseApi: 'http://192.168.1.4:8884/',  // Base URL for PHP API endpoints
-      cdnURL: 'http://192.168.1.4:8885/',       // Base URL for CDN/static assets
+      databaseApi: 'http://192.168.1.2:8884/',  // Base URL for PHP API endpoints
+      cdnURL: 'http://192.168.1.2:8885/',       // Base URL for CDN/static assets
       wledIP: 'http://192.168.1.25',            // WLED device IP
     },
     // WLED state variables

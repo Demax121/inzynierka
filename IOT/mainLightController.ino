@@ -16,7 +16,7 @@ int lastButtonState = LOW;
 int buttonState = LOW;
 unsigned int lastButtonChangeMs = 0;
 
-const char* WEBSOCKET_SERVER = "192.168.1.4";
+String WEBSOCKET_SERVER = "192.168.1.2";
 const int WEBSOCKET_PORT = 8886;
 const unsigned int WEBSOCKET_RECONNECT_INTERVAL = 5000;
 
@@ -58,26 +58,26 @@ void identifyDevice() {
 
 void sendWebSocketData() {
   if (!webSocketClient.isConnected()) return;
-  char buf[200];
-  size_t n = serializeJson(jsonPayload, buf, sizeof(buf));
-  webSocketClient.sendTXT(buf, n);
+  String jsonStr;
+  serializeJson(jsonPayload, jsonStr);
+  webSocketClient.sendTXT(jsonStr);
 }
 
 void handleIncomingText(uint8_t* payload, size_t length) {
   if (!payload || length == 0) return;
   StaticJsonDocument<128> doc;
-  DeserializationError err = deserializeJson(doc, payload, length);
+  String msg = "";
+  for (size_t i = 0; i < length; i++) msg += (char)payload[i];
+  DeserializationError err = deserializeJson(doc, msg);
   if (err) return;
-  
   // Handle ping message from server
-  if (doc.containsKey("type") && strcmp(doc["type"], "ping") == 0) {
+  if (doc.containsKey("type") && String((const char*)doc["type"]) == "ping") {
     updateJSONData(State);
     sendWebSocketData();
     return;
   }
-  
   if (!doc.containsKey("lightON")) return;
-  if (doc.containsKey("channel") && strcmp(doc["channel"], "main_lights") != 0) return;
+  if (doc.containsKey("channel") && String((const char*)doc["channel"]) != "main_lights") return;
   bool lightON = doc["lightON"];
   setRelay(lightON);
   sendWebSocketData();
@@ -91,7 +91,7 @@ void setup() {
   initializeJSON();
   setRelay(false);
   MyWiFi::connect();
-  webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
+  webSocketClient.begin(WEBSOCKET_SERVER.c_str(), WEBSOCKET_PORT, "/");
   webSocketClient.onEvent([](WStype_t type, uint8_t* payload, size_t length) {
     if (type == WStype_CONNECTED) {
       lastWsConnected = millis(); // aktualizuj czas połączenia
@@ -140,7 +140,7 @@ void loop() {
       Serial.println("WebSocket nie odpowiada, restart połączenia...");
       webSocketClient.disconnect();
       delay(100);
-      webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
+  webSocketClient.begin(WEBSOCKET_SERVER.c_str(), WEBSOCKET_PORT, "/");
       lastWsAttempt = millis();
     }
   }
