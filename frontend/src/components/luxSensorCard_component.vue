@@ -17,13 +17,13 @@ import { ref, onMounted, onUnmounted } from 'vue';
 import { useWsStore } from '@/stores/wsStore';
 import LoadingCard from '@/components/LoadingCard.vue';
 
-const wsStore = useWsStore();
+const wsStore = useWsStore(); // Dodaj inicjalizację store'a
 
 const lux = ref(null);
 let ws;
 
 onMounted(() => {
-  ws = new WebSocket(wsStore.wsUrl);
+  ws = new WebSocket(wsStore.wsUrl); // Zmieniono na dynamiczny adres
   ws.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);

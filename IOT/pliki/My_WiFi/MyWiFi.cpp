@@ -1,10 +1,9 @@
-// Plik: IOT/pliki/My_WiFi/MyWiFi.cpp
-#include "MyWiFi.h"
+
+#include "MyWiFiv2.h"
 #include <Arduino.h>
 
 const char* WIFI_SSID     = "Praca_dyplomowa";
 const char* WIFI_PASSWORD = "AJP@INZYNIERKA2137";
-WiFiMulti wifiMulti;
 
 // Dodano certyfikat serwera reverse proxy
 const char* root_ca = \
@@ -20,10 +19,10 @@ const char* root_ca = \
 "wx7WpAIgbWvCgs0MX2cc2uJJ0DcKg6qiJ0ZHjcKdqW43z6vNtc0=\n" \
 "-----END CERTIFICATE-----\n";
 
-void MyWiFi::connect() {
-  wifiMulti.addAP(WIFI_SSID, WIFI_PASSWORD);
+void MyWiFiv2::connect() {
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   int retry = 0;
-  while (wifiMulti.run() != WL_CONNECTED) {
+  while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     if (++retry > 60) {
       return;
@@ -31,6 +30,6 @@ void MyWiFi::connect() {
   }
 }
 
-const char* MyWiFi::getCert() {
+const char* MyWiFiv2::getCert() {
   return root_ca;
 }

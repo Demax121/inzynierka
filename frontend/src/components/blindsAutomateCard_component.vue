@@ -1,47 +1,8 @@
-<template>
-  <div class="card">
-    <div class="card__header">
-      <h2 class="card__title">Blinds Automation</h2>
-    </div>
-    <div class="card__body">
-      <div class="card__content">
-        <div class="status" v-if="status">
-          <p class="card__text card__text--bold">{{ status }}</p>
-        </div>
-
-        <div class="lux-config-form">
-          <div class="input-group">
-            <label for="min_lux">Min lux:</label>
-            <input id="min_lux" v-model.number="config.min_lux" type="number" class="lux-input" />
-          </div>
-          <div class="input-group">
-            <label for="max_lux">Max lux:</label>
-            <input id="max_lux" v-model.number="config.max_lux" type="number" class="lux-input" />
-          </div>
-
-          <div class="input-group input-group--slider">
-            <span class="slider-label">Automatic mode:</span>
-            <label class="switch switch--small">
-              <input type="checkbox" v-model="config.automate" @change="toggleAutomate">
-              <span class="slider"></span>
-            </label>
-          </div>
-        </div>
-
-        <div class="button-group">
-          <button class="btn" @click="saveConfig" :disabled="loading">
-            {{ loading ? 'Saving...' : 'Set limits' }}
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-</template>
-
 <script setup>
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useLinkStore } from '@/stores/linkStore'
 import { useAutomateStore } from '@/stores/automateStore'
+import { useWsStore } from '@/stores/wsStore'; // Importujemy wsStore
 
 const status = ref('')
 const loading = ref(false)
@@ -51,6 +12,7 @@ let ws
 
 const linkStore = useLinkStore()
 const automateStore = useAutomateStore()
+const wsStore = useWsStore(); // Inicjalizujemy wsStore
 
 // Consolidated state
 const config = reactive({
@@ -194,7 +156,7 @@ onMounted(() => {
   getConfig() // Initial load of config from server
   
   // Setup WebSocket
-  ws = new WebSocket('ws://192.168.1.2:8886')
+  ws = new WebSocket(wsStore.wsUrl) // Używamy adresu ze store'a
   
   ws.onmessage = (event) => {
     try {
@@ -213,75 +175,3 @@ onUnmounted(() => {
   if (ws) ws.close()
 })
 </script>
-
-<style lang="scss" scoped>
-$input-width: 120px;
-$input-padding: 6px 10px;
-$input-font-size: 11pt;
-$form-margin-bottom: 0rem;
-$input-group-gap: 0.4rem;
-$button-padding: 11px 15px;
-$button-font-size: 12pt;
-
-.lux-config-form {
-  margin-bottom: $form-margin-bottom;
-  padding: 1rem;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  background-color: #f9f9f9;
-  text-align: center;
-}
-
-.input-group {
-  display: flex;
-  align-items: center;
-  margin-bottom: $input-group-gap;
-  gap: 1rem;
-  justify-content: center;
-  
-  &--slider {
-    margin: 1rem 0;
-  }
-}
-
-.slider-label {
-  min-width: 70px;
-  font-weight: bold;
-  font-size: 14px;
-}
-
-.input-group label {
-  min-width: 70px;
-  font-weight: bold;
-  font-size: 14px;
-}
-
-.lux-input {
-  padding: $input-padding;
-  font-size: $input-font-size;
-  width: $input-width;
-  border: 2px solid #ccc;
-  border-radius: 4px;
-  outline: none;
-  transition: border-color 0.3s;
-}
-
-.lux-input:focus {
-  border-color: var(--color, #007bff);
-}
-
-.button-group {
-  margin-top: 0.5rem;
-}
-
-.device-info {
-  border-radius: 10px;
-  filter: drop-shadow(0 5px 10px 0 #ffffff);
-  width: 15rem;
-  height: 5rem;
-  background-color: $background-crl-secondary;
-  padding: 1rem;
-  color: white;
-  font-family: "Poppins", sans-serif;
-}
-</style>

@@ -2,8 +2,9 @@
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>
 
-String WEBSOCKET_SERVER = "192.168.1.2";
-const int WEBSOCKET_PORT = 8886;
+// Używamy nazwy domeny i portu reverse proxy
+String WEBSOCKET_SERVER = "app.local";
+const int WEBSOCKET_PORT = 443;
 const unsigned long WEBSOCKET_RECONNECT_INTERVAL = 5000;
 
 const int BUTTON_PIN = 21;
@@ -70,7 +71,8 @@ void setup() {
   initializeJSON();
   lastButtonState = digitalRead(BUTTON_PIN);
   updateJSONData(lastButtonState);
-  webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT);
+  // Zmieniono na beginSSL z certyfikatem
+  webSocketClient.beginSSL(WEBSOCKET_SERVER.c_str(), WEBSOCKET_PORT, "/ws", MyWiFi::getCert());
   webSocketClient.onEvent([](WStype_t type, uint8_t* payload, size_t length) {
     if (type == WStype_CONNECTED) {
       lastWsConnected = millis(); // aktualizuj czas połączenia
@@ -110,7 +112,8 @@ void loop() {
       Serial.println("WebSocket nie odpowiada, restart połączenia...");
       webSocketClient.disconnect();
       delay(100);
-      webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT);
+      // Używamy beginSSL do ponownego połączenia
+      webSocketClient.beginSSL(WEBSOCKET_SERVER.c_str(), WEBSOCKET_PORT, "/ws", MyWiFi::getCert());
       lastWsAttempt = millis();
     }
   }

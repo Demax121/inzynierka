@@ -1,15 +1,13 @@
-// Plik: IOT/pliki/My_WiFi/MyWiFi.h
-#ifndef MY_WIFI_H
-#define MY_WIFI_H
+ #ifndef MY_WIFIV2_H
+ #define MY_WIFIV2_H
 
 #include <WiFi.h>
-#include <WiFiMulti.h>
 #include <WiFiClientSecure.h>
 
-class MyWiFi {
+class MyWiFiv2 {
   public:
-    static void connect();
-    static const char* getCert(); // Dodano funkcję do pobierania certyfikatu
+  static void connect();
+  static const char* getCert(); // Dodano funkcję do pobierania certyfikatu
 };
 
 #endif
