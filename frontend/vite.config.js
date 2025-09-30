@@ -1,22 +1,17 @@
+// Plik: frontend/vite.config.js
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import { viteStaticCopy } from 'vite-plugin-static-copy'
 import vueDevTools from 'vite-plugin-vue-devtools'
-import path from 'path'
-import { fileURLToPath } from 'url' 
+import { fileURLToPath, URL } from 'url'
 
 export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
-      
     },
   },
   plugins: [
     vue(),
-    // viteStaticCopy({
-    //   targets: [{ src: '@/scripts/*', dest: 'scripts' }]
-    // }),
     vueDevTools(),
   ],
   css: {
@@ -31,6 +26,13 @@ export default defineConfig({
     port: 5173,
     watch: {
       usePolling: true
-    }
+    },
+    // --- DODANY FRAGMENT ---
+    hmr: {
+      host: 'app.local',
+      protocol: 'wss',
+    },
+    allowedHosts: ['app.local'],
+    // --- KONIEC FRAGMENTU ---
   },
 })

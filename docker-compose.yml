@@ -1,4 +1,21 @@
 services:
+  reverse-proxy:
+    build:
+      context: ./reverse-proxy
+      dockerfile: reverse-proxy.Dockerfile
+    container_name: main_reverse_proxy_inzynierka
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./reverse-proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./reverse-proxy/caddy_data:/data
+      - caddy_config_inzynierka:/config
+    networks:
+      - inzynierka_network
+
   postgres:
     container_name: postgres_db_inzynierka
     build:
@@ -9,8 +26,6 @@ services:
         DB_PASSWORD: ${POSTGRES_PASSWORD}
         DB_NAME: ${POSTGRES_DB}
     restart: unless-stopped
-    ports:
-      - ${POSTGRES_PORT_EX}:${POSTGRES_PORT_NATIVE}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgreSQL/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -46,8 +61,7 @@ services:
     restart: unless-stopped
     depends_on:
       - backend-server-caddy
-    ports:
-      - ${FRONTEND_PORT_EX}:${FRONTEND_PORT_NATIVE}
+      - reverse-proxy
     volumes:
       - ./frontend:/app
       - node_modules_cache:/app/node_modules
@@ -79,8 +93,7 @@ services:
     restart: unless-stopped
     depends_on:
       - php
-    ports:
-      - ${BACKEND_CADDY_PORT_EX}:${BACKEND_CADDY_PORT_NATIVE}
+      - reverse-proxy
     volumes:
       - ./backend/php:/var/www/php
     networks:
@@ -92,8 +105,8 @@ services:
       context: ./CDN
       dockerfile: caddy-cdn.Dockerfile
     restart: unless-stopped
-    ports:
-      - ${CDN_PORT_EX}:${CDN_PORT_NATIVE}
+    depends_on:
+      - reverse-proxy
     volumes:
       - ./CDN/assets:/srv/assets:ro
     networks:
@@ -105,8 +118,8 @@ services:
       context: ./jsServer
       dockerfile: bun-api.Dockerfile
     restart: unless-stopped
-    ports:
-      - ${BUN_API_PORT_EX}:${BUN_API_PORT_NATIVE}
+    depends_on:
+      - reverse-proxy
     volumes:
       - ./jsServer:/app
     networks:
@@ -116,6 +129,7 @@ volumes:
   postgres_data: null
   pgadmin_data: null
   node_modules_cache: null
+  caddy_config_inzynierka: {}
 
 networks:
   inzynierka_network:
