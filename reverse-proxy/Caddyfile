@@ -1,0 +1,28 @@
+{
+    # Ta opcja włącza automatyczne generowanie i zaufanie
+    # lokalnym certyfikatom SSL.
+    local_certs
+}
+
+# Definiujemy główny, lokalny adres dla całej aplikacji
+app.local {
+    # Przekierowanie ruchu do kontenera frontendu (Vite dev server)
+    # Vite działa wewnątrz kontenera na porcie 5173
+    reverse_proxy frontend-server-vite:5173
+
+    # Przekierowanie zapytań do API (backend PHP) na /api/*
+    handle_path /api/* {
+        # Usuwamy /api z początku ścieżki przed przekazaniem
+        uri strip_prefix /api
+        # Przekazujemy żądanie do kontenera Caddy dla backendu
+        reverse_proxy backend_server_caddy_dev:80
+    }
+
+    # Przekierowanie zapytań do CDN na /assets/*
+    handle_path /assets/* {
+        # Usuwamy /assets z początku ścieżki
+        uri strip_prefix /assets
+        # Przekazujemy żądanie do kontenera CDN
+        reverse_proxy caddy-cdn_dev:80
+    }
+}
