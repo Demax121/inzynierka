@@ -1,4 +1,4 @@
-#include <MyWiFi.h>
+#include <MyWiFiV2.h>
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>
 
@@ -16,7 +16,7 @@ int lastButtonState = LOW;
 int buttonState = LOW;
 unsigned int lastButtonChangeMs = 0;
 
-String WEBSOCKET_SERVER = "192.168.1.4";
+String WEBSOCKET_SERVER = "192.168.1.2";
 const int WEBSOCKET_PORT = 8886;
 const unsigned int WEBSOCKET_RECONNECT_INTERVAL = 5000;
 
@@ -90,7 +90,7 @@ void setup() {
   pinMode(TOUCH_BUTTON_PIN, INPUT);
   initializeJSON();
   setRelay(false);
-  MyWiFi::connect();
+  MyWiFiV2::connect();
   webSocketClient.begin(WEBSOCKET_SERVER.c_str(), WEBSOCKET_PORT, "/");
   webSocketClient.onEvent([](WStype_t type, uint8_t* payload, size_t length) {
     if (type == WStype_CONNECTED) {

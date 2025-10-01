@@ -1,4 +1,4 @@
-#include <MyWiFi.h>
+#include <MyWiFiV2.h>
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>
 #include <Adafruit_GFX.h>
@@ -16,7 +16,7 @@ Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_RST);
 
 WebSocketsClient webSocketClient;
 
-String WEBSOCKET_SERVER = "192.168.1.4";
+String WEBSOCKET_SERVER = "192.168.1.2";
 const int   WEBSOCKET_PORT   = 8886;
 const unsigned long RECONNECT_INTERVAL = 5000;
 
@@ -286,7 +286,7 @@ void setup() {
   pinMode(buttonPin, INPUT_PULLUP);
   initializeDisplay();
 
-  MyWiFi::connect();
+  MyWiFiV2::connect();
 
   initializeJSON();
 

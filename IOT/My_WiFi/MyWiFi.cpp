@@ -1,16 +1,40 @@
-#include "MyWiFi.h"
+#include <MyWiFiV2.h>
 #include <Arduino.h>
 
-const char* WIFI_SSID     = "Praca_dyplomowa";
-const char* WIFI_PASSWORD = "AJP@INZYNIERKA2137";
+const char* WIFI_SSID     = "PLAY_Swiatlowod_610C";
+const char* WIFI_PASSWORD = "HQj1@59PUaaz";
 
-void MyWiFi::connect() {
+void MyWiFiV2::connect() {
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  int retry = 0;
+  Serial.println("Łączenie z WiFi...");
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
-    if (++retry > 60) {
-      return;
+    Serial.print(".");
+  }
+  Serial.println();
+  Serial.println("Połączono z WiFi!");
+  Serial.print("Adres IP: ");
+  Serial.println(WiFi.localIP());
+  Serial.print("MAC: ");
+  Serial.println(WiFi.macAddress());
+
+  // Retry forever if disconnected
+  while (true) {
+    if (WiFi.status() != WL_CONNECTED) {
+      Serial.println("Utracono połączenie z WiFi! Próba ponownego połączenia...");
+      WiFi.disconnect();
+      WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+      while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+      }
+      Serial.println();
+      Serial.println("Ponownie połączono z WiFi!");
+      Serial.print("Adres IP: ");
+      Serial.println(WiFi.localIP());
+      Serial.print("MAC: ");
+      Serial.println(WiFi.macAddress());
     }
+    delay(1000);
   }
 }

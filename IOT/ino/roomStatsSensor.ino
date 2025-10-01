@@ -1,11 +1,11 @@
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
-#include <MyWiFi.h>
+#include <MyWiFiV2.h>
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>
 
-String WEBSOCKET_SERVER = "192.168.1.4";
+String WEBSOCKET_SERVER = "192.168.1.2";
 const int WEBSOCKET_PORT = 8886;
 const unsigned int WEBSOCKET_RECONNECT_INTERVAL = 5000;
 
@@ -60,7 +60,7 @@ void sendWebSocketData() {
 
 void setup() {
   Serial.begin(19200);
-  MyWiFi::connect();
+  MyWiFiV2::connect();
   Wire.begin(SDA_PIN, SCL_PIN);
   bme.begin(BME280_I2C_ADDRESS);
   initializeJSON();

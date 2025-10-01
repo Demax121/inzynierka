@@ -62,46 +62,44 @@ export const useLinkStore = defineStore('linkStore', {
   actions: {
     // Action to fetch WLED presets
     async fetchWledPresets() {
-        const WLED_PRESETS_ENDPOINT = import.meta.env.VITE_WLED_PRESETS_ENDPOINT || '/presets';
+      const WLED_PRESETS_ENDPOINT = "/json/presets";
+      const WLED_PRESETS_FALLBACK = "/presets.json";
       this.wledPresetsLoading = true;
       this.wledPresets = [];
-      
+      let data = null;
       try {
-        const response = await fetch(`${this.links.wledIP}${WLED_PRESETS_ENDPOINT}`);
-        
+        let response = await fetch(`${this.links.wledIP}${WLED_PRESETS_ENDPOINT}`);
+        if (!response.ok) {
+          // Spróbuj fallback jeśli 404
+          response = await fetch(`${this.links.wledIP}${WLED_PRESETS_FALLBACK}`);
+        }
         if (!response.ok) {
           throw new Error(`HTTP error! Status: ${response.status}`);
         }
-        
-        const data = await response.json();
-        
-        // Process presets data
-        if (data) {
-          const processedPresets = [];
-          
-          Object.entries(data).forEach(([key, preset]) => {
-            // Filter numeric keys which represent presets and exclude Preset 0
-            const presetId = parseInt(key);
-            if (!isNaN(presetId) && presetId !== 0) {
-              processedPresets.push({
-                id: presetId,
-                name: preset.n || `Preset ${key}` // Use preset name or default
-              });
-            }
-          });
-          
-          // Sort presets by ID
-          processedPresets.sort((a, b) => a.id - b.id);
-          this.wledPresets = processedPresets;
-          this.wledPresetsLoaded = true;
-        } else {
-          console.log("No presets found or invalid data format");
-        }
+        data = await response.json();
       } catch (error) {
         // removed: console.error("Error fetching WLED presets:", error);
-      } finally {
-        this.wledPresetsLoading = false;
       }
+      if (data) {
+        const processedPresets = [];
+        Object.entries(data).forEach(([key, preset]) => {
+          // Filter numeric keys which represent presets and exclude Preset 0
+          const presetId = parseInt(key);
+          if (!isNaN(presetId) && presetId !== 0) {
+            processedPresets.push({
+              id: presetId,
+              name: preset.n || `Preset ${key}` // Use preset name or default
+            });
+          }
+        });
+        // Sort presets by ID
+        processedPresets.sort((a, b) => a.id - b.id);
+        this.wledPresets = processedPresets;
+        this.wledPresetsLoaded = true;
+      } else {
+        console.log("No presets found or invalid data format");
+      }
+      this.wledPresetsLoading = false;
     },
     
     // Action to send command to WLED

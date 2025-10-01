@@ -1,8 +1,8 @@
-#include <MyWiFi.h>
+#include <MyWiFiV2.h>
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>
 
-String WEBSOCKET_SERVER = "192.168.1.4";
+String WEBSOCKET_SERVER = "192.168.1.2";
 const int WEBSOCKET_PORT = 8886;
 const unsigned long WEBSOCKET_RECONNECT_INTERVAL = 5000;
 
@@ -65,7 +65,7 @@ void handleIncomingText(uint8_t* payload, size_t length) {
 void setup() {
   Serial.begin(19200);
   
-  MyWiFi::connect();
+  MyWiFiV2::connect();
   pinMode(BUTTON_PIN, INPUT_PULLUP);
   initializeJSON();
   lastButtonState = digitalRead(BUTTON_PIN);
