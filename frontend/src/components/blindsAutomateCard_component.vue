@@ -42,6 +42,7 @@
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useLinkStore } from '@/stores/linkStore'
 import { useAutomateStore } from '@/stores/automateStore'
+import { useWsStore } from '@/stores/wsStore'
 
 const status = ref('')
 const loading = ref(false)
@@ -194,8 +195,9 @@ onMounted(() => {
   getConfig() // Initial load of config from server
   
   // Setup WebSocket
-  const wsUrl = import.meta.env.VITE_WS_URL
-  ws = new WebSocket(wsUrl)
+  // Use wsStore for WebSocket URL
+  const wsStore = useWsStore()
+  ws = new WebSocket(wsStore.wsUrl)
   
   ws.onmessage = (event) => {
     try {

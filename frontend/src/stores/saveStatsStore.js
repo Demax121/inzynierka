@@ -1,6 +1,7 @@
-import { defineStore } from 'pinia'
 
-const database_link = import.meta.env.VITE_ROOM_STATS_API
+import { defineStore } from 'pinia'
+import { useLinkStore } from './linkStore'
+
 const SAVE_INTERVAL = 60 * 60 * 1000
 const LAST_SAVED_KEY = 'roomStats_lastSaved'
 
@@ -65,7 +66,11 @@ export const useSaveStatsStore = defineStore('saveStats', {
       if (!forced && lastSaved && Date.now() - lastSaved < SAVE_INTERVAL) return
 
       try {
-        const res = await fetch(database_link, {
+        // Get the PHP API URL for saveRoomStats.php from linkStore
+        const linkStore = useLinkStore()
+        const apiUrl = linkStore.getPhpApiUrl('saveRoomStats.php')
+
+        const res = await fetch(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

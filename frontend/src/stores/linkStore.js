@@ -11,9 +11,9 @@ export const useLinkStore = defineStore('linkStore', {
   // State: Holds the base URLs for different services
   state: () => ({
     links: {
-      databaseApi: import.meta.env.VITE_DATABASE_API,  // Base URL for PHP API endpoints
-      cdnURL: import.meta.env.VITE_CDN_URL,       // Base URL for CDN/static assets
-      wledIP: import.meta.env.VITE_WLED_IP,            // WLED device IP
+        databaseApi: import.meta.env.VITE_BACKEND_URL_PREFIX,  // Base URL for PHP API endpoints
+        cdnURL: import.meta.env.VITE_CDN_URL_PREFIX,       // Base URL for CDN/static assets
+        wledIP: import.meta.env.VITE_WLED_URL_PREFIX,            // WLED device IP
     },
     // WLED state variables
     wledPresets: [],
@@ -62,7 +62,7 @@ export const useLinkStore = defineStore('linkStore', {
   actions: {
     // Action to fetch WLED presets
     async fetchWledPresets() {
-      const WLED_PRESETS_ENDPOINT = import.meta.env.VITE_WLED_PRESETS_ENDPOINT;
+        const WLED_PRESETS_ENDPOINT = import.meta.env.VITE_WLED_PRESETS_ENDPOINT || '/presets';
       this.wledPresetsLoading = true;
       this.wledPresets = [];
       
@@ -106,7 +106,7 @@ export const useLinkStore = defineStore('linkStore', {
     
     // Action to send command to WLED
     async sendWledCommand(payload) {
-      const WLED_STATE_ENDPOINT = import.meta.env.VITE_WLED_STATE_ENDPOINT;
+        const WLED_STATE_ENDPOINT = import.meta.env.VITE_WLED_STATE_ENDPOINT || '/json/state';
       this.wledPresetsLoading = true;
       
       try {

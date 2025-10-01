@@ -145,9 +145,11 @@ watch(selectedPreset, preset => {
 // Fetch WLED presets from API
 const fetchWledPresets = async () => {
   try {
-    const wledIP = import.meta.env.VITE_WLED_IP;
-    const presetsEndpoint = import.meta.env.VITE_WLED_PRESETS_ENDPOINT;
-    const res = await fetch(`${wledIP}${presetsEndpoint}`);
+  // Use linkStore for WLED IP and presets endpoint
+  const { getLink } = useLinkStore();
+  const wledIP = getLink('wledIP');
+  const presetsEndpoint = import.meta.env.VITE_WLED_PRESETS_ENDPOINT || '/presets';
+  const res = await fetch(`${wledIP}${presetsEndpoint}`);
     const data = await res.json();
     wledPresets.value = Object.entries(data)
       .filter(([key]) => !isNaN(Number(key)))
