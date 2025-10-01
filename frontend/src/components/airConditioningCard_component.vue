@@ -76,6 +76,7 @@ const modeLabel = computed(() => {
 function connect() {
   loading.value = true;
   ws = new WebSocket(wsStore.wsUrl);
+  ws.onopen = () => { console.log('Connected to WebSocket server'); };
   
   ws.onmessage = (event) => {
     try {

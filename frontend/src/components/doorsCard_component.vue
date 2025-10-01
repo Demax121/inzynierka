@@ -44,6 +44,7 @@ onMounted(() => {
 
   ws.onopen = () => {
     door_sensor.value = 'Waiting for data...';
+    console.log('Connected to WebSocket server');
   };
 
   ws.onclose = () => {

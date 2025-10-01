@@ -40,7 +40,7 @@ const toggleLights = () => {
 
 function connect() {
   ws = new WebSocket(wsStore.wsUrl);
-  ws.onopen = () => { /* wait for first push message */ };
+ ws.onopen = () => { console.log('Connected to WebSocket server'); };
   ws.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
