@@ -2,9 +2,8 @@
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>
 
-// Używamy nazwy domeny i portu reverse proxy
-String WEBSOCKET_SERVER = "simply.smart";
-const int WEBSOCKET_PORT = 443;
+const char* WEBSOCKET_SERVER = "192.168.1.4";
+const int WEBSOCKET_PORT = 8886;
 const unsigned long WEBSOCKET_RECONNECT_INTERVAL = 5000;
 
 const int BUTTON_PIN = 21;
@@ -45,19 +44,18 @@ void identifyDevice() {
 
 void sendWebSocketData() {
   if (!webSocketClient.isConnected()) return;
-  String jsonStr;
-  serializeJson(jsonPayload, jsonStr);
-  webSocketClient.sendTXT(jsonStr);
+  char buf[200];
+  size_t n = serializeJson(jsonPayload, buf, sizeof(buf));
+  webSocketClient.sendTXT(buf, n);
 }
 
 void handleIncomingText(uint8_t* payload, size_t length) {
   StaticJsonDocument<128> doc;
-  String msg = "";
-  for (size_t i = 0; i < length; i++) msg += (char)payload[i];
-  DeserializationError err = deserializeJson(doc, msg);
+  DeserializationError err = deserializeJson(doc, payload, length);
   if (err) return;
+  
   // Handle ping message from server
-  if (doc.containsKey("type") && String((const char*)doc["type"]) == "ping") {
+  if (doc.containsKey("type") && strcmp(doc["type"], "ping") == 0) {
     updateJSONData(digitalRead(BUTTON_PIN));
     sendWebSocketData();
   }
@@ -71,8 +69,7 @@ void setup() {
   initializeJSON();
   lastButtonState = digitalRead(BUTTON_PIN);
   updateJSONData(lastButtonState);
-  // Zmieniono na beginSSL z certyfikatem
-  webSocketClient.beginSSL(WEBSOCKET_SERVER.c_str(), WEBSOCKET_PORT, "/ws", MyWiFi::getCert());
+  webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT);
   webSocketClient.onEvent([](WStype_t type, uint8_t* payload, size_t length) {
     if (type == WStype_CONNECTED) {
       lastWsConnected = millis(); // aktualizuj czas połączenia
@@ -112,8 +109,7 @@ void loop() {
       Serial.println("WebSocket nie odpowiada, restart połączenia...");
       webSocketClient.disconnect();
       delay(100);
-      // Używamy beginSSL do ponownego połączenia
-      webSocketClient.beginSSL(WEBSOCKET_SERVER.c_str(), WEBSOCKET_PORT, "/ws", MyWiFi::getCert());
+      webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT);
       lastWsAttempt = millis();
     }
   }

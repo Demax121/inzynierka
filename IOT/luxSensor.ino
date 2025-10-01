@@ -7,9 +7,8 @@
 // Konfiguracja
 #define SDA_PIN 21
 #define SCL_PIN 22
-
-String WEBSOCKET_SERVER = "192.168.1.2";
-const int WEBSOCKET_PORT = 8886;
+#define WEBSOCKET_SERVER "192.168.1.4"
+#define WEBSOCKET_PORT 8886
 
 
 const unsigned int WEBSOCKET_RECONNECT_INTERVAL = 5000;
@@ -51,19 +50,18 @@ void identifyDevice() {
 
 void sendWebSocketData() {
   if (!webSocket.isConnected()) return;
-  String jsonStr;
-  serializeJson(jsonPayload, jsonStr);
-  webSocket.sendTXT(jsonStr);
+  char buf[200];
+  size_t n = serializeJson(jsonPayload, buf);
+  webSocket.sendTXT(buf, n);
 }
 
 void handleWebSocketMessage(uint8_t* payload, size_t length) {
   StaticJsonDocument<128> doc;
-  String msg = "";
-  for (size_t i = 0; i < length; i++) msg += (char)payload[i];
-  DeserializationError err = deserializeJson(doc, msg);
+  DeserializationError err = deserializeJson(doc, payload, length);
   if (err) return;
+  
   // Handle ping message from server
-  if (doc.containsKey("type") && String((const char*)doc["type"]) == "ping") {
+  if (doc.containsKey("type") && strcmp(doc["type"], "ping") == 0) {
     int currentLux = sensorReady ? (int)veml.readLux() : -1;
     updateJSONData(currentLux);
     sendWebSocketData();
@@ -90,7 +88,7 @@ void setup() {
   updateJSONData(initialLux);
   lastLux = initialLux;
 
-  webSocket.begin(WEBSOCKET_SERVER.c_str(), WEBSOCKET_PORT);
+  webSocket.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT);
   webSocket.setReconnectInterval(WEBSOCKET_RECONNECT_INTERVAL);
   webSocket.onEvent([](WStype_t type, uint8_t *payload, size_t length) {
     if (type == WStype_CONNECTED) {
@@ -121,7 +119,7 @@ void loop() {
       Serial.println("WebSocket nie odpowiada, restart połączenia...");
       webSocket.disconnect();
       delay(100);
-  webSocket.begin(WEBSOCKET_SERVER.c_str(), WEBSOCKET_PORT);
+      webSocket.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT);
       lastWsAttempt = millis();
     }
   }

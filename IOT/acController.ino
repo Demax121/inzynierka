@@ -16,17 +16,17 @@ Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_RST);
 
 WebSocketsClient webSocketClient;
 
-String WEBSOCKET_SERVER = "192.168.1.2";
+const char* WEBSOCKET_SERVER = "192.168.1.4";
 const int   WEBSOCKET_PORT   = 8886;
 const unsigned long RECONNECT_INTERVAL = 5000;
 
 bool klimaOn = false;
 bool manualOverride = false;
 
-float currentTemp = 0.0;
-float requestedTemp = 25.0;
-const float HISTERAZA = 2.0;
-String currentFunction = "";
+int currentTemp = 0;
+int requestedTemp = 25;
+const int HISTERAZA = 2;
+char currentFunction[16] = "";
 
 
 
@@ -38,17 +38,17 @@ const unsigned long WS_RECONNECT_TIMEOUT = 15000;
 StaticJsonDocument<256> doc;
 StaticJsonDocument<512> jsonPayload;
 
-String temp_aktualna = "TEMP AKTUALNA:";
-String temp_oczekiwana = "TEMP OCZEKIWANA:";
-String status_text = "STATUS:";
-String funkcja_text = "FUNKCJA:";
-String on_text = "ON";
-String off_text = "OFF";
-String spoczynku_text = "W SPOCZYNKU";
-String space_c = " C";
-String dash_c = "-- C";
-String chlodzenie_text = "CHLODZIMY!!!";
-String grzanie_text = "GRZEJEMY!!!";
+const char PROGMEM temp_aktualna[] = "TEMP AKTUALNA:";
+const char PROGMEM temp_oczekiwana[] = "TEMP OCZEKIWANA:";
+const char PROGMEM status_text[] = "STATUS:";
+const char PROGMEM funkcja_text[] = "FUNKCJA:";
+const char PROGMEM on_text[] = "ON";
+const char PROGMEM off_text[] = "OFF";
+const char PROGMEM spoczynku_text[] = "W SPOCZYNKU";
+const char PROGMEM space_c[] = " C";
+const char PROGMEM dash_c[] = "-- C";
+const char PROGMEM chlodzenie_text[] = "CHLODZIMY!!!";
+const char PROGMEM grzanie_text[] = "GRZEJEMY!!!";
 
 void initializeDisplay() {
   tft.begin();
@@ -59,13 +59,16 @@ void initializeDisplay() {
   tft.setTextSize(2);
   
   tft.setCursor(10, 20);
-  tft.print(temp_aktualna);
+  tft.print((__FlashStringHelper*)temp_aktualna);
+  
   tft.setCursor(10, 100);
-  tft.print(temp_oczekiwana);
+  tft.print((__FlashStringHelper*)temp_oczekiwana);
+  
   tft.setCursor(10, 180);
-  tft.print(status_text);
+  tft.print((__FlashStringHelper*)status_text);
+  
   tft.setCursor(160, 180);
-  tft.print(funkcja_text);
+  tft.print((__FlashStringHelper*)funkcja_text);
 }
 
 void updateDisplay() {
@@ -74,37 +77,37 @@ void updateDisplay() {
   
   tft.fillRect(10, 50, 300, 30, ILI9341_BLACK);
   tft.setCursor(10, 50);
-  if (currentTemp > 0.0) {
-    tft.print(currentTemp, 1);
-    tft.print(space_c);
+  if (currentTemp > 0) {
+    tft.print(currentTemp);
+    tft.print((__FlashStringHelper*)space_c);
   } else {
-    tft.print(dash_c);
+    tft.print((__FlashStringHelper*)dash_c);
   }
   
   tft.fillRect(10, 130, 300, 30, ILI9341_BLACK);
   tft.setCursor(10, 130);
-  tft.print(requestedTemp, 1);
-  tft.print(space_c);
+  tft.print(requestedTemp);
+  tft.print((__FlashStringHelper*)space_c);
   
   tft.fillRect(10, 210, 140, 25, ILI9341_BLACK);
   tft.setCursor(10, 210);
   tft.setTextSize(2);
   if (klimaOn) {
     tft.setTextColor(ILI9341_GREEN, ILI9341_BLACK);
-    tft.print(on_text);
+    tft.print((__FlashStringHelper*)on_text);
   } else {
     tft.setTextColor(ILI9341_RED, ILI9341_BLACK);
-    tft.print(off_text);
+    tft.print((__FlashStringHelper*)off_text);
   }
   
   tft.fillRect(160, 210, 150, 25, ILI9341_BLACK);
   tft.setCursor(160, 210);
   tft.setTextColor(ILI9341_YELLOW, ILI9341_BLACK);
   tft.setTextSize(2);
-  if (currentFunction.length() > 0) {
+  if (strlen(currentFunction) > 0) {
     tft.print(currentFunction);
   } else {
-    tft.print(spoczynku_text);
+    tft.print((__FlashStringHelper*)spoczynku_text);
   }
 }
 
@@ -138,9 +141,9 @@ void identifyDevice() {
 void sendWebSocketData() {
   if (!webSocketClient.isConnected()) return;
   updateJSONData();
-  String jsonStr;
-  serializeJson(jsonPayload, jsonStr);
-  webSocketClient.sendTXT(jsonStr);
+  char buf[400];
+  size_t n = serializeJson(jsonPayload, buf, sizeof(buf));
+  webSocketClient.sendTXT(buf, n);
   Serial.printf("[TX] AC %s\n", klimaOn ? "Włączone" : "Wyłączone");
 }
 
@@ -148,29 +151,31 @@ void checkTemperatureControl() {
   if (currentTemp == 0) return;
   if (manualOverride) return;
   
-  float tempDiff = currentTemp - requestedTemp;
+  int tempDiff = currentTemp - requestedTemp;
   bool previousState = klimaOn;
-  String previousFunction = currentFunction;
+  char previousFunction[16];
+  strcpy(previousFunction, currentFunction);
+  
   if (tempDiff >= HISTERAZA) {
     klimaOn = true;
-    currentFunction = chlodzenie_text;
-    if (!previousState || previousFunction != currentFunction) {
+    strcpy_P(currentFunction, chlodzenie_text);
+    if (!previousState || strcmp(previousFunction, currentFunction) != 0) {
       Serial.println("CHŁODZIMY!!!");
       sendWebSocketData();
       updateDisplay();
     }
   } else if (tempDiff <= -HISTERAZA) {
     klimaOn = true;
-    currentFunction = grzanie_text;
-    if (!previousState || previousFunction != currentFunction) {
-      Serial.println("GRZEJEMY!!!");
+    strcpy_P(currentFunction, grzanie_text);
+    if (!previousState || strcmp(previousFunction, currentFunction) != 0) {
+      Serial.println("GRZEJMY!!!");
       sendWebSocketData();
       updateDisplay();
     }
   } else {
     if (klimaOn) {
       klimaOn = false;
-      currentFunction = "";
+      strcpy(currentFunction, "");
       Serial.println("Temperatura OK - wyłączam klimę");
       sendWebSocketData();
       updateDisplay();
@@ -179,37 +184,38 @@ void checkTemperatureControl() {
 }
 
 void handleIncomingText(uint8_t* payload, size_t length) {
-  String msg = "";
-  for (size_t i = 0; i < length; i++) msg += (char)payload[i];
-  DeserializationError err = deserializeJson(doc, msg);
+  DeserializationError err = deserializeJson(doc, payload, length);
   if (err) return;
+  
   // Handle ping message from server
-  if (doc.containsKey("type") && String((const char*)doc["type"]) == "ping") {
+  if (doc.containsKey("type") && strcmp(doc["type"], "ping") == 0) {
     sendWebSocketData();
     return;
   }
-  String channel = doc["channel"] | "";
-  if (channel == "room_stats") {
+  
+  const char* channel = doc["channel"] | "";
+  if (strcmp(channel, "room_stats") == 0) {
     if (doc.containsKey("temperature")) {
-      float t = doc["temperature"].as<float>();
-      float h = doc["humidity"].as<float>();
-      float p = doc["pressure"].as<float>();
+      int t = doc["temperature"].as<int>();
+      int h = doc["humidity"].as<int>();
+      int p = doc["pressure"].as<int>();
       currentTemp = t;
-      Serial.printf("[room_stats] T: %.1f°C  H: %.0f%%  P: %.0f hPa\n", t, h, p);
+      Serial.printf("[room_stats] T: %d°C  H: %d%%  P: %d hPa\n", t, h, p);
       updateDisplay();
       checkTemperatureControl();
     }
-  } else if (channel == "air_conditioning") {
+  } else if (strcmp(channel, "air_conditioning") == 0) {
     if (doc.containsKey("temperature")) {
-      float t = doc["temperature"].as<float>();
+      int t = doc["temperature"].as<int>();
       currentTemp = t;
-      Serial.printf("[air_conditioning] Ambient temperature: %.1f°C\n", t);
+      Serial.printf("[air_conditioning] Ambient temperature: %d°C\n", t);
       updateDisplay();
       checkTemperatureControl();
     }
     // Nowy format - obsługa payload z frontendu
     if (doc.containsKey("payload")) {
       JsonObject frontendPayload = doc["payload"];
+      
       if (frontendPayload.containsKey("klimaON")) {
         bool newState = frontendPayload["klimaON"];
         if (newState != klimaOn) {
@@ -217,24 +223,26 @@ void handleIncomingText(uint8_t* payload, size_t length) {
           if (frontendPayload.containsKey("manualOverride")) {
             manualOverride = frontendPayload["manualOverride"];
           }
+          
           if (newState) {
             if (!manualOverride) {
               checkTemperatureControl();
             }
           } else {
-            currentFunction = "";
+            strcpy(currentFunction, "");
           }
           updateDisplay();
           sendWebSocketData();
           Serial.printf("[RX] AC %s (ręczne sterowanie)\n", klimaOn ? "Włączone" : "Wyłączone");
         }
       }
+      
       // Obsługa requestedTemp z payload
       if (frontendPayload.containsKey("requestedTemp")) {
-        float reqTemp = frontendPayload["requestedTemp"];
+        int reqTemp = frontendPayload["requestedTemp"];
         requestedTemp = reqTemp;
         manualOverride = false;
-        Serial.printf("[air_conditioning] Requested temperature: %.1f°C\n", reqTemp);
+        Serial.printf("[air_conditioning] Requested temperature: %d°C\n", reqTemp);
         updateDisplay();
         checkTemperatureControl();
         sendWebSocketData();
@@ -256,18 +264,23 @@ void handleButton() {
     if (millis() - lastButtonChange > BUTTON_DEBOUNCE_MS) {
       klimaOn = !klimaOn;
       manualOverride = true;
+      
       if (!klimaOn) {
-        currentFunction = "";
+        strcpy(currentFunction, "");
       } else {
         manualOverride = false;
         checkTemperatureControl();
         manualOverride = true;
       }
+      
       Serial.printf("Przycisk naciśnięty - AC %s (ręczne)\n", klimaOn ? "ON" : "OFF");
       updateDisplay();
+      
+      // Wyślij tylko jeśli połączony
       if (webSocketClient.isConnected()) {
         sendWebSocketData();
       }
+      
       lastButtonChange = millis();
     }
   }
