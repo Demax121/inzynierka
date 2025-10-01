@@ -1,19 +1,18 @@
 services:
   reverse-proxy:
+    container_name: main_reverse_proxy_inzynierka
     build:
       context: ./reverse-proxy
       dockerfile: reverse-proxy.Dockerfile
-    container_name: main_reverse_proxy_inzynierka
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
+      - '80:80'
+      - '443:443'
+      - 443:443/udp
     volumes:
       - ./reverse-proxy/Caddyfile:/etc/caddy/Caddyfile
-      - ./reverse-proxy/data:/data
-      - proxy_config:/config
-      - ./reverse-proxy/certs:/certs
+      - ./reverse-proxy/caddy_data:/data
+      - caddy_config:/config
     networks:
       - inzynierka_network
 
@@ -130,7 +129,7 @@ volumes:
   postgres_data: null
   pgadmin_data: null
   node_modules_cache: null
-  proxy_config: {}
+  caddy_config: {}
 
 networks:
   inzynierka_network:

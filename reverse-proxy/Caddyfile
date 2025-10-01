@@ -1,7 +1,9 @@
-# Plik: reverse-proxy/Caddyfile
 {
+    # Ta opcja włącza automatyczne generowanie i zaufanie
+    # lokalnym certyfikatom SSL.
     local_certs
 }
+
 
 simply.smart {
     # Przekierowanie ruchu do kontenera frontendu (Vite dev server)
