@@ -251,6 +251,11 @@ wss.on("connection", (ws) => {
         }
       }
 
+      if (data.channel === "test") {
+        console.log(`Received test message:`, data);
+        ws.send(JSON.stringify(data));
+      }
+
     } catch (err) {
       // Ignorujemy błędny JSON
     }
@@ -288,4 +293,4 @@ process.on('SIGINT', () => {
   process.exit();
 });
 
-console.log(`WebSocket server listening on ws://0.0.0.0:${PORT} (door_sensor, room_stats, main_lights, lux_sensor, air_conditioning channels)`);
+console.log(`WebSocket server listening on ws://0.0.0.0:${PORT} (door_sensor, room_stats, main_lights, lux_sensor, air_conditioning, test channels)`);

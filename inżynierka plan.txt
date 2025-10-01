@@ -128,3 +128,6 @@ Kolejny etap:
 
 Przenieść wszystko do folderu, skąd będę mógł wystartować cały stack na nowym urządzeniu bez problemu.
 Mogę zmieniać w dist w index.js linki z pinia store.
+
+
+EDYTOWAĆ: C:\Windows\System32\drivers\etc\hosts
