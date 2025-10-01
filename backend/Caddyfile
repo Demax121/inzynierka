@@ -1,6 +1,6 @@
 :80 {
     root * /var/www/php
-    php_fastcgi php:9000
+    php_fastcgi inzynierka_php_manager:9000
     file_server
     header Access-Control-Allow-Origin "*"
     header Access-Control-Allow-Methods "GET, POST, OPTIONS"

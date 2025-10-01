@@ -29,10 +29,10 @@ export default defineConfig({
     },
     // --- DODANY FRAGMENT ---
     hmr: {
-      host: 'simply.smart',
+      host: 'frontend.simplysmart.duckdns.org',
       protocol: 'wss',
     },
-    allowedHosts: ['simply.smart'],
+    allowedHosts: ['frontend.simplysmart.duckdns.org'],
     // --- KONIEC FRAGMENTU ---
   },
 })

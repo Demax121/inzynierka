@@ -23,3 +23,5 @@ build/
 # Docker volumes
 postgres_data/
 pgadmin_data/
+
+nginx/

@@ -159,8 +159,31 @@ http://localhost:8882
 
 ---
 
+## Production Deployment
+
+### Domain Structure
+The application uses a subdomain-based architecture with **simplysmart.duckdns.org**:
+
+- **Main App**: `https://simplysmart.duckdns.org` → Vue.js frontend
+- **API**: `https://api.simplysmart.duckdns.org` → PHP backend APIs
+- **CDN**: `https://cdn.simplysmart.duckdns.org` → Static assets
+- **WebSocket**: `wss://ws.simplysmart.duckdns.org` → Real-time server
+- **Admin**: `https://admin.simplysmart.duckdns.org` → pgAdmin interface
+
+### Reverse Proxy
+Uses **Nginx Proxy Manager** for:
+- SSL certificate management (Let's Encrypt)
+- Subdomain routing
+- WebSocket support
+- Centralized proxy configuration
+
+See `NGINX_PROXY_MANAGER_SETUP.md` for detailed configuration instructions.
+
+---
+
 ## Additional Notes
 
 - All services are containerized for easy deployment.
 - The stack includes backend APIs, real-time JS server, Vue SPA frontend, CDN for static assets, and ESP32 firmware.
 - Profiles and automation logic are stored in the PostgreSQL database `inzynierka`.
+- Production uses Nginx Proxy Manager with SSL certificates for all subdomains.

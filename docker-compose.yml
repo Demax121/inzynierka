@@ -1,23 +1,18 @@
 services:
-  reverse-proxy:
-    container_name: main_reverse_proxy_inzynierka
-    build:
-      context: ./reverse-proxy
-      dockerfile: reverse-proxy.Dockerfile
+  inzynierka_proxy_nginx:
+    image: 'jc21/nginx-proxy-manager:latest'
+    container_name: inzynierka_proxy_nginx
     restart: unless-stopped
     ports:
       - '80:80'
+      - '81:81'
       - '443:443'
-      - 443:443/udp
     volumes:
-      - ./reverse-proxy/Caddyfile:/etc/caddy/Caddyfile
-      - ./reverse-proxy/caddy_data:/data
-      - caddy_config:/config
-    networks:
-      - inzynierka_network
+      - ./nginx/data:/data
+      - ./nginx/letsencrypt:/etc/letsencrypt
 
-  postgres:
-    container_name: postgres_db_inzynierka
+  inzynierka_postgres_db:
+    container_name: inzynierka_postgres_db
     build:
       context: ./postgreSQL
       dockerfile: postgresDB.Dockerfile
@@ -29,11 +24,9 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgreSQL/init.sql:/docker-entrypoint-initdb.d/init.sql
-    networks:
-      - inzynierka_network
 
-  pgadmin:
-    container_name: pgadmin_ui_inzynierka
+  inzynierka_pgadmin:
+    container_name: inzynierka_pgadmin
     build:
       context: ./postgreSQL
       dockerfile: pgAdmin.Dockerfile
@@ -42,16 +35,12 @@ services:
         PGADMIN_PASSWORD: ${PGADMIN_PASSWORD}
     restart: unless-stopped
     depends_on:
-      - postgres
-    ports:
-      - ${PGADMIN_PORT_EX}:${PGADMIN_PORT_NATIVE}
+      - inzynierka_postgres_db
     volumes:
       - pgadmin_data:/var/lib/pgadmin
-    networks:
-      - inzynierka_network
 
-  frontend:
-    container_name: vue_frontend_inzynierka
+  inzynierka_vite_frontend:
+    container_name: inzynierka_vite_frontend
     build:
       context: ./frontend
       dockerfile: frontend.Dockerfile
@@ -60,16 +49,14 @@ services:
         HOST_REFERENCE: ${HOST_REFERENCE}
     restart: unless-stopped
     depends_on:
-      - backend-server-caddy
-      - reverse-proxy
+      - inzynierka_caddy_cdn
+      - inzynierka_proxy_nginx
     volumes:
       - ./frontend:/app
       - node_modules_cache:/app/node_modules
-    networks:
-      - inzynierka_network
 
-  php:
-    container_name: php_manager_inzynierka
+  inzynierka_php_manager:
+    container_name: inzynierka_php_manager
     build:
       context: ./backend
       dockerfile: php-manager.Dockerfile
@@ -79,58 +66,45 @@ services:
         POSTGRES_DB: ${POSTGRES_DB}
     restart: unless-stopped
     depends_on:
-      - postgres
+      - inzynierka_postgres_db
     volumes:
       - ./backend/php:/var/www/php
-    networks:
-      - inzynierka_network
 
-  backend-server-caddy:
-    container_name: backend_server_caddy_inzynierka
+  inzynierka_backend_server:
+    container_name: inzynierka_backend_server
     build:
       context: ./backend
       dockerfile: caddy-server.Dockerfile
     restart: unless-stopped
     depends_on:
-      - php
-      - reverse-proxy
+      - inzynierka_php_manager
+      - inzynierka_proxy_nginx
     volumes:
       - ./backend/php:/var/www/php
-    networks:
-      - inzynierka_network
 
-  cdn:
-    container_name: caddy-cdn_inzynierka
+  inzynierka_caddy_cdn:
+    container_name: inzynierka_caddy_cdn
     build:
       context: ./CDN
       dockerfile: caddy-cdn.Dockerfile
     restart: unless-stopped
     depends_on:
-      - reverse-proxy
+      - inzynierka_proxy_nginx
     volumes:
       - ./CDN/assets:/srv/assets:ro
-    networks:
-      - inzynierka_network
 
-  bun-api:
-    container_name: bun_api_inzynierka
+  inzynierka_bun_websocket:
+    container_name: inzynierka_bun_websocket
     build:
       context: ./jsServer
       dockerfile: bun-api.Dockerfile
     restart: unless-stopped
     depends_on:
-      - reverse-proxy
+      - inzynierka_proxy_nginx
     volumes:
       - ./jsServer:/app
-    networks:
-      - inzynierka_network
 
 volumes:
   postgres_data: null
   pgadmin_data: null
   node_modules_cache: null
-  caddy_config: {}
-
-networks:
-  inzynierka_network:
-    driver: bridge

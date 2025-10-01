@@ -1,6 +1,6 @@
 <?php
 // Konfiguracja bazy danych
-define('DB_HOST', 'postgres');
+define('DB_HOST', 'inzynierka_postgres_db');
 define('DB_NAME', 'inzynierka');
 define('DB_USER', 'postgresAdmin');
 define('DB_PASS', 'postgres123');
