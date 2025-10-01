@@ -1,8 +1,8 @@
 #include "MyWiFi.h"
 #include <Arduino.h>
 
-const char* WIFI_SSID     = "PLAY_Swiatlowod_610C";
-const char* WIFI_PASSWORD = "HQj1@59PUaaz";
+const char* WIFI_SSID     = "Praca_dyplomowa";
+const char* WIFI_PASSWORD = "AJP@INZYNIERKA2137";
 
 void MyWiFi::connect() {
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);

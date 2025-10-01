@@ -5,7 +5,7 @@
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>
 
-const char* WEBSOCKET_SERVER = "192.168.1.4";
+String WEBSOCKET_SERVER = "192.168.1.4";
 const int WEBSOCKET_PORT = 8886;
 const unsigned int WEBSOCKET_RECONNECT_INTERVAL = 5000;
 
@@ -23,8 +23,8 @@ Adafruit_BME280 bme;
 WebSocketsClient webSocketClient;
 StaticJsonDocument<256> jsonPayload;
 
-// Tylko jedna zmienna do śledzenia ostatniej temperatury jako int
-int lastTemperature = -100;  // Inicjalizacja wartością niemożliwą
+// Tylko jedna zmienna do śledzenia ostatniej temperatury jako float
+float lastTemperature = -100.0;  // Inicjalizacja wartością niemożliwą
 
 void initializeJSON() { 
   jsonPayload["identity"] = "room_stats_sensor";
@@ -37,9 +37,9 @@ void initializeJSON() {
 
 void updateJSONData() {
   JsonObject payload = jsonPayload["payload"];
-  payload["temperature"] = (int)round(bme.readTemperature());
-  payload["humidity"] = (int)round(bme.readHumidity());
-  payload["pressure"] = (int)(bme.readPressure() / 100);
+  payload["temperature"] = (float)bme.readTemperature();
+  payload["humidity"] = (float)bme.readHumidity();
+  payload["pressure"] = (float)(bme.readPressure() / 100.0);
 }
 
 void identifyDevice() {
@@ -53,9 +53,9 @@ void identifyDevice() {
 
 void sendWebSocketData() {
   if (!webSocketClient.isConnected()) return;
-  char buf[200];
-  size_t n = serializeJson(jsonPayload, buf, sizeof(buf));
-  webSocketClient.sendTXT(buf, n);
+  String jsonStr;
+  serializeJson(jsonPayload, jsonStr);
+  webSocketClient.sendTXT(jsonStr);
 }
 
 void setup() {
@@ -66,10 +66,10 @@ void setup() {
   initializeJSON();
   
   // Pobierz początkową temperaturę w formacie int
-  lastTemperature = (int)round(bme.readTemperature());
+  lastTemperature = (float)bme.readTemperature();
   updateJSONData();
   
-  webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT);
+  webSocketClient.begin(WEBSOCKET_SERVER.c_str(), WEBSOCKET_PORT);
   webSocketClient.onEvent([](WStype_t type, uint8_t* payload, size_t length) {
     if (type == WStype_CONNECTED) {
       lastWsConnected = millis(); // aktualizuj czas połączenia
@@ -80,8 +80,10 @@ void setup() {
     else if (type == WStype_TEXT) {
       // Handle ping from server
       StaticJsonDocument<128> doc;
-      DeserializationError err = deserializeJson(doc, payload, length);
-      if (!err && doc.containsKey("type") && strcmp(doc["type"], "ping") == 0) {
+      String msg = "";
+      for (size_t i = 0; i < length; i++) msg += (char)payload[i];
+      DeserializationError err = deserializeJson(doc, msg);
+      if (!err && doc.containsKey("type") && String((const char*)doc["type"]) == "ping") {
         updateJSONData();
         sendWebSocketData();
       }
@@ -96,10 +98,10 @@ void loop() {
   webSocketClient.loop();
   
   // Odczytaj aktualną temperaturę bezpośrednio jako int
-  int currentTemperature = (int)round(bme.readTemperature());
+  float currentTemperature = (float)bme.readTemperature();
   
   // Sprawdź, czy temperatura zmieniła się o więcej niż próg
-  if (abs(currentTemperature - lastTemperature) >= TEMPERATURE_THRESHOLD) {
+  if (fabs(currentTemperature - lastTemperature) >= TEMPERATURE_THRESHOLD) {
     updateJSONData();
     sendWebSocketData();
     lastTemperature = currentTemperature;
@@ -111,7 +113,7 @@ void loop() {
       Serial.println("WebSocket nie odpowiada, restart połączenia...");
       webSocketClient.disconnect();
       delay(100);
-      webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT);
+  webSocketClient.begin(WEBSOCKET_SERVER.c_str(), WEBSOCKET_PORT);
       lastWsAttempt = millis();
     }
   }

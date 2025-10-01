@@ -15,13 +15,14 @@ if (!is_array($data)) {
     exit;
 }
 
-$temperature = isset($data['temperature']) ? $data['temperature'] : null;
-$humidity = isset($data['humidity']) ? $data['humidity'] : null;
-$pressure = isset($data['pressure']) ? $data['pressure'] : null;
 
-if (!is_numeric($temperature) || !is_numeric($humidity) || !is_numeric($pressure)) {
+$temperature = isset($data['temperature']) ? floatval($data['temperature']) : null;
+$humidity = isset($data['humidity']) ? floatval($data['humidity']) : null;
+$pressure = isset($data['pressure']) ? floatval($data['pressure']) : null;
+
+if (!is_float($temperature) || !is_float($humidity) || !is_float($pressure)) {
     http_response_code(400);
-    echo json_encode(['success' => false, 'error' => 'temperature/humidity/pressure must be numeric']);
+    echo json_encode(['success' => false, 'error' => 'temperature/humidity/pressure must be float']);
     exit;
 }
 
