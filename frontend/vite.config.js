@@ -29,10 +29,10 @@ export default defineConfig({
     },
     // --- DODANY FRAGMENT ---
     hmr: {
-      host: 'app.local',
+      host: 'simply.smart',
       protocol: 'wss',
     },
-    allowedHosts: ['app.local'],
+    allowedHosts: ['simply.smart'],
     // --- KONIEC FRAGMENTU ---
   },
 })

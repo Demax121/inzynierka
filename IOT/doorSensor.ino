@@ -3,7 +3,7 @@
 #include <WebSocketsClient.h>
 
 // Używamy nazwy domeny i portu reverse proxy
-String WEBSOCKET_SERVER = "app.local";
+String WEBSOCKET_SERVER = "simply.smart";
 const int WEBSOCKET_PORT = 443;
 const unsigned long WEBSOCKET_RECONNECT_INTERVAL = 5000;
 

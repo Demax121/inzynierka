@@ -10,9 +10,10 @@ services:
       - "443:443"
       - "443:443/udp"
     volumes:
-      - ./reverse-proxy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./reverse-proxy/caddy_data:/data
-      - caddy_config_inzynierka:/config
+      - ./reverse-proxy/Caddyfile:/etc/caddy/Caddyfile
+      - ./reverse-proxy/data:/data
+      - proxy_config:/config
+      - ./reverse-proxy/certs:/certs
     networks:
       - inzynierka_network
 
@@ -129,7 +130,7 @@ volumes:
   postgres_data: null
   pgadmin_data: null
   node_modules_cache: null
-  caddy_config_inzynierka: {}
+  proxy_config: {}
 
 networks:
   inzynierka_network:

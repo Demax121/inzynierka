@@ -3,7 +3,7 @@
     local_certs
 }
 
-app.local {
+simply.smart {
     # Przekierowanie ruchu do kontenera frontendu (Vite dev server)
     reverse_proxy frontend:5173
 
