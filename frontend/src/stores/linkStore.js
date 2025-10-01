@@ -33,7 +33,7 @@ export const useLinkStore = defineStore('linkStore', {
 
     getPhpApiUrl: (state) => (phpFileName) => {
       if (!phpFileName || typeof phpFileName !== 'string') return state.links.databaseApi;
-      return `${state.links.databaseApi}${phpFileName}`;
+      return `${state.links.databaseApi}/${phpFileName}`;
     },
   },
   
