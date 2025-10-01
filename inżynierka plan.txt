@@ -126,5 +126,6 @@ Save the profile into a profiles PostgreSQL table with columns: profile_id, prof
 Kolejny etap:
 
 
-Przenieść wszystko do folderu, skąd będę mógł wystartować cały stack na nowym urządzeniu bez problemu.
-Mogę zmieniać w dist w index.js linki z pinia store.
+1. Pobrać obrazy wraz z ich danymi:
+
+Baza danych; bun-api; backend caddy; cdn caddy; 

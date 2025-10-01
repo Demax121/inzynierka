@@ -11,9 +11,9 @@ export const useLinkStore = defineStore('linkStore', {
   // State: Holds the base URLs for different services
   state: () => ({
     links: {
-        databaseApi: import.meta.env.VITE_BACKEND_URL_PREFIX,  // Base URL for PHP API endpoints
-        cdnURL: import.meta.env.VITE_CDN_URL_PREFIX,       // Base URL for CDN/static assets
-        wledIP: import.meta.env.VITE_WLED_URL_PREFIX,            // WLED device IP
+      databaseApi: 'http://192.168.1.2:8884/',  // Base URL for PHP API endpoints
+      cdnURL: 'http://192.168.1.2:8885/',       // Base URL for CDN/static assets
+      wledIP: 'http://192.168.1.25',            // WLED device IP
     },
     // WLED state variables
     wledPresets: [],
@@ -62,49 +62,51 @@ export const useLinkStore = defineStore('linkStore', {
   actions: {
     // Action to fetch WLED presets
     async fetchWledPresets() {
-      const WLED_PRESETS_ENDPOINT = "/json/presets";
-      const WLED_PRESETS_FALLBACK = "/presets.json";
+      const WLED_PRESETS_ENDPOINT = "/presets.json";
       this.wledPresetsLoading = true;
       this.wledPresets = [];
-      let data = null;
+      
       try {
-        let response = await fetch(`${this.links.wledIP}${WLED_PRESETS_ENDPOINT}`);
-        if (!response.ok) {
-          // Spróbuj fallback jeśli 404
-          response = await fetch(`${this.links.wledIP}${WLED_PRESETS_FALLBACK}`);
-        }
+        const response = await fetch(`${this.links.wledIP}${WLED_PRESETS_ENDPOINT}`);
+        
         if (!response.ok) {
           throw new Error(`HTTP error! Status: ${response.status}`);
         }
-        data = await response.json();
+        
+        const data = await response.json();
+        
+        // Process presets data
+        if (data) {
+          const processedPresets = [];
+          
+          Object.entries(data).forEach(([key, preset]) => {
+            // Filter numeric keys which represent presets and exclude Preset 0
+            const presetId = parseInt(key);
+            if (!isNaN(presetId) && presetId !== 0) {
+              processedPresets.push({
+                id: presetId,
+                name: preset.n || `Preset ${key}` // Use preset name or default
+              });
+            }
+          });
+          
+          // Sort presets by ID
+          processedPresets.sort((a, b) => a.id - b.id);
+          this.wledPresets = processedPresets;
+          this.wledPresetsLoaded = true;
+        } else {
+          console.log("No presets found or invalid data format");
+        }
       } catch (error) {
         // removed: console.error("Error fetching WLED presets:", error);
+      } finally {
+        this.wledPresetsLoading = false;
       }
-      if (data) {
-        const processedPresets = [];
-        Object.entries(data).forEach(([key, preset]) => {
-          // Filter numeric keys which represent presets and exclude Preset 0
-          const presetId = parseInt(key);
-          if (!isNaN(presetId) && presetId !== 0) {
-            processedPresets.push({
-              id: presetId,
-              name: preset.n || `Preset ${key}` // Use preset name or default
-            });
-          }
-        });
-        // Sort presets by ID
-        processedPresets.sort((a, b) => a.id - b.id);
-        this.wledPresets = processedPresets;
-        this.wledPresetsLoaded = true;
-      } else {
-        console.log("No presets found or invalid data format");
-      }
-      this.wledPresetsLoading = false;
     },
     
     // Action to send command to WLED
     async sendWledCommand(payload) {
-        const WLED_STATE_ENDPOINT = import.meta.env.VITE_WLED_STATE_ENDPOINT || '/json/state';
+      const WLED_STATE_ENDPOINT = "/json/state";
       this.wledPresetsLoading = true;
       
       try {

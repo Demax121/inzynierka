@@ -1,8 +1,8 @@
-#include <MyWiFiV2.h>
+#include <MyWiFi.h>
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>
 
-String WEBSOCKET_SERVER = "192.168.1.2";
+const char* WEBSOCKET_SERVER = "192.168.1.2";
 const int WEBSOCKET_PORT = 8886;
 const unsigned long WEBSOCKET_RECONNECT_INTERVAL = 5000;
 
@@ -44,19 +44,18 @@ void identifyDevice() {
 
 void sendWebSocketData() {
   if (!webSocketClient.isConnected()) return;
-  String jsonStr;
-  serializeJson(jsonPayload, jsonStr);
-  webSocketClient.sendTXT(jsonStr);
+  char buf[200];
+  size_t n = serializeJson(jsonPayload, buf, sizeof(buf));
+  webSocketClient.sendTXT(buf, n);
 }
 
 void handleIncomingText(uint8_t* payload, size_t length) {
   StaticJsonDocument<128> doc;
-  String msg = "";
-  for (size_t i = 0; i < length; i++) msg += (char)payload[i];
-  DeserializationError err = deserializeJson(doc, msg);
+  DeserializationError err = deserializeJson(doc, payload, length);
   if (err) return;
+  
   // Handle ping message from server
-  if (doc.containsKey("type") && String((const char*)doc["type"]) == "ping") {
+  if (doc.containsKey("type") && strcmp(doc["type"], "ping") == 0) {
     updateJSONData(digitalRead(BUTTON_PIN));
     sendWebSocketData();
   }
@@ -65,12 +64,12 @@ void handleIncomingText(uint8_t* payload, size_t length) {
 void setup() {
   Serial.begin(19200);
   
-  MyWiFiV2::connect();
+  MyWiFi::connect();
   pinMode(BUTTON_PIN, INPUT_PULLUP);
   initializeJSON();
   lastButtonState = digitalRead(BUTTON_PIN);
   updateJSONData(lastButtonState);
-  webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
+  webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT);
   webSocketClient.onEvent([](WStype_t type, uint8_t* payload, size_t length) {
     if (type == WStype_CONNECTED) {
       lastWsConnected = millis(); // aktualizuj czas połączenia

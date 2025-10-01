@@ -1,6 +1,6 @@
 services:
-  offline_postgres_inzynierka:
-    container_name: offline_postgres_inzynierka
+  offline_postgres_dyplom:
+    container_name: offline_postgres_dyplom
     build:
       context: ./postgreSQL
       dockerfile: postgresDB.Dockerfile
@@ -12,12 +12,12 @@ services:
     ports:
       - ${POSTGRES_PORT_EX}:${POSTGRES_PORT_NATIVE}
     volumes:
-      - offline_postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
       - ./postgreSQL/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
-      - offline_inzynierka_network
-  offline_pgadmin_inzynierka:
-    container_name: offline_pgadmin_inzynierka
+      - offline_dyplom_network
+  offline_pgadmin_dyplom:
+    container_name: offline_pgadmin_dyplom
     build:
       context: ./postgreSQL
       dockerfile: pgAdmin.Dockerfile
@@ -26,15 +26,15 @@ services:
         PGADMIN_PASSWORD: ${PGADMIN_PASSWORD}
     restart: unless-stopped
     depends_on:
-      - offline_postgres_inzynierka
+      - offline_postgres_dyplom
     ports:
       - ${PGADMIN_PORT_EX}:${PGADMIN_PORT_NATIVE}
     volumes:
-      - offline_pgadmin_data:/var/lib/pgadmin
+      - pgadmin_data:/var/lib/pgadmin
     networks:
-      - offline_inzynierka_network
-  offline_vite_inzynierka:
-    container_name: offline_vite_inzynierka
+      - offline_dyplom_network
+  offline_frontend_dyplom:
+    container_name: offline_frontend_dyplom
     build:
       context: ./frontend
       dockerfile: frontend.Dockerfile
@@ -43,16 +43,16 @@ services:
         HOST_REFERENCE: ${HOST_REFERENCE}
     restart: unless-stopped
     depends_on:
-      - offline_backend_inzynierka
+      - offline_backend_server_caddy_dyplom
     ports:
       - ${FRONTEND_PORT_EX}:${FRONTEND_PORT_NATIVE}
     volumes:
       - ./frontend:/app
-      - offline_node_modules_cache:/app/node_modules
+      - node_modules_cache:/app/node_modules
     networks:
-      - offline_inzynierka_network
-  offline_php_inzynierka:
-    container_name: offline_php_inzynierka
+      - offline_dyplom_network
+  offline_php_dyplom:
+    container_name: offline_php_dyplom
     build:
       context: ./backend
       dockerfile: php-manager.Dockerfile
@@ -62,27 +62,27 @@ services:
         POSTGRES_DB: ${POSTGRES_DB}
     restart: unless-stopped
     depends_on:
-      - offline_postgres_inzynierka
+      - offline_postgres_dyplom
     volumes:
       - ./backend/php:/var/www/php
     networks:
-      - offline_inzynierka_network
-  offline_backend_inzynierka:
-    container_name: offline_backend_inzynierka
+      - offline_dyplom_network
+  offline_backend_server_caddy_dyplom:
+    container_name: offline_backend_server_caddy_dyplom
     build:
       context: ./backend
       dockerfile: caddy-server.Dockerfile
     restart: unless-stopped
     depends_on:
-      - offline_php_inzynierka
+      - offline_php_dyplom
     ports:
       - ${BACKEND_CADDY_PORT_EX}:${BACKEND_CADDY_PORT_NATIVE}
     volumes:
       - ./backend/php:/var/www/php
     networks:
-      - offline_inzynierka_network
-  offline_cdn_inzynierka:
-    container_name: offline_cdn_inzynierka
+      - offline_dyplom_network
+  offline_cdn_dyplom:
+    container_name: offline_cdn_dyplom
     build:
       context: ./CDN
       dockerfile: caddy-cdn.Dockerfile
@@ -92,9 +92,9 @@ services:
     volumes:
       - ./CDN/assets:/srv/assets:ro
     networks:
-      - offline_inzynierka_network
-  offline_bun_websocket_inzynierka:
-    container_name: offline_bun_websocket_inzynierka
+      - offline_dyplom_network
+  offline_bun_api_dyplom:
+    container_name: offline_bun_api_dyplom
     build:
       context: ./jsServer
       dockerfile: bun-api.Dockerfile
@@ -104,13 +104,13 @@ services:
     volumes:
       - ./jsServer:/app
     networks:
-      - offline_inzynierka_network
+      - offline_dyplom_network
 
 volumes:
-  offline_postgres_data: null
-  offline_pgadmin_data: null
-  offline_node_modules_cache: null
+  postgres_data: null
+  pgadmin_data: null
+  node_modules_cache: null
 
 networks:
-  offline_inzynierka_network:
+  offline_dyplom_network:
     driver: bridge

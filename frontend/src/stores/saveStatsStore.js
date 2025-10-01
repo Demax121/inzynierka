@@ -1,7 +1,6 @@
-
 import { defineStore } from 'pinia'
-import { useLinkStore } from './linkStore'
 
+const database_link = 'http://192.168.1.2:8884/saveRoomStats.php'
 const SAVE_INTERVAL = 60 * 60 * 1000
 const LAST_SAVED_KEY = 'roomStats_lastSaved'
 
@@ -15,9 +14,9 @@ export const useSaveStatsStore = defineStore('saveStats', {
     // ustaw dane (np. z komponentu) i uruchom wysyłkę co godzinę
     setStats(stats) {
       this.latest = {
-        temperature: parseFloat(stats.temperature),
-        humidity: parseFloat(stats.humidity),
-        pressure: parseFloat(stats.pressure)
+        temperature: Number(stats.temperature),
+        humidity: Number(stats.humidity),
+        pressure: Number(stats.pressure)
       }
       // jeśli nie mamy zaplanowanych timerów -> uruchom planowanie
       if (!this.intervalId && !this.startupTimeoutId) this.startHourlySave()
@@ -66,17 +65,13 @@ export const useSaveStatsStore = defineStore('saveStats', {
       if (!forced && lastSaved && Date.now() - lastSaved < SAVE_INTERVAL) return
 
       try {
-        // Get the PHP API URL for saveRoomStats.php from linkStore
-        const linkStore = useLinkStore()
-        const apiUrl = linkStore.getPhpApiUrl('saveRoomStats.php')
-
-        const res = await fetch(apiUrl, {
+        const res = await fetch(database_link, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            temperature: parseFloat(this.latest.temperature),
-            humidity: parseFloat(this.latest.humidity),
-            pressure: parseFloat(this.latest.pressure)
+            temperature: this.latest.temperature,
+            humidity: this.latest.humidity,
+            pressure: this.latest.pressure
           })
         })
         if (res.ok) {

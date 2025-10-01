@@ -1,7 +1,6 @@
-
 import { defineStore } from 'pinia'
-import { useLinkStore } from './linkStore'
 
+const API_URL = 'http://192.168.1.2:8884/doorStatus.php'
 const LOCAL_KEY = 'door_last_status'
 
 export const useDoorStatusStore = defineStore('doorStatus', {
@@ -12,12 +11,8 @@ export const useDoorStatusStore = defineStore('doorStatus', {
     async saveDoorStatus(status) {
       if (this.last === status) return false
 
-      // Get the PHP API URL for doorStatus.php from linkStore
-      const linkStore = useLinkStore()
-      const apiUrl = linkStore.getPhpApiUrl('doorStatus.php')
-
       try {
-        const res = await fetch(apiUrl, {
+        const res = await fetch(API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status })

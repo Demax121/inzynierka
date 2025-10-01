@@ -45,8 +45,8 @@ let ws;
 
 // Formatting functions
 const formatTemperature = (temp) => {
-  if (typeof temp === 'number' || !isNaN(parseFloat(temp))) {
-    return `${parseFloat(temp).toFixed(1)} °C`;
+  if (typeof temp === 'number') {
+    return `${temp.toFixed(1)} °C`;
   }
   return 'N/A';
 };
@@ -67,17 +67,16 @@ const formatPressure = (pressure) => {
 
 onMounted(() => {
   ws = new WebSocket(wsStore.wsUrl);
-  ws.onopen = () => { console.log('Connected to WebSocket server'); };
   ws.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
       if (data.channel === 'room_stats') {
         statsInfo.value = { 
-          temperature: parseFloat(data.temperature), 
-          humidity: parseFloat(data.humidity), 
-          pressure: parseFloat(data.pressure) 
+          temperature: data.temperature, 
+          humidity: data.humidity, 
+          pressure: data.pressure 
         };
-        saveStore.setStats({ temperature: parseFloat(data.temperature), humidity: parseFloat(data.humidity), pressure: parseFloat(data.pressure) })
+        saveStore.setStats({ temperature: data.temperature, humidity: data.humidity, pressure: data.pressure })
       }
     } catch {}
   };

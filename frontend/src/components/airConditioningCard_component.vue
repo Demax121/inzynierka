@@ -8,9 +8,9 @@
         <LoadingCard v-if="loading" />
         <div v-else class="card__content card__content--slider">
           <div class="temp-form">
-            <button type="button" class="btn btn--square" @click="changeTemp(-0.5)">-0.5</button>
+            <button type="button" class="btn btn--square" @click="changeTemp(-1)">-1</button>
             <span class="temp-display">{{ inputTemp }}°C</span>
-            <button type="button" class="btn btn--square" @click="changeTemp(0.5)">+0.5</button>
+            <button type="button" class="btn btn--square" @click="changeTemp(1)">+1</button>
           </div>
 
           <div class="temps-display">
@@ -46,20 +46,14 @@ let reconnectTimer;
 // State variables
 const currentTemp = ref(null);
 const requestedTemp = ref(null);
-const inputTemp = ref(22.0); // default value (float)
+const inputTemp = ref(22); // default value
 const klimaON = ref(false);
 const functionState = ref('');
 const manualOverride = ref(false);
 const loading = ref(true);
 
-const currentTempDisplay = computed(() => {
-  if (currentTemp.value === null || isNaN(currentTemp.value)) return '--';
-  return (Math.round(Number(currentTemp.value) * 10) / 10).toFixed(1);
-});
-const targetTempDisplay = computed(() => {
-  if (requestedTemp.value === null || isNaN(requestedTemp.value)) return '--';
-  return (Math.round(Number(requestedTemp.value) * 10) / 10).toFixed(1);
-});
+const currentTempDisplay = computed(() => currentTemp.value === null ? '--' : currentTemp.value);
+const targetTempDisplay = computed(() => requestedTemp.value === null ? '--' : requestedTemp.value);
 const isOn = computed(() => klimaON.value);
 
 const modeLabel = computed(() => {
@@ -76,7 +70,6 @@ const modeLabel = computed(() => {
 function connect() {
   loading.value = true;
   ws = new WebSocket(wsStore.wsUrl);
-  ws.onopen = () => { console.log('Connected to WebSocket server'); };
   
   ws.onmessage = (event) => {
     try {
@@ -112,10 +105,10 @@ function updateAirConditioningState(payload) {
     klimaON.value = payload.klimaON;
   }
   if (payload.hasOwnProperty('currentTemp')) {
-    currentTemp.value = parseFloat(payload.currentTemp);
+    currentTemp.value = payload.currentTemp;
   }
   if (payload.hasOwnProperty('requestedTemp')) {
-    requestedTemp.value = parseFloat(payload.requestedTemp);
+    requestedTemp.value = payload.requestedTemp;
   }
   if (payload.hasOwnProperty('function')) {
     functionState.value = payload.function;
@@ -131,18 +124,18 @@ function scheduleReconnect() {
 }
 
 function changeTemp(delta) {
-  let newTemp = parseFloat(inputTemp.value) + parseFloat(delta);
-  if (newTemp < 16.0) newTemp = 16.0;
-  if (newTemp > 30.0) newTemp = 30.0;
-  inputTemp.value = parseFloat(newTemp.toFixed(1));
-  sendRequestedTemp(inputTemp.value);
+  let newTemp = inputTemp.value + delta;
+  if (newTemp < 16) newTemp = 16;
+  if (newTemp > 30) newTemp = 30;
+  inputTemp.value = newTemp;
+  sendRequestedTemp(newTemp);
 }
 
 function sendRequestedTemp(temp) {
   const message = {
     channel: "air_conditioning",
     payload: {
-      requestedTemp: parseFloat(temp)
+      requestedTemp: temp
     }
   };
   if (ws && ws.readyState === WebSocket.OPEN) {
