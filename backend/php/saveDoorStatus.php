@@ -17,7 +17,7 @@ if (!is_array($data)) {
 $status = null;
 if (isset($data['status']) && is_string($data['status'])) {
     $s = trim($data['status']);
-    if ($s === 'Drzwi otwarte' || $s === 'Drzwi zamknięte') {
+    if ($s === 'Door open' || $s === 'Door closed') {
         $status = $s;
     }
 }

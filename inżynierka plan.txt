@@ -14,118 +14,25 @@ Zabezpieczenia:
 
 
 
-1. Dodac obsługę lux do blindsController
-Ma mieć input na dolną granicę lux oraz górną granicę lux i przycisk "ustaw granice"
-W dolnej granicy roleta ma się podnieść, a w górnej opuścić
-Musi być dodatkowo flaga manualOverride, gdyby rolety zostały podniesione lub opuszczone kliknięciem przyucisku.
+LEPIEJ:
 
-2. Stworzyć formularz tworzenia profili
-
-Formularz zawiera: 
-
-Główne światła - checkbox (włączone/wyłączone)
-Klimatyzacja - checkbox (włączone/wyłączone) + input na temperaturę
-Rolety - checkbox (Opuszczone/Podciągnięte) + input na dolną granicę lux 
-+ input na górną granicę lux + checkbox jak zaznaczony używamy granic jak nie zaznaczony to ignorujemy granice lux
-WLED - do wyboru z listy rozwijanej kilka presetów w tym tryb ambilight
-
-Formularz tworzy plik JSON, który zawiera dane w następującej formie:
+Każde ESP ma już wgrany klucz szyfrujący, szyfruje nim komunikację
+Podczas komunikacji wysyłany jest payload:
 
 {
-  "name": "Nazwa profilu",
-  "AC":{
-  "channel": "air_conditioning",
+  "identity": "klucz api",
+  "channel": "door_sensor",
   "payload": {
-    "targetTemp": ,
-    "status": true
-  }
-},
-  "lights": {
-  "channel": "main_lights",
-  "payload": {
-    "state": true
-  }
-},
-  "Blinds": {
-    automate: true,
-    min_lux: ,
-    max_lux:
-  },
-  "WLED":{
-    "192.168.1.25/json/state": {
-      "on": true/false,
-      "bri": 128,
-      "seg": {
-        "fx": presetNumber
-      }
+    "doorOpen": false
   }
 }
-}
 
 
-{
-  "name": "Nazwa profilu",
-  "AC":{
-  "channel": "air_conditioning",
-  "payload": {
-    "targetTemp": 22,
-    "status": true
-  }
-},
-  "lights": {
-  "channel": "main_lights",
-  "payload": {
-    "state": true
-  }
-},
-  "Blinds": {
-    status: open / close
-  },
-  "WLED":{
-    "192.168.1.25/json/state": {
-      "on": true/false,
-      "bri": 128,
-      "seg": {
-        "fx": presetNumber
-      }
-  }
-}
-}
+serwer pobiera z bazy danych zestaw kluczy api i kluczy szyfrujących
+tworzy z nich tablicę, obiekt lub mapę (się ogarnie).
 
+wykorzystuje klucz api aby znaleźć klucz szyfrujący
+odszyfrowuje wiadomość
 
-#codebase
-
-Create a Vue 3 component (createProfileCard.vue) that lets a user build and save a profile to PostgreSQL.
-
-The component should have:
-1. Input for profile name.
-
-2. Section for Air Conditioning with numeric input for target temp and ON/OFF toggle. (using switch slider styling from buttons.scss)
-
-3. Section for Lights with ON/OFF slider toggle (same behavior as mainLightsCard_component.vue).
-
-4. Section for Blinds with 3 radio buttons (Open, Close, Automate). When Automate is selected, show inputs for min_lux and max_lux.
-
-4. ection for WLED with dropdown of presets (fetched from WLED API if possible), Ambilight mode, and LED off option. Also include brightness slider and effect preset number input.
-On save, the component should assemble JSON in the format:
-
-{
-"name": "Profile Name",
-"AC": { "channel": "air_conditioning", "payload": { "targetTemp": 22, "status": true } },
-"lights": { "channel": "main_lights", "payload": { "state": true } },
-"Blinds": { "status": "Open" or "Close" or { "automate": true, "min_lux": X, "max_lux": Y } },
-"WLED": { "192.168.1.25/json/state": { "on": true, "bri": 128, "seg": { "fx": presetNumber } } }
-}
-
-Save the profile into a profiles PostgreSQL table with columns: profile_id, profile_name, profile_json (jsonb).
-
-
-
-
-
-Kolejny etap:
-
-
-1. Pobrać obrazy wraz z ich danymi:
-
-Baza danych; bun-api; backend caddy; cdn caddy; 
+jeśli trzeba zaszefrować wiadomość to używa klucza api aby znaleźć klucz
+szyfrujący dla danego urządzenia i następnie szyfruje i wysyła JSON

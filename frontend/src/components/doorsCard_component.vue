@@ -4,16 +4,16 @@
       <h2 class="card__title">Main Door</h2>
     </div>
     <div class="card__body">
-      <div class="card__content" v-if="door_sensor === 'Drzwi otwarte' || door_sensor === 'Drzwi zamknięte'">
+      <div class="card__content" v-if="door_sensor === 'Door open' || door_sensor === 'Door closed'">
         <div class="card__info-item">
           <span class="card__label">Status:</span>
-          <span class="card__value">{{ door_status }}</span>
+          <span class="card__value">{{ door_sensor }}</span>
         </div>
         <div class="card__icon">
-          <img :src="linkStore.getImage('lock-open.svg')" alt="Otwarta kłódka" class="door-icon"
-            v-if="door_sensor === 'Drzwi otwarte'" />
-          <img :src="linkStore.getImage('lock-closed.svg')" alt="Zamknięta kłódka" class="door-icon"
-            v-else-if="door_sensor === 'Drzwi zamknięte'" />
+          <img :src="linkStore.getImage('lock-open.svg')" alt="Door open" class="door-icon"
+            v-if="door_sensor === 'Door open'" />
+          <img :src="linkStore.getImage('lock-closed.svg')" alt="Door closed" class="door-icon"
+            v-else-if="door_sensor === 'Door closed'" />
           <div class="door-icon door-icon--placeholder" v-else>
             <span>🔒</span>
           </div>
@@ -34,7 +34,6 @@ import LoadingCard from '@/components/LoadingCard.vue';
 const linkStore = useLinkStore();
 const wsStore = useWsStore();
 const saveStore = useDoorStatusStore();
-const door_status = ref();
 
 const door_sensor = ref('Connecting...');
 let ws;
@@ -47,13 +46,13 @@ onMounted(() => {
   };
 
   ws.onclose = () => {
-    if (door_sensor.value !== 'Drzwi otwarte' && door_sensor.value !== 'Drzwi zamknięte') {
+    if (door_sensor.value !== 'Door open' && door_sensor.value !== 'Door closed') {
       door_sensor.value = 'Connection error';
     }
   };
 
   ws.onerror = () => {
-    if (door_sensor.value !== 'Drzwi otwarte' && door_sensor.value !== 'Drzwi zamknięte') {
+    if (door_sensor.value !== 'Door open' && door_sensor.value !== 'Door closed') {
       door_sensor.value = 'Connection error';
     }
   };
@@ -62,17 +61,11 @@ onMounted(() => {
     try {
       const data = JSON.parse(event.data);
       if (data.channel === 'door_sensor' && typeof data.doorOpen === 'boolean') {
-        door_sensor.value = data.doorOpen ? 'Drzwi otwarte' : 'Drzwi zamknięte';
+        door_sensor.value = data.doorOpen ? 'Door open' : 'Door closed';
         saveStore.saveDoorStatus(door_sensor.value);
-
-        if (door_sensor.value === 'Drzwi otwarte'){
-          door_status.value = 'Door open';
-        }else{
-          door_status.value = 'Door closed';
-        }
       }
     } catch {
-      // Ignoruj błędne pakiety
+      console.error('Error parsing WebSocket message:', event.data);
     }
   };
 });
