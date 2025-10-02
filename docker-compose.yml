@@ -9,8 +9,6 @@ services:
         DB_PASSWORD: ${POSTGRES_PASSWORD}
         DB_NAME: ${POSTGRES_DB}
     restart: unless-stopped
-    ports:
-      - ${POSTGRES_PORT_EX}:${POSTGRES_PORT_NATIVE}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgreSQL/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -79,18 +77,6 @@ services:
       - ${BACKEND_CADDY_PORT_EX}:${BACKEND_CADDY_PORT_NATIVE}
     volumes:
       - ./backend/php:/var/www/php
-    networks:
-      - offline_dyplom_network
-  offline_cdn_dyplom:
-    container_name: offline_cdn_dyplom
-    build:
-      context: ./CDN
-      dockerfile: caddy-cdn.Dockerfile
-    restart: unless-stopped
-    ports:
-      - ${CDN_PORT_EX}:${CDN_PORT_NATIVE}
-    volumes:
-      - ./CDN/assets:/srv/assets:ro
     networks:
       - offline_dyplom_network
   offline_bun_api_dyplom:

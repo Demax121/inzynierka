@@ -1,9 +1,9 @@
-#include <MyWiFiV2.h>
+#include <MyWiFi.h>
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>
 
 String WEBSOCKET_SERVER = "192.168.1.2";
-const int WEBSOCKET_PORT = 8886;
+const int WEBSOCKET_PORT = 8884;
 const unsigned long WEBSOCKET_RECONNECT_INTERVAL = 5000;
 
 const int BUTTON_PIN = 21;
@@ -19,6 +19,7 @@ bool doorOpen = false;
 unsigned long lastWsConnected = 0;
 unsigned long lastWsAttempt = 0;
 const unsigned long WS_RECONNECT_TIMEOUT = 15000;
+const unsigned long WS_RETRY_EVERY = 5000;
 
 void initializeJSON() { 
   jsonPayload["identity"] = "main_door_sensor";
@@ -65,7 +66,11 @@ void handleIncomingText(uint8_t* payload, size_t length) {
 void setup() {
   Serial.begin(19200);
   
-  MyWiFiV2::connect();
+  MyWiFi::connect();
+  // dalsze próby łączenia obsłuży MyWiFi::loop() w pętli głównej
+
+
+
   pinMode(BUTTON_PIN, INPUT_PULLUP);
   initializeJSON();
   lastButtonState = digitalRead(BUTTON_PIN);
@@ -89,6 +94,15 @@ void setup() {
 }
 
 void loop() {
+  // Utrzymanie połączenia WiFi (nieblokujące)
+  MyWiFi::loop();
+
+  // Jeśli nie ma WiFi, nie próbuj obsługiwać WebSocket ani odczytu zdarzeń (redukcja hałasu)
+  if (!MyWiFi::isConnected()) {
+    delay(10);
+    return;
+  }
+
   webSocketClient.loop();
   int currentState = digitalRead(BUTTON_PIN);
   if (currentState != lastButtonState) {
@@ -106,11 +120,12 @@ void loop() {
 
   // Watchdog WebSocket
   if (!webSocketClient.isConnected()) {
-    if (millis() - lastWsConnected > WS_RECONNECT_TIMEOUT && millis() - lastWsAttempt > 5000) {
+    if (millis() - lastWsConnected > WS_RECONNECT_TIMEOUT && millis() - lastWsAttempt > WS_RETRY_EVERY) {
       Serial.println("WebSocket nie odpowiada, restart połączenia...");
       webSocketClient.disconnect();
       delay(100);
-      webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT);
+      // upewnij się, że próbujemy na tym samym path jak na początku
+      webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
       lastWsAttempt = millis();
     }
   }

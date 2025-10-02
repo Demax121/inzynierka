@@ -17,7 +17,7 @@ Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_RST);
 WebSocketsClient webSocketClient;
 
 String WEBSOCKET_SERVER = "192.168.1.2";
-const int   WEBSOCKET_PORT   = 8886;
+const int   WEBSOCKET_PORT   = 8884;
 const unsigned long RECONNECT_INTERVAL = 5000;
 
 bool klimaOn = false;

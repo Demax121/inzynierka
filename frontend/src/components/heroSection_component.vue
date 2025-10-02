@@ -5,15 +5,15 @@
                 <p class="hero__subtitle">Centralized hub for your smart devices.</p>
             </div>
             <button class="hero__scroll-btn" type="button" @click="scrollToMainContainer">
-                <img class="hero__icon" :src="linkStore.getImage('arrow-down-icon.svg')" alt="Scroll down" />
+                <img class="hero__icon" :src="arrowDownIcon" alt="Scroll down" />
             </button>
         </div>
 </template>
 
 <script setup>
 
-import { useLinkStore } from '@/stores/linkStore';
-const linkStore = useLinkStore();
+import arrowDownIcon from '@/static assets/arrow-down-icon.svg';
+
 const scrollToMainContainer = () => {
     const el = document.querySelector('.main-container');
     if (!el){

@@ -5,15 +5,13 @@
  * and CDN URLs. Provides getters for URL construction.
  */
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
 
 export const useLinkStore = defineStore('linkStore', {
   // State: Holds the base URLs for different services
   state: () => ({
     links: {
-      databaseApi: 'http://192.168.1.2:8884/',  // Base URL for PHP API endpoints
-      cdnURL: 'http://192.168.1.2:8885/',       // Base URL for CDN/static assets
-      wledIP: 'http://192.168.1.25',            // WLED device IP
+      databaseApi: import.meta.env.VITE_BACKEND_URL_PREFIX,  // Base URL for PHP API endpoints
+      wledIP: import.meta.env.VITE_WLED_URL_PREFIX,          // WLED device IP
     },
     // WLED state variables
     wledPresets: [],
@@ -24,14 +22,6 @@ export const useLinkStore = defineStore('linkStore', {
   getters: {
     // Getter: Retrieves a specific link by name from the links object
     getLink: (state) => (linkName) => state.links[linkName],
-    
-    // Getter: Constructs full image URLs from CDN
-    getImage: (state) => (imageName) => {
-      if (!imageName || typeof imageName !== 'string') {
-        return null;
-      }
-      return `${state.links.cdnURL}images/${imageName}`;
-    },
     
     getFile: (state) => (fileName) => {
       if (!fileName || typeof fileName !== 'string') {

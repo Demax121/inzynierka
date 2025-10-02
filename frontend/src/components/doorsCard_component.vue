@@ -10,10 +10,8 @@
           <span class="card__value">{{ door_sensor }}</span>
         </div>
         <div class="card__icon">
-          <img :src="linkStore.getImage('lock-open.svg')" alt="Door open" class="door-icon"
-            v-if="door_sensor === 'Door open'" />
-          <img :src="linkStore.getImage('lock-closed.svg')" alt="Door closed" class="door-icon"
-            v-else-if="door_sensor === 'Door closed'" />
+          <img :src="lockOpenIcon" alt="Door open" class="door-icon" v-if="door_sensor === 'Door open'" />
+          <img :src="lockClosedIcon" alt="Door closed" class="door-icon" v-else-if="door_sensor === 'Door closed'" />
           <div class="door-icon door-icon--placeholder" v-else>
             <span>🔒</span>
           </div>
@@ -26,12 +24,13 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
-import { useLinkStore } from '@/stores/linkStore';
 import { useWsStore } from '@/stores/wsStore';
 import { useDoorStatusStore } from '@/stores/doorStatusStore';
 import LoadingCard from '@/components/LoadingCard.vue';
 
-const linkStore = useLinkStore();
+import lockOpenIcon from '@/static assets/lock-open.svg';
+import lockClosedIcon from '@/static assets/lock-closed.svg';
+
 const wsStore = useWsStore();
 const saveStore = useDoorStatusStore();
 

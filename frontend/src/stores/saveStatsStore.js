@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 
-const database_link = 'http://192.168.1.2:8884/saveRoomStats.php'
+const database_link = import.meta.env.VITE_BACKEND_URL_PREFIX
 const SAVE_INTERVAL = 60 * 60 * 1000
 const LAST_SAVED_KEY = 'roomStats_lastSaved'
 

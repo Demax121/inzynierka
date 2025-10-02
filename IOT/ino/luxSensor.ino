@@ -9,7 +9,7 @@
 #define SCL_PIN 22
 
 String WEBSOCKET_SERVER = "192.168.1.2";
-const int WEBSOCKET_PORT = 8886;
+const int WEBSOCKET_PORT = 8884;
 
 
 const unsigned int WEBSOCKET_RECONNECT_INTERVAL = 5000;

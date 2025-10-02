@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 
-const API_URL = 'http://192.168.1.2:8884/saveDoorStatus.php'
+const API_URL = import.meta.env.VITE_BACKEND_URL_PREFIX
 const LOCAL_KEY = 'door_last_status'
 
 export const useDoorStatusStore = defineStore('doorStatus', {
