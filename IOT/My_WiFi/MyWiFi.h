@@ -1,9 +1,9 @@
-#ifndef MY_WIFIV2_H
-#define MY_WIFIV2_H
+#ifndef MY_WIFI_H
+#define MY_WIFI_H
 
 #include <WiFi.h>
 
-class MyWiFiV2 {
+class MyWiFi {
   public:
     static void connect();
 };
