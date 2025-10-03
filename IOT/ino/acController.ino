@@ -1,9 +1,10 @@
-#include <MyWiFiV2.h>
+#include <MyWiFi.h>
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_ILI9341.h>
 #include <SPI.h>
+#include <AESCrypto.h>
 
 #define TFT_CS   5
 #define TFT_DC   21
@@ -19,6 +20,8 @@ WebSocketsClient webSocketClient;
 String WEBSOCKET_SERVER = "192.168.1.2";
 const int   WEBSOCKET_PORT   = 8884;
 const unsigned long RECONNECT_INTERVAL = 5000;
+String device_api_key = "NfzziMcV9Zyj";
+String encryption_key = "KQAzhJmqigFdUyD6";
 
 bool klimaOn = false;
 bool manualOverride = false;
@@ -28,12 +31,11 @@ float requestedTemp = 25.0;
 const float HISTERAZA = 2.0;
 String currentFunction = "";
 
-
+AESCrypto crypto(encryption_key);
 
 unsigned long lastWsConnected = 0;
 unsigned long lastWsAttempt = 0;
 const unsigned long WS_RECONNECT_TIMEOUT = 15000;
-
 
 StaticJsonDocument<256> doc;
 StaticJsonDocument<512> jsonPayload;
@@ -111,6 +113,7 @@ void updateDisplay() {
 void initializeJSON() {
   jsonPayload["identity"] = "air_conditioning";
   jsonPayload["channel"] = "air_conditioning";
+  jsonPayload["device_api_key"] = device_api_key;
   JsonObject payload = jsonPayload.createNestedObject("payload");
   payload["requestedTemp"] = requestedTemp;
   payload["function"] = "";
@@ -138,6 +141,7 @@ void identifyDevice() {
 void sendWebSocketData() {
   if (!webSocketClient.isConnected()) return;
   updateJSONData();
+  jsonPayload["IV"] = AESCrypto::generateIV();
   String jsonStr;
   serializeJson(jsonPayload, jsonStr);
   webSocketClient.sendTXT(jsonStr);
@@ -183,33 +187,29 @@ void handleIncomingText(uint8_t* payload, size_t length) {
   for (size_t i = 0; i < length; i++) msg += (char)payload[i];
   DeserializationError err = deserializeJson(doc, msg);
   if (err) return;
+  
   // Handle ping message from server
   if (doc.containsKey("type") && String((const char*)doc["type"]) == "ping") {
     sendWebSocketData();
     return;
   }
+  
   String channel = doc["channel"] | "";
-  if (channel == "room_stats") {
-    if (doc.containsKey("temperature")) {
-      float t = doc["temperature"].as<float>();
-      float h = doc["humidity"].as<float>();
-      float p = doc["pressure"].as<float>();
-      currentTemp = t;
-      Serial.printf("[room_stats] T: %.1f°C  H: %.0f%%  P: %.0f hPa\n", t, h, p);
-      updateDisplay();
-      checkTemperatureControl();
-    }
-  } else if (channel == "air_conditioning") {
+  
+  if (channel == "air_conditioning") {
+    // Handle temperature update from server (lastRoomTemperature)
     if (doc.containsKey("temperature")) {
       float t = doc["temperature"].as<float>();
       currentTemp = t;
-      Serial.printf("[air_conditioning] Ambient temperature: %.1f°C\n", t);
+      Serial.printf("[air_conditioning] Current temperature: %.1f°C\n", t);
       updateDisplay();
       checkTemperatureControl();
     }
-    // Nowy format - obsługa payload z frontendu
+    
+    // Handle frontend commands via payload
     if (doc.containsKey("payload")) {
       JsonObject frontendPayload = doc["payload"];
+      
       if (frontendPayload.containsKey("klimaON")) {
         bool newState = frontendPayload["klimaON"];
         if (newState != klimaOn) {
@@ -226,10 +226,11 @@ void handleIncomingText(uint8_t* payload, size_t length) {
           }
           updateDisplay();
           sendWebSocketData();
-          Serial.printf("[RX] AC %s (ręczne sterowanie)\n", klimaOn ? "Włączone" : "Wyłączone");
+          Serial.printf("[RX] AC %s (manual control)\n", klimaOn ? "ON" : "OFF");
         }
       }
-      // Obsługa requestedTemp z payload
+      
+      // Handle requested temperature from payload
       if (frontendPayload.containsKey("requestedTemp")) {
         float reqTemp = frontendPayload["requestedTemp"];
         requestedTemp = reqTemp;
@@ -242,8 +243,6 @@ void handleIncomingText(uint8_t* payload, size_t length) {
     }
   }
 }
-
-
 
 void handleButton() {
   static bool lastButton = HIGH;
@@ -263,7 +262,7 @@ void handleButton() {
         checkTemperatureControl();
         manualOverride = true;
       }
-      Serial.printf("Przycisk naciśnięty - AC %s (ręczne)\n", klimaOn ? "ON" : "OFF");
+      Serial.printf("Button pressed - AC %s (manual)\n", klimaOn ? "ON" : "OFF");
       updateDisplay();
       if (webSocketClient.isConnected()) {
         sendWebSocketData();
@@ -275,18 +274,13 @@ void handleButton() {
   lastButton = reading;
 }
 
-
-
-
-
-
 void setup() {
   Serial.begin(19200);
   delay(500);
   pinMode(buttonPin, INPUT_PULLUP);
   initializeDisplay();
 
-  MyWiFiV2::connect();
+  MyWiFi::connect();
 
   initializeJSON();
 
@@ -296,7 +290,7 @@ void setup() {
   webSocketClient.onEvent([](WStype_t type, uint8_t* payload, size_t length) {
     if (type == WStype_CONNECTED) {
       lastWsConnected = millis();
-      Serial.println("Połączono z WS – identyfikacja kanału air_conditioning");
+      Serial.println("Connected to WS – identifying air_conditioning channel");
       identifyDevice();
       sendWebSocketData();
       updateDisplay();
@@ -308,22 +302,20 @@ void setup() {
 }
 
 void loop() {
-  // Obsługa przycisku na początku - niezależnie od WebSocket
+  // Handle button at the beginning - independent of WebSocket
   handleButton();
   
-  // WebSocket loop - może blokować podczas reconnect
+  // WebSocket loop - may block during reconnect
   webSocketClient.loop();
 
-if (!webSocketClient.isConnected()) {
-  if (millis() - lastWsConnected > WS_RECONNECT_TIMEOUT && millis() - lastWsAttempt > 5000) {
-    Serial.println("WebSocket nie odpowiada, restart połączenia...");
-    webSocketClient.disconnect();
-    delay(100);
-    webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
-    lastWsAttempt = millis();
+  if (!webSocketClient.isConnected()) {
+    if (millis() - lastWsConnected > WS_RECONNECT_TIMEOUT && millis() - lastWsAttempt > 5000) {
+      Serial.println("WebSocket not responding, restarting connection...");
+      webSocketClient.disconnect();
+      delay(100);
+      webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
+      lastWsAttempt = millis();
+    }
   }
-}
-
-
 }
 

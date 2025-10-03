@@ -1,6 +1,7 @@
-#include <MyWiFiV2.h>
+#include <MyWiFi.h>
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>
+#include <AESCrypto.h>
 
 WebSocketsClient webSocketClient;
 
@@ -19,6 +20,11 @@ unsigned int lastButtonChangeMs = 0;
 String WEBSOCKET_SERVER = "192.168.1.2";
 const int WEBSOCKET_PORT = 8884;
 const unsigned int WEBSOCKET_RECONNECT_INTERVAL = 5000;
+String device_api_key = "kZ8UQmdrDar8";
+String encryption_key = "Vfyu3xT6e6yy79iE";
+
+
+AESCrypto crypto(encryption_key);
 
 
 // Watchdog WebSocket
@@ -32,6 +38,7 @@ StaticJsonDocument<256> jsonPayload;
 void initializeJSON() { 
   jsonPayload["identity"] = "lights_controller";
   jsonPayload["channel"] = "main_lights";
+  jsonPayload["device_api_key"] = device_api_key;
   JsonObject payload = jsonPayload.createNestedObject("payload");
   payload["lightON"] = false;
 }
@@ -58,6 +65,7 @@ void identifyDevice() {
 
 void sendWebSocketData() {
   if (!webSocketClient.isConnected()) return;
+  jsonPayload["IV"] = AESCrypto::generateIV();
   String jsonStr;
   serializeJson(jsonPayload, jsonStr);
   webSocketClient.sendTXT(jsonStr);
@@ -90,7 +98,7 @@ void setup() {
   pinMode(TOUCH_BUTTON_PIN, INPUT);
   initializeJSON();
   setRelay(false);
-  MyWiFiV2::connect();
+  MyWiFi::connect();
   webSocketClient.begin(WEBSOCKET_SERVER.c_str(), WEBSOCKET_PORT, "/");
   webSocketClient.onEvent([](WStype_t type, uint8_t* payload, size_t length) {
     if (type == WStype_CONNECTED) {

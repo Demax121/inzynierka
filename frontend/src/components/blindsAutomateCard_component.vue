@@ -194,7 +194,7 @@ onMounted(() => {
   getConfig() // Initial load of config from server
   
   // Setup WebSocket
-  ws = new WebSocket('ws://192.168.1.2:8886')
+  ws = new WebSocket(import.meta.env.VITE_WS_URL_PREFIX)
   
   ws.onmessage = (event) => {
     try {

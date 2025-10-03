@@ -30,10 +30,10 @@ CREATE TABLE public.devices (
     device_id integer NOT NULL,
     device_name character varying(100) NOT NULL,
     device_mac macaddr NOT NULL,
-    device_api_key character varying(32) NOT NULL,
+    device_api_key character varying(16) NOT NULL,
     device_registered timestamp with time zone DEFAULT now() NOT NULL,
     device_last_seen timestamp with time zone DEFAULT now() NOT NULL,
-    device_encryption_key character varying(64) NOT NULL
+    device_encryption_key character varying(32) NOT NULL
 );
 ALTER TABLE public.devices OWNER TO "postgresAdmin";
 
@@ -110,11 +110,11 @@ COPY public.blinds_config ("ID_config", min_lux, max_lux, automate) FROM stdin;
 
 -- Data: devices
 COPY public.devices (device_id, device_name, device_mac, device_api_key, device_registered, device_last_seen, device_encryption_key) FROM stdin;
-2	sterownik_światło	4c:c3:82:cc:e1:08	bkbhbwd2grxqnvihqnspq3hv7d28chae	2025-09-04 09:52:30.765005+00	2025-09-04 09:52:30.765005+00	2fe32bb098934a0d7a9e6c9536a91a45feb8c873611a86cfadf2e069f060f404
-4	sensor_temperatura	34:cd:b0:cd:f3:10	v36pqhzdxkjy6f729euank9bzhxupk3i	2025-09-04 09:52:30.765005+00	2025-09-04 09:52:30.765005+00	c58bcbf5b7ee423c717efe9fe6d6c19f4ff12bbcb27175403aeff82b91167718
-5	sensor_drzwi	8c:d0:b2:a9:98:64	zmabu3h4e8rdzmmwmjg23jvodxbt6p76	2025-09-04 09:52:30.765005+00	2025-09-04 09:52:30.765005+00	e91430e4368613e3cc62cbf8ef95df649fcca48ea20e17e4ddd9ec97a442cfd9
-1	sterownik_klima	84:1f:e8:1b:35:dc	s72ak72ohwmyqp7wkfc7zdf57ki8t3w2	2025-09-04 09:52:30.765005+00	2025-09-04 09:52:30.765005+00	dfb9a7006b95ba94a853dc1cac2e7b0794044dfdf47539460b535750f7bfee7f
-3	sensor_lux	4c:c3:82:d0:cb:0c	ksnf4o8a9uq9a46r9hcr2siisk7o244x	2025-09-04 09:52:30.765005+00	2025-09-04 09:52:30.765005+00	648f11ffc8a1a5489bc144b15b630c48ddb3d2f9e8234697fddf14ea36fe577d
+2	sterownik_światło	4c:c3:82:cc:e1:08	kZ8UQmdrDar8	2025-09-04 09:52:30.765005+00	2025-09-04 09:52:30.765005+00	Vfyu3xT6e6yy79iE
+4	sensor_temperatura	34:cd:b0:cd:f3:10	b3odiEjCNSf7	2025-09-04 09:52:30.765005+00	2025-09-04 09:52:30.765005+00	xuCmb33pFJgJAwR5
+5	sensor_drzwi	8c:d0:b2:a9:98:64	akr3ZPYDU5rM	2025-09-04 09:52:30.765005+00	2025-09-04 09:52:30.765005+00	2zBxk8uBiQd7p32T
+1	sterownik_klima	84:1f:e8:1b:35:dc	NfzziMcV9Zyj	2025-09-04 09:52:30.765005+00	2025-09-04 09:52:30.765005+00	KQAzhJmqigFdUyD6
+3	sensor_lux	4c:c3:82:d0:cb:0c	9ekJU68REYTR	2025-09-04 09:52:30.765005+00	2025-09-04 09:52:30.765005+00	J247J3LBDegpAUaU
 \.
 
 -- Data: profiles

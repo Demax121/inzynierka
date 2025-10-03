@@ -52,7 +52,7 @@ const functionState = ref('');
 const manualOverride = ref(false);
 const loading = ref(true);
 
-const currentTempDisplay = computed(() => currentTemp.value === null ? '--' : currentTemp.value);
+const currentTempDisplay = computed(() => currentTemp.value === null ? '--' : currentTemp.value.toFixed(1));
 const targetTempDisplay = computed(() => requestedTemp.value === null ? '--' : requestedTemp.value);
 const isOn = computed(() => klimaON.value);
 

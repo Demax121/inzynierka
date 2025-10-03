@@ -59,8 +59,11 @@ onMounted(() => {
   ws.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
-      if (data.channel === 'door_sensor' && typeof data.doorOpen === 'boolean') {
-        door_sensor.value = data.doorOpen ? 'Door open' : 'Door closed';
+      if (
+        data.channel === 'door_sensor' &&
+        data.payload && typeof data.payload.doorOpen === 'boolean'
+      ) {
+        door_sensor.value = data.payload.doorOpen ? 'Door open' : 'Door closed';
         saveStore.saveDoorStatus(door_sensor.value);
       }
     } catch {

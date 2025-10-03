@@ -1,16 +1,17 @@
 #include <Wire.h>
 #include <Adafruit_VEML7700.h>
-#include <MyWiFiV2.h>
+#include <MyWiFi.h>
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>
-
+#include <AESCrypto.h>
 // Konfiguracja
 #define SDA_PIN 21
 #define SCL_PIN 22
 
 String WEBSOCKET_SERVER = "192.168.1.2";
 const int WEBSOCKET_PORT = 8884;
-
+String device_api_key = "9ekJU68REYTR";
+String encryption_key = "J247J3LBDegpAUaU";
 
 const unsigned int WEBSOCKET_RECONNECT_INTERVAL = 5000;
 const int LUX_THRESHOLD = 10;
@@ -18,6 +19,8 @@ const int LUX_THRESHOLD = 10;
 WebSocketsClient webSocket;
 Adafruit_VEML7700 veml;
 StaticJsonDocument<256> jsonPayload;
+
+AESCrypto crypto(encryption_key);
 
 // Watchdog WebSocket
 unsigned long lastWsConnected = 0;
@@ -31,6 +34,7 @@ bool sensorReady = false;
 void initializeJSON() {
   jsonPayload["identity"] = "lux_sensor";
   jsonPayload["channel"] = "lux_sensor";
+  jsonPayload["device_api_key"] = device_api_key;
   JsonObject payload = jsonPayload.createNestedObject("payload");
   payload["lux"] = -1;
 }
@@ -51,6 +55,7 @@ void identifyDevice() {
 
 void sendWebSocketData() {
   if (!webSocket.isConnected()) return;
+  jsonPayload["IV"] = AESCrypto::generateIV();
   String jsonStr;
   serializeJson(jsonPayload, jsonStr);
   webSocket.sendTXT(jsonStr);
@@ -72,7 +77,7 @@ void handleWebSocketMessage(uint8_t* payload, size_t length) {
 
 void setup() {
   Serial.begin(19200);
-  MyWiFiV2::connect();
+  MyWiFi::connect();
 
 
 

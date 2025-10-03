@@ -1,18 +1,23 @@
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
-#include <MyWiFiV2.h>
+#include <MyWiFi.h>
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>
+#include <AESCrypto.h>
 
 String WEBSOCKET_SERVER = "192.168.1.2";
 const int WEBSOCKET_PORT = 8884;
 const unsigned int WEBSOCKET_RECONNECT_INTERVAL = 5000;
+String device_api_key = "b3odiEjCNSf7";
+String encryption_key = "xuCmb33pFJgJAwR5";
 
 #define SDA_PIN 4
 #define SCL_PIN 5
 const uint8_t BME280_I2C_ADDRESS = 0x76;
 const int TEMPERATURE_THRESHOLD = 2;  // 2 stopnie progu zmiany temperatury (jako int)
+
+AESCrypto crypto(encryption_key);
 
 // Watchdog WebSocket
 unsigned long lastWsConnected = 0;
@@ -29,6 +34,7 @@ float lastTemperature = -100.0;  // Inicjalizacja wartością niemożliwą
 void initializeJSON() { 
   jsonPayload["identity"] = "room_stats_sensor";
   jsonPayload["channel"] = "room_stats";
+  jsonPayload["device_api_key"] = device_api_key;
   JsonObject payload = jsonPayload.createNestedObject("payload");
   payload["temperature"] = "";
   payload["humidity"] = "";
@@ -53,6 +59,7 @@ void identifyDevice() {
 
 void sendWebSocketData() {
   if (!webSocketClient.isConnected()) return;
+  jsonPayload["IV"] = AESCrypto::generateIV();
   String jsonStr;
   serializeJson(jsonPayload, jsonStr);
   webSocketClient.sendTXT(jsonStr);
@@ -60,7 +67,7 @@ void sendWebSocketData() {
 
 void setup() {
   Serial.begin(19200);
-  MyWiFiV2::connect();
+  MyWiFi::connect();
   Wire.begin(SDA_PIN, SCL_PIN);
   bme.begin(BME280_I2C_ADDRESS);
   initializeJSON();

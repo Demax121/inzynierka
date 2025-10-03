@@ -1,4 +1,4 @@
-FROM dpage/pgadmin4
+FROM dpage/pgadmin4:9.8.0
 
 ARG PGADMIN_EMAIL
 ARG PGADMIN_PASSWORD

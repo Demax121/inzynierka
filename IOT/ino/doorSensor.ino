@@ -1,10 +1,14 @@
 #include <MyWiFi.h>
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>
+#include <AESCrypto.h>
 
+// VARIABLES
 String WEBSOCKET_SERVER = "192.168.1.2";
 const int WEBSOCKET_PORT = 8884;
 const unsigned long WEBSOCKET_RECONNECT_INTERVAL = 5000;
+String device_api_key = "akr3ZPYDU5rM";
+String encryption_key = "2zBxk8uBiQd7p32T";
 
 const int BUTTON_PIN = 21;
 int lastButtonState = HIGH;
@@ -21,9 +25,16 @@ unsigned long lastWsAttempt = 0;
 const unsigned long WS_RECONNECT_TIMEOUT = 15000;
 const unsigned long WS_RETRY_EVERY = 5000;
 
+// AES encryption instance (available for future use)
+AESCrypto crypto(encryption_key);
+
+
+// FUNCTIONS BEGIN
+
 void initializeJSON() { 
   jsonPayload["identity"] = "main_door_sensor";
   jsonPayload["channel"] = "door_sensor";
+  jsonPayload["device_api_key"] = device_api_key;
   JsonObject payload = jsonPayload.createNestedObject("payload");
   payload["doorOpen"] = false;
 }
@@ -45,31 +56,37 @@ void identifyDevice() {
 
 void sendWebSocketData() {
   if (!webSocketClient.isConnected()) return;
+  jsonPayload["IV"] = AESCrypto::generateIV();
+  // Send unencrypted JSON (encryption functions available for future use)
   String jsonStr;
   serializeJson(jsonPayload, jsonStr);
   webSocketClient.sendTXT(jsonStr);
 }
 
 void handleIncomingText(uint8_t* payload, size_t length) {
-  StaticJsonDocument<128> doc;
   String msg = "";
   for (size_t i = 0; i < length; i++) msg += (char)payload[i];
+  
+  StaticJsonDocument<256> doc;
   DeserializationError err = deserializeJson(doc, msg);
   if (err) return;
-  // Handle ping message from server
+  
+  // Handle ping message from server (unencrypted)
   if (doc.containsKey("type") && String((const char*)doc["type"]) == "ping") {
     updateJSONData(digitalRead(BUTTON_PIN));
     sendWebSocketData();
   }
+  
+  // Handle other unencrypted messages if needed in the future
 }
+
+// FUNCTIONS END
 
 void setup() {
   Serial.begin(19200);
   
   MyWiFi::connect();
   // dalsze próby łączenia obsłuży MyWiFi::loop() w pętli głównej
-
-
 
   pinMode(BUTTON_PIN, INPUT_PULLUP);
   initializeJSON();
