@@ -1,8 +1,6 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import { viteStaticCopy } from 'vite-plugin-static-copy'
 import vueDevTools from 'vite-plugin-vue-devtools'
-import path from 'path'
 import { fileURLToPath } from 'url' 
 
 export default defineConfig({
@@ -14,9 +12,6 @@ export default defineConfig({
   },
   plugins: [
     vue(),
-    // viteStaticCopy({
-    //   targets: [{ src: '@/scripts/*', dest: 'scripts' }]
-    // }),
     vueDevTools(),
   ],
   css: {

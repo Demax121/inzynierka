@@ -1,0 +1,270 @@
+# Engineering Project Documentation
+
+## 1. Overview
+This project is an offline-capable smart home control & telemetry stack composed of:
+- PostgreSQL database (state, telemetry, configuration)
+- PHP (Caddy + PHP-FPM) thin JSON endpoints
+- Bun WebSocket server for real-time encrypted device ↔ server messaging
+- Vite + Vue 3 + Pinia frontend (plaintext WS consumption and UI controls)
+- ESP32 firmware devices (room stats sensor, lux sensor, door sensor, main lights controller, AC controller) using AES-128-CBC encryption
+
+### High-Level Flow
+1. ESP32 device connects to WS server, sends identification `{type:"esp32_identification", channel, device_api_key}`.
+2. Device sends encrypted frames `{channel, device_api_key, msgIV, payload}` (payload = hex ciphertext of JSON body via AES-128-CBC).
+3. Server decrypts, validates, updates `device_last_seen`, and broadcasts simplified plaintext to all frontends.
+4. Frontend dispatches user commands (lights, AC) in plaintext WS messages; server encrypts per-device when forwarding to ESP32.
+5. Periodic or event-driven values are persisted through PHP REST-like endpoints into PostgreSQL.
+
+## 2. Rationale / Design Decisions
+| Aspect | Choice | Rationale | Alternatives Rejected |
+|--------|--------|-----------|------------------------|
+| API Layer | Thin PHP endpoints | Fast iteration, low overhead, simple PDO usage | Full Node REST API (would duplicate WS server responsibilities) |
+| Real-time | Dedicated Bun WS server | Clear separation of stateless WS logic and stateful DB writes | Embedding WS inside PHP stack (complex) |
+| Encryption | AES-128-CBC device ↔ server only | Keeps secrets server-side; avoids exposing keys to browser | Frontend encryption (would leak keys); TLS-only (still leaves LAN plaintext) |
+| Data Storage | PostgreSQL | Strong relational and JSONB support | SQLite (concurrency), MySQL (no advantage here) |
+| Frontend | Vue 3 + Pinia | Reactive store pattern, lightweight, Vite dev speed | React (heavier for small scope) |
+| Device Messages | Per-channel JSON inside encrypted envelope | Extensible, easily debug via simulator | Binary custom protocol (harder maintainability) |
+
+## 3. Repository Structure
+```
+backend/               # PHP + Caddy configs
+  php/                 # Endpoints (stateless, validated)
+  Caddyfile            # Static & fastcgi + CORS headers
+jsServer/              # Bun WebSocket server (encryption, routing)
+frontend/              # Vue 3 application (Pinia stores, components)
+IOT/ino/               # ESP32 sketches (one per device type)
+postgreSQL/            # DB Docker build + init.sql schema + seed
+docs/                  # Documentation (this file, payload references, etc.)
+```
+
+## 4. Database Schema Summary
+Table | Purpose | Key Columns
+------|---------|------------
+`devices` | Device identity, encryption keys, heartbeat | `device_api_key`, `device_encryption_key`, `device_last_seen`
+`room_statistics` | Periodic environmental readings | `stat_date`, `stat_temperature`, `stat_humidity`, `stat_pressure`
+`door_status` | Event log (open/close transitions) | `status_date`, `status_name`
+`profiles` | Saved aggregate configuration profiles | `profile_name`, `profile_json`
+`blinds_config` | Single-row blinds automation thresholds | `min_lux`, `max_lux`, `automate`
+
+### Schema Initialization
+Defined in `postgreSQL/init.sql`; container runs it on first launch. Extend by adding migrations or altering the init script (for dev resets).
+
+## 5. WebSocket Protocol
+### Identification (Device → Server)
+```
+{ "type": "esp32_identification", "channel": "room_stats", "device_api_key": "<apiKey>" }
+```
+### Encrypted Device Frame
+```
+{ "channel": "room_stats", "device_api_key": "<apiKey>", "msgIV": "<32-hex>", "payload": "<cipher-hex>" }
+```
+Decrypted JSON body shapes per channel (examples):
+- `door_sensor`: `{ doorOpen: true }`
+- `room_stats`: `{ temperature: 23.4, humidity: 55.1, pressure: 1012 }`
+- `main_lights`: `{ lightON: true }`
+- `lux_sensor`: `{ lux: 347 }`
+- `air_conditioning`: `{ requestedTemp, function, klimaON, manualOverride }`
+
+### Frontend Broadcasts (Plaintext)
+- Door: `{ channel:"door_sensor", payload:{ doorOpen:bool } }`
+- Stats: `{ channel:"room_stats", temperature, humidity, pressure }`
+- Lights: `{ channel:"main_lights", lightON }`
+- Lux: `{ channel:"lux_sensor", lux }`
+- AC: `{ channel:"air_conditioning", payload:{ requestedTemp,function,klimaON,manualOverride,currentTemp } }`
+
+### Commands (Frontend → Server)
+```
+{ "channel": "main_lights", "lightON": true }
+{ "channel": "air_conditioning", "payload": { ... } }
+```
+Server encrypts commands per recipient device.
+
+## 6. Encryption Details
+- Algorithm: AES-128-CBC (16 byte key direct from `device_encryption_key` column) + PKCS7 padding.
+- IV: 16 random bytes per message (hex encoded `msgIV`).
+- Ciphertext: hex string in `payload`.
+- Keys loaded every 5 minutes (refresh) + at server start.
+- Rationale: Simple symmetric scheme with deterministic key provisioning on device flash; CBC chosen for library availability.
+- Not Implemented: Frontend encryption (would require exposing keys or a proxy key-exchange; intentionally omitted for security confines).
+
+## 7. PHP Endpoint Conventions
+All endpoints now:
+- Include `bootstrap.php` for headers & helpers.
+- Enforce method with `require_get()` / `require_post()`.
+- Parse JSON via `read_json()`.
+- Return `{ success: true, ... }` on success or `{ success:false, error:"message" }` with appropriate HTTP status.
+
+Helper functions in `bootstrap.php`:
+- `send_json($data, $code=200)`
+- `fail($message, $code=400)`
+- `get_pdo()` (singleton PDO)
+- Validation wrappers and method guards.
+
+## 8. Frontend Architecture
+### Stores (Pinia)
+Store | Purpose
+------|--------
+`wsStore` | Provides WebSocket URL from env.
+`linkStore` | Builds backend PHP endpoint URLs.
+`doorStatusStore` | Tracks last door state (debounced persistence).
+`saveStatsStore` | Hourly (or forced) room stats persistence.
+`automateStore` | Blinds automation state UI binding.
+
+Utility modules:
+- `utils/api.js`: unified `getJson`, `postJson` returning normalized result objects.
+- `utils/wsHelpers.js`: safe message parsing + type guards.
+
+### Debounce Mechanics (Door Status)
+- `enqueueStatus()` collects rapid toggles; flush after adjustable delay (default 5000 ms) or immediate if delay set to 0.
+
+### Room Stats Persistence
+- Stores the most recent reading; after one hour (or forced save) sends to backend if last save timestamp expired.
+
+## 9. ESP32 Device Responsibilities
+Each sketch:
+1. Connect Wi-Fi, open WS.
+2. Identify (`esp32_identification`).
+3. Assemble JSON → encrypt with key + random IV → hex envelope.
+4. Send periodic telemetry or event updates.
+5. Decrypt inbound commands (lights / AC) and act.
+
+Libraries & Crypto:
+- Custom `AESCrypto` wrapper around mbedtls performing AES-128-CBC with PKCS7.
+- IV generation: `esp_random()` seeded by Wi-Fi hardware RNG.
+
+## 10. Development Setup
+### Prerequisites
+- Docker + Docker Compose
+- Bun (for local dev of WS or frontend if outside container)
+- Node (optional, not required if using Bun exclusively)
+
+### Environment Variables
+`.env` (example keys):
+```
+FRONTEND_PORT_EX=8882
+BACKEND_CADDY_PORT_EX=8883
+BUN_API_PORT_EX=3000
+POSTGRES_PORT_EX=5433
+VITE_WS_URL_PREFIX=ws://localhost:3000
+VITE_BACKEND_URL_PREFIX=http://localhost:8883/
+VITE_WLED_URL_PREFIX=http://<wled-ip>
+```
+
+### Run (Docker)
+```
+docker compose up -d
+```
+Access:
+- Frontend: http://localhost:8882
+- PHP Endpoints: http://localhost:8883/<file>.php
+- WebSocket: ws://localhost:3000
+- pgAdmin (if configured): expose relevant port
+
+### Local Frontend (outside Docker)
+```
+cd frontend
+bun install
+bun run dev
+```
+
+### Local WS Server (outside Docker)
+```
+cd jsServer
+bun install
+bun bunServer.js
+```
+
+## 11. Testing & Debugging
+| Scenario | Approach |
+|----------|----------|
+| Verify encryption | Use `jsServer/testDeviceSim.js` to emit encrypted frames |
+| CORS issues | Confirm Caddy headers + ensure correct endpoint filename (not just base URL) |
+| Device not updating | Check WS logs for identification; ensure key present in DB |
+| Blinds config invalid | Endpoint returns 400 with validation message |
+| Room stats not saved | Check localStorage timestamp & network tab; forced save via store `forceSaveNow()` |
+
+### Simulator Usage
+```
+bun run jsServer/testDeviceSim.js room_stats <apiKey> <16charKey>
+```
+
+### Common Pitfalls
+- Forgetting to append `.php` filename → root POST fails CORS/404.
+- Using stale encryption key after DB update (wait for 5 min refresh or restart WS server).
+- Large drift in device clock irrelevant (server timestamps all DB writes).
+
+## 12. Extending the System
+### Add a New WebSocket Channel
+1. Define device JSON body schema.
+2. Update device firmware to send encrypted envelope.
+3. Add handler branch in `bunServer.js` (decrypt, validate, broadcast).
+4. Create Vue component + store if needed.
+5. Optionally add persistence endpoint & DB table.
+
+### Add a New PHP Endpoint
+1. Copy minimal template:
+```php
+<?php
+require_once __DIR__.'/bootstrap.php';
+require_post();
+$data = read_json();
+// validate ...
+$pdo = get_pdo();
+// perform action
+send_json(['success'=>true]);
+?>
+```
+2. Expose via front-end using `getPhpApiUrl()`.
+
+### Add a Profile Field
+- Update profile JSON creation in frontend.
+- No schema migration needed (JSONB flexible), but document new key in payload reference.
+
+## 13. Security Considerations
+- Encryption keys never exposed to browser.
+- All device frames validated after decrypt for expected shape.
+- Potential future: rate limiting device messages, signature/HMAC to detect tampering (CBC alone doesn’t authenticate), rotate keys via DB update + short overlap.
+
+## 14. Performance Notes
+- WS broadcast loops scale linearly with connections; acceptable for low device count (lab / home). For scale-out: consider tracking per-channel subscriber sets.
+- DB writes batched logically: door status only on change (debounced on frontend), stats hourly.
+
+## 15. Future Improvements
+Category | Idea
+---------|-----
+Security | Add HMAC (Encrypt-then-MAC) for authenticity
+Observability | Structured JSON logging & log rotation
+Frontend | Toast notification system for failed saves
+Backend | Pagination for `getDoorStatus.php` (historic trimming)
+WS | Heartbeat timeout detection & auto-clean stale connections
+Database | Add indices (e.g., `CREATE INDEX ON room_statistics(stat_date DESC)`)
+Docs | Diagram images for architecture + sequence flow
+
+## 16. Glossary
+Term | Definition
+-----|-----------
+Envelope | Outer JSON wrapper containing `channel`, `msgIV`, `payload` (ciphertext)
+Frontend broadcast | Plaintext WS message from server to browsers
+ESP32 identification | Initial unencrypted JSON to bind connection to device key
+Key refresh | Periodic reload of encryption keys from DB every 5 minutes
+
+## 17. Troubleshooting Quick Table
+Symptom | Likely Cause | Fix
+--------|--------------|----
+CORS error on POST | Missing `.php` in fetch URL | Use `linkStore.getPhpApiUrl('file.php')`
+Decryption failure log | Wrong key / truncated payload | Verify DB key & device firmware constant
+No room temperature in AC payload | `lastRoomTemperature` not yet set | Wait until first room_stats frame arrives
+Door status duplicates | Not using debounce | Use `enqueueStatus()`
+Blinds config save 400 | `min_lux >= max_lux` | Adjust values
+
+## 18. Maintenance Checklist
+- Rotate device keys quarterly (update DB + reflash devices)
+- Vacuum / analyze DB growth (door & stats tables) monthly
+- Review logs for decrypt warnings
+- Rebuild containers after dependency updates
+
+## 19. Conclusion
+This architecture balances simplicity (thin PHP, plaintext frontend) with secure device communication (encrypted WS payloads). Modularity allows incremental enhancement (auth, metrics, HMAC) without redesigning core flows.
+
+---
+Generated as part of engineering thesis documentation. Extend and version control this file with any architectural changes.

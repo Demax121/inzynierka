@@ -11,11 +11,11 @@ const currentTab = ref('HomeTab');
 const Tabs = { HomeTab, WeatherTab, WledTab, ProfilesTab };
 
 
-
+// this is comment
 </script>
 
 <template>
-    <div class="app">
+    <div class="app"> 
         <HeroSection />
         <Navbar :activeTab="currentTab" @changeTab="currentTab = $event" />
 
