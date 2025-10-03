@@ -34,7 +34,7 @@ const wsStore = useWsStore();
 import { useSaveStatsStore } from '@/stores/saveStatsStore'
 const saveStore = useSaveStatsStore()
 
-import LoadingCard from '@/components/LoadingCard.vue'
+import LoadingCard from '@/components/LoadingCard_component.vue'
 
 function saveDatas(){
   saveStore.forceSaveNow();

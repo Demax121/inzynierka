@@ -18,7 +18,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useWsStore } from '@/stores/wsStore';
-import LoadingCard from '@/components/LoadingCard.vue';
+import LoadingCard from '@/components/LoadingCard_component.vue';
 
 const wsStore = useWsStore();
 

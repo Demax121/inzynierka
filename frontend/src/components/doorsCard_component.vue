@@ -26,7 +26,7 @@
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useWsStore } from '@/stores/wsStore';
 import { useDoorStatusStore } from '@/stores/doorStatusStore';
-import LoadingCard from '@/components/LoadingCard.vue';
+import LoadingCard from '@/components/LoadingCard_component.vue';
 
 import lockOpenIcon from '@/static assets/lock-open.svg';
 import lockClosedIcon from '@/static assets/lock-closed.svg';
