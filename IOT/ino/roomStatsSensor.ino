@@ -26,19 +26,13 @@ const unsigned long WS_RECONNECT_TIMEOUT = 15000;
 
 Adafruit_BME280 bme;
 WebSocketsClient webSocketClient;
-StaticJsonDocument<256> jsonPayload;
+StaticJsonDocument<256> jsonPayload; // not used for payload body anymore
 
 // Tylko jedna zmienna do śledzenia ostatniej temperatury jako float
 float lastTemperature = -100.0;  // Inicjalizacja wartością niemożliwą
 
 void initializeJSON() { 
-  jsonPayload["identity"] = "room_stats_sensor";
-  jsonPayload["channel"] = "room_stats";
-  jsonPayload["device_api_key"] = device_api_key;
-  JsonObject payload = jsonPayload.createNestedObject("payload");
-  payload["temperature"] = "";
-  payload["humidity"] = "";
-  payload["pressure"] = "";
+  // envelope created on send
 }
 
 void updateJSONData() {
@@ -52,6 +46,7 @@ void identifyDevice() {
   StaticJsonDocument<128> idDoc;
   idDoc["type"] = "esp32_identification";
   idDoc["channel"] = "room_stats";
+  idDoc["device_api_key"] = device_api_key;
   String idMessage;
   serializeJson(idDoc, idMessage);
   webSocketClient.sendTXT(idMessage);
@@ -59,10 +54,21 @@ void identifyDevice() {
 
 void sendWebSocketData() {
   if (!webSocketClient.isConnected()) return;
-  jsonPayload["IV"] = AESCrypto::generateIV();
-  String jsonStr;
-  serializeJson(jsonPayload, jsonStr);
-  webSocketClient.sendTXT(jsonStr);
+  StaticJsonDocument<192> p;
+  p["temperature"] = (float)bme.readTemperature();
+  p["humidity"] = (float)bme.readHumidity();
+  p["pressure"] = (float)(bme.readPressure() / 100.0);
+  String plain; serializeJson(p, plain);
+  String iv = AESCrypto::generateIV();
+  String cipher = crypto.encrypt(plain, iv);
+  StaticJsonDocument<256> env;
+  env["identity"] = "room_stats_sensor";
+  env["channel"] = "room_stats";
+  env["device_api_key"] = device_api_key;
+  env["msgIV"] = iv;
+  env["payload"] = cipher;
+  String out; serializeJson(env, out);
+  webSocketClient.sendTXT(out);
 }
 
 void setup() {

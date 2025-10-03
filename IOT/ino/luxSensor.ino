@@ -18,7 +18,7 @@ const int LUX_THRESHOLD = 10;
 
 WebSocketsClient webSocket;
 Adafruit_VEML7700 veml;
-StaticJsonDocument<256> jsonPayload;
+StaticJsonDocument<256> jsonPayload; // not used for body
 
 AESCrypto crypto(encryption_key);
 
@@ -32,11 +32,7 @@ int lastLux = -999;
 bool sensorReady = false;
 
 void initializeJSON() {
-  jsonPayload["identity"] = "lux_sensor";
-  jsonPayload["channel"] = "lux_sensor";
-  jsonPayload["device_api_key"] = device_api_key;
-  JsonObject payload = jsonPayload.createNestedObject("payload");
-  payload["lux"] = -1;
+  // envelope created on send
 }
 
 void updateJSONData(int currentLux) {
@@ -48,6 +44,7 @@ void identifyDevice() {
   StaticJsonDocument<128> idDoc;
   idDoc["type"] = "esp32_identification";
   idDoc["channel"] = "lux_sensor";
+  idDoc["device_api_key"] = device_api_key;
   String idMessage;
   serializeJson(idDoc, idMessage);
   webSocket.sendTXT(idMessage);
@@ -55,10 +52,19 @@ void identifyDevice() {
 
 void sendWebSocketData() {
   if (!webSocket.isConnected()) return;
-  jsonPayload["IV"] = AESCrypto::generateIV();
-  String jsonStr;
-  serializeJson(jsonPayload, jsonStr);
-  webSocket.sendTXT(jsonStr);
+  StaticJsonDocument<96> p;
+  p["lux"] = lastLux;
+  String plain; serializeJson(p, plain);
+  String iv = AESCrypto::generateIV();
+  String cipher = crypto.encrypt(plain, iv);
+  StaticJsonDocument<192> env;
+  env["identity"] = "lux_sensor";
+  env["channel"] = "lux_sensor";
+  env["device_api_key"] = device_api_key;
+  env["msgIV"] = iv;
+  env["payload"] = cipher;
+  String out; serializeJson(env, out);
+  webSocket.sendTXT(out);
 }
 
 void handleWebSocketMessage(uint8_t* payload, size_t length) {

@@ -1,33 +1,28 @@
-#ifndef AES_CRYPTO_H
-#define AES_CRYPTO_H
+// Minimal AES-128-CBC helper for ESP32 using mbedtls
+#pragma once
 
 #include <Arduino.h>
-#include <mbedtls/aes.h>
-#include <esp_random.h>
+#include <vector>
 
 class AESCrypto {
-private:
-  String encryption_key;
-  mbedtls_aes_context aes_ctx;
-  
-  // Helper functions
-  void generateIVBytes(uint8_t* iv, size_t length);
-  void hexStringToBytes(const String& hex, uint8_t* bytes, size_t length);
-  String bytesToHexString(const uint8_t* bytes, size_t length);
-  size_t addPKCS7Padding(uint8_t* data, size_t dataLength, size_t blockSize);
-  size_t removePKCS7Padding(uint8_t* data, size_t dataLength);
-
 public:
-  // Constructor
-  AESCrypto(const String& key);
-  
-  // Public methods
-  String encrypt(const String& plaintext);
-  String decrypt(const String& ciphertext);
-  void setEncryptionKey(const String& key);
-  
-  // Static method to generate IV as hex string
-  static String generateIV();
+	explicit AESCrypto(const String &keyUtf8);
+
+	// Generate random 16-byte IV, returned as lower-case hex (32 chars)
+	static String generateIV();
+
+	// Encrypt plaintext (UTF-8) with given ivHex (32 hex chars). Returns hex ciphertext.
+	String encrypt(const String &plainUtf8, const String &ivHex);
+
+	// Decrypt hex ciphertext with given ivHex. Returns UTF-8 plaintext (empty on error).
+	String decrypt(const String &cipherHex, const String &ivHex);
+
+private:
+	std::vector<uint8_t> key_; // 16 bytes
+
+	static void hexToBytes(const String &hex, std::vector<uint8_t> &out);
+	static String bytesToHex(const uint8_t *buf, size_t len);
+	static void pkcs7Pad(std::vector<uint8_t> &data, size_t blockSize = 16);
+	static bool pkcs7Unpad(std::vector<uint8_t> &data, size_t blockSize = 16);
 };
 
-#endif

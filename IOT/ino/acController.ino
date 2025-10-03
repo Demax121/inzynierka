@@ -38,7 +38,7 @@ unsigned long lastWsAttempt = 0;
 const unsigned long WS_RECONNECT_TIMEOUT = 15000;
 
 StaticJsonDocument<256> doc;
-StaticJsonDocument<512> jsonPayload;
+StaticJsonDocument<512> jsonPayload; // envelope only used on send
 
 String temp_aktualna = "TEMP AKTUALNA:";
 String temp_oczekiwana = "TEMP OCZEKIWANA:";
@@ -111,14 +111,7 @@ void updateDisplay() {
 }
 
 void initializeJSON() {
-  jsonPayload["identity"] = "air_conditioning";
-  jsonPayload["channel"] = "air_conditioning";
-  jsonPayload["device_api_key"] = device_api_key;
-  JsonObject payload = jsonPayload.createNestedObject("payload");
-  payload["requestedTemp"] = requestedTemp;
-  payload["function"] = "";
-  payload["klimaON"] = false;
-  payload["manualOverride"] = false;
+  // envelope created on send
 }
 
 void updateJSONData() {
@@ -133,6 +126,7 @@ void identifyDevice() {
   StaticJsonDocument<128> idDoc;
   idDoc["type"] = "esp32_identification";
   idDoc["channel"] = "air_conditioning";
+  idDoc["device_api_key"] = device_api_key;
   String idMessage;
   serializeJson(idDoc, idMessage);
   webSocketClient.sendTXT(idMessage);
@@ -141,10 +135,21 @@ void identifyDevice() {
 void sendWebSocketData() {
   if (!webSocketClient.isConnected()) return;
   updateJSONData();
-  jsonPayload["IV"] = AESCrypto::generateIV();
-  String jsonStr;
-  serializeJson(jsonPayload, jsonStr);
-  webSocketClient.sendTXT(jsonStr);
+  StaticJsonDocument<256> p;
+  p["requestedTemp"] = requestedTemp;
+  p["function"] = currentFunction;
+  p["klimaON"] = klimaOn;
+  p["manualOverride"] = manualOverride;
+  String plain; serializeJson(p, plain);
+  String iv = AESCrypto::generateIV(); String cipher = crypto.encrypt(plain, iv);
+  StaticJsonDocument<320> env;
+  env["identity"] = "air_conditioning";
+  env["channel"] = "air_conditioning";
+  env["device_api_key"] = device_api_key;
+  env["msgIV"] = iv;
+  env["payload"] = cipher;
+  String out; serializeJson(env, out);
+  webSocketClient.sendTXT(out);
   Serial.printf("[TX] AC %s\n", klimaOn ? "Włączone" : "Wyłączone");
 }
 
@@ -193,54 +198,54 @@ void handleIncomingText(uint8_t* payload, size_t length) {
     sendWebSocketData();
     return;
   }
-  
+
   String channel = doc["channel"] | "";
-  
-  if (channel == "air_conditioning") {
-    // Handle temperature update from server (lastRoomTemperature)
-    if (doc.containsKey("temperature")) {
-      float t = doc["temperature"].as<float>();
-      currentTemp = t;
-      Serial.printf("[air_conditioning] Current temperature: %.1f°C\n", t);
-      updateDisplay();
-      checkTemperatureControl();
-    }
-    
-    // Handle frontend commands via payload
-    if (doc.containsKey("payload")) {
-      JsonObject frontendPayload = doc["payload"];
-      
-      if (frontendPayload.containsKey("klimaON")) {
-        bool newState = frontendPayload["klimaON"];
-        if (newState != klimaOn) {
-          klimaOn = newState;
-          if (frontendPayload.containsKey("manualOverride")) {
-            manualOverride = frontendPayload["manualOverride"];
-          }
-          if (newState) {
-            if (!manualOverride) {
-              checkTemperatureControl();
-            }
-          } else {
-            currentFunction = "";
-          }
-          updateDisplay();
-          sendWebSocketData();
-          Serial.printf("[RX] AC %s (manual control)\n", klimaOn ? "ON" : "OFF");
-        }
+  if (channel != "air_conditioning") return;
+
+  // Encrypted payloads from server for both temperature push and commands
+  if (!doc.containsKey("msgIV") || !doc.containsKey("payload")) return;
+  String iv = doc["msgIV"].as<String>();
+  String cipher = doc["payload"].as<String>();
+  String plain = crypto.decrypt(cipher, iv);
+  if (plain.length() == 0) return;
+  StaticJsonDocument<256> body; if (deserializeJson(body, plain)) return;
+
+  // If contains temperature (room_stats push)
+  if (body.containsKey("temperature")) {
+    float t = body["temperature"].as<float>();
+    currentTemp = t;
+    Serial.printf("[air_conditioning] Current temperature: %.1f°C\n", t);
+    updateDisplay();
+    checkTemperatureControl();
+  }
+
+  // Frontend commands
+  if (body.containsKey("klimaON")) {
+    bool newState = body["klimaON"];
+    if (newState != klimaOn) {
+      klimaOn = newState;
+      if (body.containsKey("manualOverride")) {
+        manualOverride = body["manualOverride"];
       }
-      
-      // Handle requested temperature from payload
-      if (frontendPayload.containsKey("requestedTemp")) {
-        float reqTemp = frontendPayload["requestedTemp"];
-        requestedTemp = reqTemp;
-        manualOverride = false;
-        Serial.printf("[air_conditioning] Requested temperature: %.1f°C\n", reqTemp);
-        updateDisplay();
+      if (!newState) {
+        currentFunction = "";
+      } else if (!manualOverride) {
         checkTemperatureControl();
-        sendWebSocketData();
       }
+      updateDisplay();
+      sendWebSocketData();
+      Serial.printf("[RX] AC %s (manual control)\n", klimaOn ? "ON" : "OFF");
     }
+  }
+
+  if (body.containsKey("requestedTemp")) {
+    float reqTemp = body["requestedTemp"].as<float>();
+    requestedTemp = reqTemp;
+    manualOverride = false;
+    Serial.printf("[air_conditioning] Requested temperature: %.1f°C\n", reqTemp);
+    updateDisplay();
+    checkTemperatureControl();
+    sendWebSocketData();
   }
 }
 

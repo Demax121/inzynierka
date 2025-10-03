@@ -3,7 +3,33 @@ import * as CryptoJS from "crypto-js";
 import fetch from "node-fetch"; // Import fetch for HTTP requests
 
 const database_url = "http://offline_backend_server_caddy_dyplom/"; // Updated to use Docker service name
-const encryptionKeyMap = new Map(); // Changed from set to Map for key-value pairs
+const encryptionKeyMap = new Map(); // api_key -> encryption_key
+
+
+function updateLastSeen(apiKey) {
+  fetch(`${database_url}updateDeviceStatus.php`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      device_api_key: apiKey,
+    }),
+  })
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.json();
+    })
+    .then((data) => {
+      console.log("Device last seen updated successfully:", data);
+    })
+    .catch((error) => {
+      console.error("Error updating device last seen:", error);
+    });
+}
+
 
 
 function populateKeyMap() {
@@ -39,22 +65,63 @@ function populateKeyMap() {
 function getEncryptionKey(apiKey) {
   return encryptionKeyMap.get(apiKey);
 }
-
-// Function to check if API key exists
-function hasApiKey(apiKey) {
-  return encryptionKeyMap.has(apiKey);
-}
-
 // Load encryption keys on server startup
 populateKeyMap();
 
 // Optionally, refresh keys periodically (every 5 minutes)
 setInterval(populateKeyMap, 5 * 60 * 1000);
 
+
+
+// AES-128-CBC helpers (PKCS7). We treat payload as a UTF-8 JSON string.
+function encryptPayloadForDevice(obj, apiKey) {
+  const key = getEncryptionKey(apiKey);
+  if (!key) return null;
+  const iv = CryptoJS.lib.WordArray.random(16); // 16 bytes
+  const plain = JSON.stringify(obj);
+  const encrypted = CryptoJS.AES.encrypt(plain, CryptoJS.enc.Utf8.parse(key.slice(0, 16)), {
+    iv: iv,
+    padding: CryptoJS.pad.Pkcs7,
+    mode: CryptoJS.mode.CBC,
+  });
+  // to hex
+  const ivHex = CryptoJS.enc.Hex.stringify(iv);
+  const cipherHex = encrypted.ciphertext.toString(CryptoJS.enc.Hex);
+  return { msgIV: ivHex, payload: cipherHex };
+}
+
+function decryptDevicePayload(data) {
+  // Expects data: { device_api_key, msgIV, payload }
+  if (!data || typeof data.payload !== "string" || typeof data.msgIV !== "string") return null;
+  const key = getEncryptionKey(data.device_api_key);
+  if (!key) return null;
+  try {
+    const iv = CryptoJS.enc.Hex.parse(data.msgIV);
+    const cipher = CryptoJS.enc.Hex.parse(data.payload);
+    const decrypted = CryptoJS.AES.decrypt({ ciphertext: cipher }, CryptoJS.enc.Utf8.parse(key.slice(0, 16)), {
+      iv: iv,
+      padding: CryptoJS.pad.Pkcs7,
+      mode: CryptoJS.mode.CBC,
+    });
+    const txt = CryptoJS.enc.Utf8.stringify(decrypted);
+    return JSON.parse(txt);
+  } catch (e) {
+    console.error("Failed to decrypt/parse device payload", e);
+    return null;
+  }
+}
+
+
+
+
+
+
+
 const PORT = 3000;
 const wss = new WebSocketServer({ port: PORT });
 const PING_INTERVAL = 10000; // 10 seconds interval for pinging devices
 
+// clients: ws -> { type: 'frontend'|'esp32', channel: string|null, device_api_key?: string }
 const clients = new Map();
 let lastRoomTemperature = null; // zapamiętana ostatnia temperatura
 let pingInterval;
@@ -89,69 +156,6 @@ function startPingInterval() {
   }, PING_INTERVAL);
 }
 
-// Encrypt function using AES-128-CBC (available for future use)
-function encrypt(plaintext, apiKey) {
-  try {
-    const encryptionKey = getEncryptionKey(apiKey);
-    if (!encryptionKey) {
-      console.error(`Encryption key not found for API key: ${apiKey}`);
-      return null;
-    }
-
-    // Generate random IV
-    const iv = CryptoJS.lib.WordArray.random(16);
-    
-    // Encrypt using AES-128-CBC
-    const encrypted = CryptoJS.AES.encrypt(plaintext, CryptoJS.enc.Hex.parse(encryptionKey), {
-      iv: iv,
-      mode: CryptoJS.mode.CBC,
-      padding: CryptoJS.pad.Pkcs7
-    });
-
-    // Combine IV and encrypted data
-    const combined = iv.concat(encrypted.ciphertext);
-    
-    return combined.toString(CryptoJS.enc.Hex).toUpperCase();
-  } catch (error) {
-    console.error('Encryption error:', error);
-    return null;
-  }
-}
-
-// Decrypt function using AES-128-CBC (available for future use)
-function decrypt(ciphertext, apiKey) {
-  try {
-    const encryptionKey = getEncryptionKey(apiKey);
-    if (!encryptionKey) {
-      console.error(`Encryption key not found for API key: ${apiKey}`);
-      return null;
-    }
-
-    // Convert hex string to WordArray
-    const combined = CryptoJS.enc.Hex.parse(ciphertext);
-    
-    // Extract IV (first 16 bytes) and encrypted data (rest)
-    const iv = CryptoJS.lib.WordArray.create(combined.words.slice(0, 4)); // 4 words = 16 bytes
-    const encrypted = CryptoJS.lib.WordArray.create(combined.words.slice(4));
-    
-    // Create cipher params object
-    const cipherParams = CryptoJS.lib.CipherParams.create({
-      ciphertext: encrypted
-    });
-    
-    // Decrypt using AES-128-CBC
-    const decrypted = CryptoJS.AES.decrypt(cipherParams, CryptoJS.enc.Hex.parse(encryptionKey), {
-      iv: iv,
-      mode: CryptoJS.mode.CBC,
-      padding: CryptoJS.pad.Pkcs7
-    });
-
-    return decrypted.toString(CryptoJS.enc.Utf8);
-  } catch (error) {
-    console.error('Decryption error:', error);
-    return null;
-  }
-}
 
 wss.on("connection", (ws) => {
   clients.set(ws, { type: "frontend", channel: null });
@@ -170,7 +174,8 @@ wss.on("connection", (ws) => {
 
     try {
       if (data.type === "esp32_identification") {
-        clients.set(ws, { type: "esp32", channel: data.channel });
+        // Devices should include device_api_key here for downstream encryption
+        clients.set(ws, { type: "esp32", channel: data.channel, device_api_key: data.device_api_key || null });
         console.log(`ESP32 device identified: ${data.channel}`);
 
         // Send immediate ping to newly connected ESP32 device
@@ -184,37 +189,35 @@ wss.on("connection", (ws) => {
           console.log(`Sent initial ping to newly connected ESP32 device: ${data.channel}`);
         }
 
-        // Jeśli to air_conditioning i mamy ostatnią temperaturę – wyślij od razu (zachowujemy kompatybilność)
+        // If it's air_conditioning and we have last temp – send encrypted immediately
         if (data.channel === "air_conditioning" && lastRoomTemperature !== null) {
-          ws.send(
-            JSON.stringify({
-              channel: "air_conditioning",
-              temperature: lastRoomTemperature,
-            })
-          );
+          const apiKey = data.device_api_key || clients.get(ws)?.device_api_key;
+          if (apiKey) {
+            const enc = encryptPayloadForDevice({ temperature: lastRoomTemperature }, apiKey);
+            if (enc) {
+              ws.send(
+                JSON.stringify({
+                  channel: "air_conditioning",
+                  ...enc,
+                })
+              );
+            }
+          }
         }
         return;
       }
 
-      // All channels now work with unencrypted data (encryption available for future use)
+      // All channels from devices now carry encrypted payload: { msgIV, payload }
       if (data.channel === "door_sensor") {
-        // Validate the new payload structure
-        if (!data.payload || !data.device_api_key) {
+        if (!data.payload || !data.device_api_key || !data.msgIV) {
           console.log(`Invalid door_sensor format - missing required fields`);
           return;
         }
+        const dec = decryptDevicePayload(data);
+        if (!dec || typeof dec.doorOpen !== "boolean") return;
+        const doorOpen = dec.doorOpen;
 
-        // Validate API key exists
-        if (!hasApiKey(data.device_api_key)) {
-          console.log(`Invalid API key for door_sensor: ${data.device_api_key}`);
-          return;
-        }
-
-        const doorOpen = data.payload.doorOpen;
-
-        console.log(
-          `Received door_sensor data: API=${data.device_api_key}, doorIV=${data.IV}, encryptionKey=${getEncryptionKey(data.device_api_key)}`
-        );
+        console.log(`Received door_sensor data from API=${data.device_api_key}`);
         updateLastSeen(data.device_api_key);
         
         wss.clients.forEach((client) => {
@@ -239,15 +242,15 @@ wss.on("connection", (ws) => {
 
       if (data.channel === "room_stats") {
         console.log(`Received room_stats data:`, data);
-
-        if (!data.payload || !data.device_api_key) {
+        if (!data.payload || !data.device_api_key || !data.msgIV) {
           console.log(`Invalid room_stats format - missing required fields`);
           return;
         }
-
-        const temperature = data.payload.temperature;
-        const humidity = data.payload.humidity;
-        const pressure = data.payload.pressure;
+        const dec = decryptDevicePayload(data);
+        if (!dec) return;
+        const temperature = dec.temperature;
+        const humidity = dec.humidity;
+        const pressure = dec.pressure;
 
         if (typeof temperature === "number") {
           lastRoomTemperature = temperature;
@@ -284,13 +287,19 @@ wss.on("connection", (ws) => {
             if (client.readyState === client.OPEN) {
               const ci = clients.get(client);
               if (ci && ci.type === "esp32" && ci.channel === "air_conditioning") {
-                klimaCount++;
-                client.send(
-                  JSON.stringify({
-                    channel: "air_conditioning",
-                    temperature: temperature,
-                  })
-                );
+                // Encrypt temp push for this specific device using its api key
+                if (ci.device_api_key) {
+                  const enc = encryptPayloadForDevice({ temperature: temperature }, ci.device_api_key);
+                  if (enc) {
+                    klimaCount++;
+                    client.send(
+                      JSON.stringify({
+                        channel: "air_conditioning",
+                        ...enc,
+                      })
+                    );
+                  }
+                }
               }
             }
           });
@@ -322,12 +331,18 @@ wss.on("connection", (ws) => {
             if (client.readyState === client.OPEN && client !== ws) {
               const clientInfo = clients.get(client);
               if (clientInfo && clientInfo.type === "esp32") {
-                client.send(
-                  JSON.stringify({
-                    channel: "main_lights",
-                    lightON: lightON,
-                  })
-                );
+                // Encrypt for each device using its api key
+                if (clientInfo.device_api_key) {
+                  const enc = encryptPayloadForDevice({ lightON }, clientInfo.device_api_key);
+                  if (enc) {
+                    client.send(
+                      JSON.stringify({
+                        channel: "main_lights",
+                        ...enc,
+                      })
+                    );
+                  }
+                }
               } else if (clientInfo && clientInfo.type === "frontend") {
                 client.send(
                   JSON.stringify({
@@ -341,8 +356,15 @@ wss.on("connection", (ws) => {
           console.log(`main_lights command from frontend: ${lightON ? "ON" : "OFF"}`);
         }
         // Handle ESP32 status update (requires device_api_key)
-        else if (data.payload && typeof data.payload.lightON === "boolean") {
-          const lightON = data.payload.lightON;
+        else if (data.payload && data.msgIV) {
+          const dec = decryptDevicePayload(data);
+          if (!dec || typeof dec.lightON !== "boolean") return;
+          const lightON = dec.lightON;
+          // Save device_api_key on the connection if missing
+          const ci = clients.get(ws) || {};
+          if (!ci.device_api_key && data.device_api_key) {
+            clients.set(ws, { ...ci, device_api_key: data.device_api_key });
+          }
           updateLastSeen(data.device_api_key);
           wss.clients.forEach((client) => {
             if (client.readyState === client.OPEN && client !== ws) {
@@ -364,12 +386,13 @@ wss.on("connection", (ws) => {
       }
 
       if (data.channel === "lux_sensor") {
-        if (!data.payload || !data.device_api_key) {
+        if (!data.payload || !data.device_api_key || !data.msgIV) {
           console.log(`Invalid lux_sensor format - missing required fields`);
           return;
         }
-
-        const lux = data.payload.lux;
+        const dec = decryptDevicePayload(data);
+        if (!dec) return;
+        const lux = dec.lux;
         if (typeof lux === "number") {
           updateLastSeen(data.device_api_key);
           wss.clients.forEach((client) => {
@@ -397,8 +420,15 @@ wss.on("connection", (ws) => {
           return;
         }
 
-        if (data.payload && senderInfo && senderInfo.type === "esp32") {
-          const payload = data.payload;
+        if (data.payload && data.msgIV && senderInfo && senderInfo.type === "esp32") {
+          const dec = decryptDevicePayload(data);
+          if (!dec) return;
+          const payload = dec;
+          // ensure we know device_api_key for this connection
+          const ci = clients.get(ws) || {};
+          if (!ci.device_api_key && data.device_api_key) {
+            clients.set(ws, { ...ci, device_api_key: data.device_api_key });
+          }
           updateLastSeen(data.device_api_key);
 
           wss.clients.forEach((client) => {
@@ -431,12 +461,17 @@ wss.on("connection", (ws) => {
             if (client.readyState === client.OPEN && client !== ws) {
               const ci = clients.get(client);
               if (ci && ci.type === "esp32" && ci.channel === "air_conditioning") {
-                client.send(
-                  JSON.stringify({
-                    channel: "air_conditioning",
-                    payload: payload,
-                  })
-                );
+                if (ci.device_api_key) {
+                  const enc = encryptPayloadForDevice(payload, ci.device_api_key);
+                  if (enc) {
+                    client.send(
+                      JSON.stringify({
+                        channel: "air_conditioning",
+                        ...enc,
+                      })
+                    );
+                  }
+                }
               }
             }
           });
@@ -483,29 +518,6 @@ process.on("SIGINT", () => {
   process.exit();
 });
 
-function updateLastSeen(apiKey) {
-  fetch(`${database_url}updateDeviceStatus.php`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      device_api_key: apiKey,
-    }),
-  })
-    .then((response) => {
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return response.json();
-    })
-    .then((data) => {
-      console.log("Device last seen updated successfully:", data);
-    })
-    .catch((error) => {
-      console.error("Error updating device last seen:", error);
-    });
-}
 
 console.log(
   `WebSocket server listening on ws://0.0.0.0:${PORT} (door_sensor, room_stats, main_lights, lux_sensor, air_conditioning channels)`

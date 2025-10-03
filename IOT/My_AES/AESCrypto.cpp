@@ -1,188 +1,93 @@
 #include "AESCrypto.h"
+#include <mbedtls/aes.h>
+#include <esp_random.h>
 
-// Constructor
-AESCrypto::AESCrypto(const String& key) : encryption_key(key) {}
-
-// Generate random IV bytes using ESP32's hardware RNG (private method)
-void AESCrypto::generateIVBytes(uint8_t* iv, size_t length) {
-  for (size_t i = 0; i < length; i++) {
-    iv[i] = esp_random() & 0xFF;
-  }
+static inline uint8_t nybble(char c) {
+	if (c >= '0' && c <= '9') return c - '0';
+	if (c >= 'a' && c <= 'f') return 10 + (c - 'a');
+	if (c >= 'A' && c <= 'F') return 10 + (c - 'A');
+	return 0;
 }
 
-// Static method to generate IV as hex string (public method)
+AESCrypto::AESCrypto(const String &keyUtf8) {
+	// Ensure 16-byte key (AES-128). If longer, take first 16; if shorter, pad with zeros.
+	key_.assign(16, 0);
+	for (size_t i = 0; i < 16 && i < (size_t)keyUtf8.length(); ++i) key_[i] = (uint8_t)keyUtf8[i];
+}
+
 String AESCrypto::generateIV() {
-  uint8_t iv[16];
-  for (size_t i = 0; i < 16; i++) {
-    iv[i] = esp_random() & 0xFF;
-  }
-  
-  // Convert to hex string
-  String result = "";
-  for (size_t i = 0; i < 16; i++) {
-    if (iv[i] < 16) result += "0";
-    result += String(iv[i], HEX);
-  }
-  result.toUpperCase();
-  return result;
+	uint8_t iv[16];
+	for (int i = 0; i < 16; ++i) iv[i] = (uint8_t)esp_random();
+	return bytesToHex(iv, 16);
 }
 
-// Convert hex string to bytes
-void AESCrypto::hexStringToBytes(const String& hex, uint8_t* bytes, size_t length) {
-  for (size_t i = 0; i < length; i++) {
-    String byteString = hex.substring(i * 2, i * 2 + 2);
-    bytes[i] = (uint8_t)strtol(byteString.c_str(), NULL, 16);
-  }
+void AESCrypto::hexToBytes(const String &hex, std::vector<uint8_t> &out) {
+	out.clear();
+	size_t n = hex.length();
+	if (n % 2 != 0) return;
+	out.reserve(n / 2);
+	for (size_t i = 0; i < n; i += 2) {
+		uint8_t b = (nybble(hex[i]) << 4) | nybble(hex[i + 1]);
+		out.push_back(b);
+	}
 }
 
-// Convert bytes to hex string
-String AESCrypto::bytesToHexString(const uint8_t* bytes, size_t length) {
-  String result = "";
-  for (size_t i = 0; i < length; i++) {
-    if (bytes[i] < 16) result += "0";
-    result += String(bytes[i], HEX);
-  }
-  result.toUpperCase();
-  return result;
+String AESCrypto::bytesToHex(const uint8_t *buf, size_t len) {
+	static const char *hex = "0123456789abcdef";
+	String s; s.reserve(len * 2);
+	for (size_t i = 0; i < len; ++i) {
+		s += hex[(buf[i] >> 4) & 0xF];
+		s += hex[buf[i] & 0xF];
+	}
+	return s;
 }
 
-// PKCS7 padding
-size_t AESCrypto::addPKCS7Padding(uint8_t* data, size_t dataLength, size_t blockSize) {
-  size_t paddingLength = blockSize - (dataLength % blockSize);
-  for (size_t i = 0; i < paddingLength; i++) {
-    data[dataLength + i] = paddingLength;
-  }
-  return dataLength + paddingLength;
+void AESCrypto::pkcs7Pad(std::vector<uint8_t> &data, size_t blockSize) {
+	size_t padLen = blockSize - (data.size() % blockSize);
+	if (padLen == 0) padLen = blockSize;
+	data.insert(data.end(), padLen, (uint8_t)padLen);
 }
 
-// Remove PKCS7 padding
-size_t AESCrypto::removePKCS7Padding(uint8_t* data, size_t dataLength) {
-  if (dataLength == 0) return 0;
-  uint8_t paddingLength = data[dataLength - 1];
-  if (paddingLength > dataLength || paddingLength == 0) return dataLength;
-  return dataLength - paddingLength;
+bool AESCrypto::pkcs7Unpad(std::vector<uint8_t> &data, size_t blockSize) {
+	if (data.empty() || data.size() % blockSize != 0) return false;
+	uint8_t padLen = data.back();
+	if (padLen == 0 || padLen > blockSize) return false;
+	if (padLen > data.size()) return false;
+	for (size_t i = 0; i < padLen; ++i) {
+		if (data[data.size() - 1 - i] != padLen) return false;
+	}
+	data.resize(data.size() - padLen);
+	return true;
 }
 
-// Encrypt function using AES-128-CBC
-String AESCrypto::encrypt(const String& plaintext) {
-  if (plaintext.length() == 0) return "";
-  
-  // Initialize AES context
-  mbedtls_aes_init(&aes_ctx);
-  
-  // Convert encryption key from hex string to bytes
-  uint8_t key[16];
-  hexStringToBytes(encryption_key, key, 16);
-  
-  // Set encryption key
-  if (mbedtls_aes_setkey_enc(&aes_ctx, key, 128) != 0) {
-    mbedtls_aes_free(&aes_ctx);
-    return "";
-  }
-  
-  // Generate random IV
-  uint8_t iv[16];
-  generateIVBytes(iv, 16);
-  
-  // Prepare data for encryption
-  size_t plaintextLength = plaintext.length();
-  size_t paddedLength = ((plaintextLength / 16) + 1) * 16; // Round up to next 16-byte boundary
-  uint8_t* paddedData = new uint8_t[paddedLength];
-  
-  // Copy plaintext to padded buffer
-  memcpy(paddedData, plaintext.c_str(), plaintextLength);
-  
-  // Add PKCS7 padding
-  size_t finalLength = addPKCS7Padding(paddedData, plaintextLength, 16);
-  
-  // Encrypt data
-  uint8_t* encryptedData = new uint8_t[finalLength];
-  uint8_t ivCopy[16];
-  memcpy(ivCopy, iv, 16); // mbedtls modifies IV during encryption
-  
-  if (mbedtls_aes_crypt_cbc(&aes_ctx, MBEDTLS_AES_ENCRYPT, finalLength, ivCopy, paddedData, encryptedData) != 0) {
-    delete[] paddedData;
-    delete[] encryptedData;
-    mbedtls_aes_free(&aes_ctx);
-    return "";
-  }
-  
-  // Combine IV + encrypted data and convert to hex
-  uint8_t* combined = new uint8_t[16 + finalLength];
-  memcpy(combined, iv, 16);
-  memcpy(combined + 16, encryptedData, finalLength);
-  
-  String result = bytesToHexString(combined, 16 + finalLength);
-  
-  // Cleanup
-  delete[] paddedData;
-  delete[] encryptedData;
-  delete[] combined;
-  mbedtls_aes_free(&aes_ctx);
-  
-  return result;
+String AESCrypto::encrypt(const String &plainUtf8, const String &ivHex) {
+	std::vector<uint8_t> iv; hexToBytes(ivHex, iv);
+	if (iv.size() != 16) return String("");
+
+	std::vector<uint8_t> data(plainUtf8.begin(), plainUtf8.end());
+	pkcs7Pad(data, 16);
+
+	mbedtls_aes_context ctx; mbedtls_aes_init(&ctx);
+	mbedtls_aes_setkey_enc(&ctx, key_.data(), 128);
+	std::vector<uint8_t> out(data.size(), 0);
+	uint8_t ivBuf[16]; memcpy(ivBuf, iv.data(), 16);
+	mbedtls_aes_crypt_cbc(&ctx, MBEDTLS_AES_ENCRYPT, data.size(), ivBuf, data.data(), out.data());
+	mbedtls_aes_free(&ctx);
+	return bytesToHex(out.data(), out.size());
 }
 
-// Decrypt function using AES-128-CBC
-String AESCrypto::decrypt(const String& ciphertext) {
-  if (ciphertext.length() < 32) return ""; // At least IV (32 hex chars)
-  
-  // Initialize AES context
-  mbedtls_aes_init(&aes_ctx);
-  
-  // Convert encryption key from hex string to bytes
-  uint8_t key[16];
-  hexStringToBytes(encryption_key, key, 16);
-  
-  // Set decryption key
-  if (mbedtls_aes_setkey_dec(&aes_ctx, key, 128) != 0) {
-    mbedtls_aes_free(&aes_ctx);
-    return "";
-  }
-  
-  // Convert hex ciphertext to bytes
-  size_t totalLength = ciphertext.length() / 2;
-  uint8_t* combined = new uint8_t[totalLength];
-  hexStringToBytes(ciphertext, combined, totalLength);
-  
-  // Extract IV and encrypted data
-  uint8_t iv[16];
-  memcpy(iv, combined, 16);
-  
-  size_t encryptedLength = totalLength - 16;
-  uint8_t* encryptedData = new uint8_t[encryptedLength];
-  memcpy(encryptedData, combined + 16, encryptedLength);
-  
-  // Decrypt data
-  uint8_t* decryptedData = new uint8_t[encryptedLength];
-  
-  if (mbedtls_aes_crypt_cbc(&aes_ctx, MBEDTLS_AES_DECRYPT, encryptedLength, iv, encryptedData, decryptedData) != 0) {
-    delete[] combined;
-    delete[] encryptedData;
-    delete[] decryptedData;
-    mbedtls_aes_free(&aes_ctx);
-    return "";
-  }
-  
-  // Remove padding
-  size_t finalLength = removePKCS7Padding(decryptedData, encryptedLength);
-  
-  // Convert to string
-  String result = "";
-  for (size_t i = 0; i < finalLength; i++) {
-    result += (char)decryptedData[i];
-  }
-  
-  // Cleanup
-  delete[] combined;
-  delete[] encryptedData;
-  delete[] decryptedData;
-  mbedtls_aes_free(&aes_ctx);
-  
-  return result;
+String AESCrypto::decrypt(const String &cipherHex, const String &ivHex) {
+	std::vector<uint8_t> iv; hexToBytes(ivHex, iv);
+	std::vector<uint8_t> cipher; hexToBytes(cipherHex, cipher);
+	if (iv.size() != 16 || cipher.empty() || cipher.size() % 16 != 0) return String("");
+
+	mbedtls_aes_context ctx; mbedtls_aes_init(&ctx);
+	mbedtls_aes_setkey_dec(&ctx, key_.data(), 128);
+	std::vector<uint8_t> out(cipher.size(), 0);
+	uint8_t ivBuf[16]; memcpy(ivBuf, iv.data(), 16);
+	mbedtls_aes_crypt_cbc(&ctx, MBEDTLS_AES_DECRYPT, cipher.size(), ivBuf, cipher.data(), out.data());
+	mbedtls_aes_free(&ctx);
+	if (!pkcs7Unpad(out, 16)) return String("");
+	return String((const char*)out.data());
 }
 
-// Set new encryption key
-void AESCrypto::setEncryptionKey(const String& key) {
-  encryption_key = key;
-}

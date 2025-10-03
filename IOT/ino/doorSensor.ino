@@ -1,6 +1,8 @@
 #include <MyWiFi.h>
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>
+#include <Arduino.h>
+#include <esp_random.h>
 #include <AESCrypto.h>
 
 // VARIABLES
@@ -16,8 +18,8 @@ const unsigned long DEBOUNCE_MS = 30;
 unsigned long lastChangeTime = 0;
 
 WebSocketsClient webSocketClient;
-StaticJsonDocument<256> jsonPayload;
 bool doorOpen = false;
+AESCrypto crypto(encryption_key);
 
 // Watchdog WebSocket
 unsigned long lastWsConnected = 0;
@@ -25,30 +27,31 @@ unsigned long lastWsAttempt = 0;
 const unsigned long WS_RECONNECT_TIMEOUT = 15000;
 const unsigned long WS_RETRY_EVERY = 5000;
 
-// AES encryption instance (available for future use)
-AESCrypto crypto(encryption_key);
+
+// ENCRYPT AND DECRYPT BEGIN
+
+
+
+
+
+// ENCRYPT AND DECRYPT END
 
 
 // FUNCTIONS BEGIN
-
 void initializeJSON() { 
-  jsonPayload["identity"] = "main_door_sensor";
-  jsonPayload["channel"] = "door_sensor";
-  jsonPayload["device_api_key"] = device_api_key;
-  JsonObject payload = jsonPayload.createNestedObject("payload");
-  payload["doorOpen"] = false;
+  // envelope created on send
+  doorOpen = false;
 }
 
 void updateJSONData(int buttonState) { 
   doorOpen = (buttonState == HIGH);
-  JsonObject payload = jsonPayload["payload"];
-  payload["doorOpen"] = doorOpen;
 }
 
 void identifyDevice() {
   StaticJsonDocument<128> idDoc;
   idDoc["type"] = "esp32_identification";
   idDoc["channel"] = "door_sensor";
+  idDoc["device_api_key"] = device_api_key;
   String idMessage;
   serializeJson(idDoc, idMessage);
   webSocketClient.sendTXT(idMessage);
@@ -56,11 +59,21 @@ void identifyDevice() {
 
 void sendWebSocketData() {
   if (!webSocketClient.isConnected()) return;
-  jsonPayload["IV"] = AESCrypto::generateIV();
-  // Send unencrypted JSON (encryption functions available for future use)
-  String jsonStr;
-  serializeJson(jsonPayload, jsonStr);
-  webSocketClient.sendTXT(jsonStr);
+  // Build clear payload
+  StaticJsonDocument<128> p;
+  p["doorOpen"] = doorOpen;
+  String plain; serializeJson(p, plain);
+  String iv = AESCrypto::generateIV();
+  String cipher = crypto.encrypt(plain, iv);
+  
+  StaticJsonDocument<256> env;
+  env["identity"] = "main_door_sensor";
+  env["channel"] = "door_sensor";
+  env["device_api_key"] = device_api_key;
+  env["msgIV"] = iv;
+  env["payload"] = cipher;
+  String out; serializeJson(env, out);
+  webSocketClient.sendTXT(out);
 }
 
 void handleIncomingText(uint8_t* payload, size_t length) {

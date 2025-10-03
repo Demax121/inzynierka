@@ -33,14 +33,10 @@ unsigned long lastWsAttempt = 0;
 const unsigned long WS_RECONNECT_TIMEOUT = 15000;
 
 
-StaticJsonDocument<256> jsonPayload;
+StaticJsonDocument<256> jsonPayload; // envelope only used on send
 
 void initializeJSON() { 
-  jsonPayload["identity"] = "lights_controller";
-  jsonPayload["channel"] = "main_lights";
-  jsonPayload["device_api_key"] = device_api_key;
-  JsonObject payload = jsonPayload.createNestedObject("payload");
-  payload["lightON"] = false;
+  // envelope created on send
 }
 
 void updateJSONData(bool lightState) { 
@@ -58,6 +54,7 @@ void identifyDevice() {
   StaticJsonDocument<128> idDoc;
   idDoc["type"] = "esp32_identification";
   idDoc["channel"] = "main_lights";
+  idDoc["device_api_key"] = device_api_key;
   String idMessage;
   serializeJson(idDoc, idMessage);
   webSocketClient.sendTXT(idMessage);
@@ -65,10 +62,16 @@ void identifyDevice() {
 
 void sendWebSocketData() {
   if (!webSocketClient.isConnected()) return;
-  jsonPayload["IV"] = AESCrypto::generateIV();
-  String jsonStr;
-  serializeJson(jsonPayload, jsonStr);
-  webSocketClient.sendTXT(jsonStr);
+  StaticJsonDocument<96> p; p["lightON"] = State; String plain; serializeJson(p, plain);
+  String iv = AESCrypto::generateIV(); String cipher = crypto.encrypt(plain, iv);
+  StaticJsonDocument<192> env;
+  env["identity"] = "lights_controller";
+  env["channel"] = "main_lights";
+  env["device_api_key"] = device_api_key;
+  env["msgIV"] = iv;
+  env["payload"] = cipher;
+  String out; serializeJson(env, out);
+  webSocketClient.sendTXT(out);
 }
 
 void handleIncomingText(uint8_t* payload, size_t length) {
@@ -84,9 +87,17 @@ void handleIncomingText(uint8_t* payload, size_t length) {
     sendWebSocketData();
     return;
   }
-  if (!doc.containsKey("lightON")) return;
-  if (doc.containsKey("channel") && String((const char*)doc["channel"]) != "main_lights") return;
-  bool lightON = doc["lightON"];
+  // Encrypted command from server: { channel:"main_lights", msgIV, payload } with payload { lightON }
+  String ch = doc["channel"] | "";
+  if (ch != "main_lights") return;
+  if (!doc.containsKey("msgIV") || !doc.containsKey("payload")) return;
+  String iv = doc["msgIV"].as<String>();
+  String cipher = doc["payload"].as<String>();
+  String plain = crypto.decrypt(cipher, iv);
+  if (plain.length() == 0) return;
+  StaticJsonDocument<128> cmd; if (deserializeJson(cmd, plain)) return;
+  if (!cmd.containsKey("lightON")) return;
+  bool lightON = cmd["lightON"].as<bool>();
   setRelay(lightON);
   sendWebSocketData();
 }

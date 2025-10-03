@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia'
+import { useLinkStore } from '@/stores/linkStore'
 
-const database_link = import.meta.env.VITE_BACKEND_URL_PREFIX
+// Backend PHP endpoint base is resolved dynamically to ensure correct path
+// (previously code posted to bare prefix causing CORS/root issues)
 const SAVE_INTERVAL = 60 * 60 * 1000
 const LAST_SAVED_KEY = 'roomStats_lastSaved'
 
@@ -65,7 +67,9 @@ export const useSaveStatsStore = defineStore('saveStats', {
       if (!forced && lastSaved && Date.now() - lastSaved < SAVE_INTERVAL) return
 
       try {
-        const res = await fetch(database_link, {
+        const linkStore = useLinkStore()
+        const endpoint = linkStore.getPhpApiUrl('saveRoomStats.php')
+        const res = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
