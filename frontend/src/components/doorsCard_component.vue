@@ -34,6 +34,8 @@ import lockClosedIcon from '@/static assets/lock-closed.svg';
 const wsStore = useWsStore();
 const saveStore = useDoorStatusStore();
 
+
+
 const door_sensor = ref('Connecting...');
 let ws;
 

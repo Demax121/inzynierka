@@ -1,12 +1,15 @@
 <template>
-  <div class="card">
+  <!-- Main Lights Card: presents toggle for primary lighting over WebSocket channel 'main_lights' -->
+  <div class="card main-lights">
     <div class="card__header">
       <h2 class="card__title card__title--lights">Main Lighting Control</h2>
     </div>
     <div class="card__body card__body--slider">
       <div class="card__content card__content--slider">
+        <!-- Loading skeleton until first state sync arrives -->
         <LoadingCard v-if="loading" />
-        <label v-else class="switch switch--large">
+        <!-- Switch uses global .switch styles; checked state drives outbound command -->
+        <label v-else class="switch switch--large" :aria-label="isLightOn ? 'Turn lights off' : 'Turn lights on'">
           <input type="checkbox" :checked="isLightOn" @change="toggleLights">
           <span class="slider round"></span>
         </label>
@@ -16,18 +19,30 @@
 </template>
 
 <script setup>
+// Handles bi-directional state for main lights over WebSocket.
+// Inbound: { channel: 'main_lights', lightON: boolean }
+// Outbound: { channel: 'main_lights', lightON: boolean }
+// Auto-reconnects with a delay if the socket closes/errors.
+
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useWsStore } from '@/stores/wsStore';
 import LoadingCard from '@/components/LoadingCard_component.vue';
 
 const wsStore = useWsStore();
 
-const lightStatus = ref(false);
-const loading = ref(true);
+// Reactive state
+const lightStatus = ref(false);   // Current known light state
+const loading = ref(true);        // True until first valid message arrives
 const isLightOn = computed(() => lightStatus.value === true);
-let ws = null;
-let reconnectTimer;
 
+// Connection handles
+let ws = null; // WebSocket instance
+let reconnectTimer = null; // reconnect timeout handle
+
+// Configurable reconnect delay (ms) - adjust if needed
+const RECONNECT_DELAY_MS = 5000;
+
+// Send toggle command then optimistically update local state (UI stays responsive)
 const toggleLights = () => {
   const newStatus = !lightStatus.value;
   if (ws && ws.readyState === WebSocket.OPEN) {
@@ -38,7 +53,7 @@ const toggleLights = () => {
 
 function connect() {
   ws = new WebSocket(wsStore.wsUrl);
-  ws.onopen = () => { /* wait for first push message */ };
+  ws.onopen = () => { /* Passive until server broadcasts authoritative state */ };
   ws.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
@@ -46,7 +61,7 @@ function connect() {
         lightStatus.value = data.lightON;
         loading.value = false;
       }
-    } catch { }
+    } catch { /* ignore malformed message */ }
   };
   ws.onclose = () => { loading.value = true; scheduleReconnect(); };
   ws.onerror = () => { loading.value = true; if (ws) ws.close(); };
@@ -54,41 +69,36 @@ function connect() {
 
 function scheduleReconnect() {
   if (reconnectTimer) clearTimeout(reconnectTimer);
-  reconnectTimer = setTimeout(connect, 5000);
+  reconnectTimer = setTimeout(connect, RECONNECT_DELAY_MS);
 }
 
 onMounted(connect);
-onUnmounted(() => { if (reconnectTimer) clearTimeout(reconnectTimer); if (ws) ws.close(); });
+onUnmounted(() => {
+  if (reconnectTimer) clearTimeout(reconnectTimer);
+  if (ws) ws.close();
+});
 </script>
 
 <style lang="scss" scoped>
-.card__body--slider {
-  display: grid;
-  justify-content: center;
-  align-items: center;
-}
+// Block extension: main-lights (adds semantic hook)
+// SCSS tokens
+$ml-blink-duration: 1.4s;
+$ml-blink-opacity-min: 0.25;
+$ml-blink-opacity-max: 1;
+$ml-loading-font-size: 3rem;
 
-.card__content--slider {
-  height: fit-content;
-}
+.card__body--slider { display:grid; justify-content:center; align-items:center; }
+.card__content--slider { height:fit-content; }
 
+// Legacy optional loading variant (kept if reused elsewhere)
 .lights-loading {
-  font-size: 3rem;
-  line-height: 1;
-  text-align: center;
-  opacity: .6;
-  animation: blink 1.4s ease-in-out infinite;
+  font-size:$ml-loading-font-size;
+  line-height:1; text-align:center; opacity:.6;
+  animation: blink $ml-blink-duration ease-in-out infinite;
 }
 
 @keyframes blink {
-
-  0%,
-  100% {
-    opacity: .25;
-  }
-
-  50% {
-    opacity: 1;
-  }
+  0%,100% { opacity:$ml-blink-opacity-min; }
+  50% { opacity:$ml-blink-opacity-max; }
 }
 </style>

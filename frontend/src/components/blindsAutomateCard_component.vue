@@ -1,69 +1,135 @@
 <template>
-  <div class="card">
+  <!-- Card shell (global .card styles from containers.scss) -->
+  <div class="card card--blinds-auto">
     <div class="card__header">
       <h2 class="card__title">Blinds Automation</h2>
     </div>
+
     <div class="card__body">
-      <div class="card__content">
-        <div class="status" v-if="status">
-          <p class="card__text card__text--bold">{{ status }}</p>
+      <!-- BEM block: blinds-auto -->
+      <div class="card__content blinds-auto">
+
+        <!-- Status / feedback message (auto‑clearing) -->
+        <div
+          v-if="status"
+          class="blinds-auto__status"
+          role="status"
+          aria-live="polite"
+        >
+          <p class="card__text card__text--bold blinds-auto__status-message">
+            {{ status }}
+          </p>
         </div>
 
-        <div class="lux-config-form">
-          <div class="input-group">
-            <label for="min_lux">Min lux:</label>
-            <input id="min_lux" v-model.number="config.min_lux" type="number" class="lux-input" />
-          </div>
-          <div class="input-group">
-            <label for="max_lux">Max lux:</label>
-            <input id="max_lux" v-model.number="config.max_lux" type="number" class="lux-input" />
-          </div>
+        <!-- Configuration form (lux thresholds + automate toggle) -->
+        <form
+          class="blinds-auto__form"
+          @submit.prevent="saveConfig()"
+        >
+          <!-- Min lux -->
+            <div class="blinds-auto__group">
+              <label
+                class="blinds-auto__label"
+                for="min_lux"
+              >Min lux:</label>
+              <input
+                id="min_lux"
+                v-model.number="config.min_lux"
+                type="number"
+                class="blinds-auto__input"
+                inputmode="numeric"
+                :aria-invalid="validateLuxPair(config.min_lux, config.max_lux) ? 'true' : 'false'"
+              />
+            </div>
 
-          <div class="input-group input-group--slider">
-            <span class="slider-label">Automatic mode:</span>
-            <label class="switch switch--small">
-              <input type="checkbox" v-model="config.automate" @change="toggleAutomate">
-              <span class="slider"></span>
-            </label>
-          </div>
-        </div>
+          <!-- Max lux -->
+            <div class="blinds-auto__group">
+              <label
+                class="blinds-auto__label"
+                for="max_lux"
+              >Max lux:</label>
+              <input
+                id="max_lux"
+                v-model.number="config.max_lux"
+                type="number"
+                class="blinds-auto__input"
+                inputmode="numeric"
+                :aria-invalid="validateLuxPair(config.min_lux, config.max_lux) ? 'true' : 'false'"
+              />
+            </div>
 
-        <div class="button-group">
-          <button class="btn" @click="saveConfig" :disabled="loading">
-            {{ loading ? 'Saving...' : 'Set limits' }}
-          </button>
-        </div>
+          <!-- Automate toggle (modifier group) -->
+            <div class="blinds-auto__group blinds-auto__group--toggle">
+              <span class="blinds-auto__toggle-label">Automatic mode:</span>
+              <label class="switch switch--small blinds-auto__switch">
+                <input
+                  type="checkbox"
+                  v-model="config.automate"
+                  @change="toggleAutomate"
+                  aria-label="Toggle blinds automation"
+                >
+                <span class="slider"></span>
+              </label>
+            </div>
+
+          <!-- Actions (submit button) -->
+          <div class="blinds-auto__actions">
+            <button
+              type="submit"
+              class="btn blinds-auto__btn"
+              :disabled="loading"
+            >
+              {{ loading ? 'Saving...' : 'Set limits' }}
+            </button>
+          </div>
+        </form>
+
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
+/*
+  Blinds Automation Card (BEM refactor: block = blinds-auto)
+  Responsibilities:
+    - Load existing blinds automation config (min_lux, max_lux, automate flag)
+    - Allow user to adjust thresholds and toggle automation
+    - Persist changes (saveBlindsConfig.php)
+    - React to live lux_sensor WebSocket data and issue Tuya open/close commands
+      based on thresholds when automation is enabled
+    - Debounce rapid automation decisions (AUTOMATE_DEBOUNCE)
+*/
+
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useLinkStore } from '@/stores/linkStore'
 import { useAutomateStore } from '@/stores/automateStore'
 
-const status = ref('')
-const loading = ref(false)
-const lastAutomateChange = ref(Date.now())
-const AUTOMATE_DEBOUNCE = 2000
-let ws
+/* Reactive UI state */
+const status = ref('')                       // UX feedback message
+const loading = ref(false)                   // Network action state
+const lastAutomateChange = ref(Date.now())   // Timestamp of last auto decision
+const AUTOMATE_DEBOUNCE = 2000               // ms debounce to avoid rapid toggles
+let ws                                        // WebSocket reference
 
+/* Stores */
 const linkStore = useLinkStore()
 const automateStore = useAutomateStore()
 
-// Additional client-side guard ranges (match backend expectations)
+/* Validation boundaries (mirror backend) */
 const LUX_MIN = 0
 const LUX_MAX = 1000000
 
+/* Config object (reactive). automate proxied via automateStore */
 const config = reactive({
   min_lux: 0,
   max_lux: 0,
-  get automate() { return automateStore.automate_flag },
-  set automate(val) { automateStore.automate_flag = val }
+  get automate () { return automateStore.automate_flag },
+  set automate (val) { automateStore.automate_flag = val }
 })
 
-function validateLuxPair(minVal, maxVal) {
+/* Validation helper for paired lux values */
+function validateLuxPair (minVal, maxVal) {
   if (!Number.isFinite(minVal) || !Number.isFinite(maxVal)) {
     return 'Lux values must be numeric'
   }
@@ -76,6 +142,7 @@ function validateLuxPair(minVal, maxVal) {
   return null
 }
 
+/* Fetch current config from backend */
 const getConfig = async () => {
   loading.value = true
   status.value = 'Loading configuration...'
@@ -101,44 +168,40 @@ const getConfig = async () => {
   }
 }
 
-
-// Set status with auto-clear after delay
+/* Status helper (auto-clear) */
 const setStatus = (message, timeout = 3000) => {
   status.value = message
   setTimeout(() => { status.value = '' }, timeout)
 }
 
-// Toggle automation mode and save configuration
+/* Toggle automation and persist current thresholds */
 const toggleAutomate = () => {
-  // Save configuration to database
   loading.value = true
   status.value = 'Saving...'
-  
-  saveConfig(true) // Use quiet mode to handle our own loading state
-    .then((res) => {
-      // After save completes, show automation-specific message
+
+  saveConfig(true) // quiet mode (we manage status manually)
+    .then(() => {
       setStatus(config.automate ? 'Automation enabled' : 'Automation disabled')
       lastAutomateChange.value = Date.now()
     })
     .catch((error) => {
-      // If saving fails, revert the toggle and show error
-      config.automate = !config.automate // Revert the toggle
+      // Revert on failure
+      config.automate = !config.automate
       setStatus(`Error: ${error.message}`)
     })
-    .finally(() => {
-      loading.value = false
-    })
+    .finally(() => { loading.value = false })
 }
 
-// Control blinds
+/* Fire Tuya command (open | close); silent errors by design */
 const controlBlinds = async (action) => {
   try {
     await fetch(linkStore.getPhpApiUrl('tuyaBlindsApi.php') + `?action=${action}`)
-  } catch (error) {
-    // Silent error handling
+  } catch {
+    /* swallow */
   }
 }
 
+/* Persist thresholds + automate flag */
 const saveConfig = async (quiet = false) => {
   if (!quiet) {
     loading.value = true
@@ -163,10 +226,12 @@ const saveConfig = async (quiet = false) => {
       })
     })
     const data = await res.json()
+
     if (data?.error) {
       if (!quiet) setStatus(`Error while saving: ${data.error}`)
       throw new Error(data.error)
     }
+
     config.min_lux = Number(data.min_lux)
     config.max_lux = Number(data.max_lux)
     config.automate = Boolean(data.automate)
@@ -180,119 +245,150 @@ const saveConfig = async (quiet = false) => {
   }
 }
 
-
-// Handle automation based on lux readings
+/* Decide open/close based on live lux data */
 const handleLuxAutomation = (luxValue) => {
-  // Store automation state in a local constant to avoid any inadvertent changes
   const isAutomated = config.automate
-  
-  if (!isAutomated || 
-      Date.now() - lastAutomateChange.value <= AUTOMATE_DEBOUNCE ||
-      luxValue === null) {
-    return
-  }
-  
+  if (
+    !isAutomated ||
+    Date.now() - lastAutomateChange.value <= AUTOMATE_DEBOUNCE ||
+    luxValue === null
+  ) return
+
   if (luxValue < config.min_lux || luxValue >= config.max_lux) {
-    // Too dark or too bright, close blinds
     controlBlinds('close')
   } else {
-    // Ideal range, open blinds
     controlBlinds('open')
   }
 }
 
+/* Lifecycle: mount (fetch config + WS subscribe) */
 onMounted(() => {
-  getConfig() // Initial load of config from server
-  
-  // Setup WebSocket
+  getConfig()
+
   ws = new WebSocket(import.meta.env.VITE_WS_URL_PREFIX)
-  
   ws.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data)
       if (data.channel === 'lux_sensor' && data.lux !== undefined) {
-        // Just pass the lux value - don't modify any other state
         handleLuxAutomation(data.lux)
       }
-    } catch (error) {
-      // Silent error handling
+    } catch {
+      /* ignore malformed frames */
     }
   }
 })
 
+/* Cleanup */
 onUnmounted(() => {
   if (ws) ws.close()
 })
 </script>
 
 <style lang="scss" scoped>
-$input-width: 120px;
-$input-padding: 6px 10px;
-$input-font-size: 11pt;
-$form-margin-bottom: 0rem;
-$input-group-gap: 0.4rem;
-$button-padding: 11px 15px;
-$button-font-size: 12pt;
+/*
+  BEM: .blinds-auto (local block)
+  Keep global .card untouched (from containers.scss).
+  All previous ad-hoc classes replaced with BEM elements/modifiers.
+*/
 
-.lux-config-form {
-  margin-bottom: $form-margin-bottom;
-  padding: 1rem;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  background-color: #f9f9f9;
-  text-align: center;
+$ba-border: 1px solid #ddd;
+$ba-bg: #f9f9f9;
+$ba-radius: 0.5rem;
+$ba-gap: 0.75rem;
+$ba-gap-sm: 0.4rem;
+$ba-accent: var(--color, #007bff);
+$ba-label-fz: 0.875rem;
+$ba-input-width: 7.5rem;
+$ba-transition: 0.3s;
+
+.card--blinds-auto {
+  /* reserved for future card-level overrides */
 }
 
-.input-group {
+.blinds-auto {
   display: flex;
-  align-items: center;
-  margin-bottom: $input-group-gap;
-  gap: 1rem;
-  justify-content: center;
-  
-  &--slider {
-    margin: 1rem 0;
+  flex-direction: column;
+  gap: $ba-gap;
+
+  &__status {
+    text-align: center;
+    padding: 0.25rem 0.5rem;
+    animation: fade-in 0.25s ease;
+  }
+  &__status-message {
+    margin: 0;
+  }
+
+  &__form {
+    margin: 0;
+    padding: 1rem;
+    border: $ba-border;
+    border-radius: $ba-radius;
+    background: $ba-bg;
+    display: flex;
+    flex-direction: column;
+    gap: $ba-gap;
+  }
+
+  &__group {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+
+    &--toggle {
+      margin: 0.75rem 0 0.25rem;
+    }
+  }
+
+  &__label,
+  &__toggle-label {
+    min-width: 4.5rem;
+    font-weight: 600;
+    font-size: $ba-label-fz;
+    text-align: right;
+  }
+
+  &__toggle-label {
+    text-align: left;
+  }
+
+  &__input {
+    width: $ba-input-width;
+    padding: 0.4rem 0.625rem;
+    font-size: 0.95rem;
+    line-height: 1.2;
+    border: 2px solid #ccc;
+    border-radius: 0.25rem;
+    outline: none;
+    transition: border-color $ba-transition;
+
+    &:focus {
+      border-color: $ba-accent;
+    }
+    &[aria-invalid='true'] {
+      border-color: #d33;
+    }
+  }
+
+  &__switch {
+    display: inline-flex;
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: center;
+    margin-top: 0.25rem;
+  }
+
+  &__btn {
+    min-width: 8rem;
   }
 }
 
-.slider-label {
-  min-width: 70px;
-  font-weight: bold;
-  font-size: 14px;
-}
-
-.input-group label {
-  min-width: 70px;
-  font-weight: bold;
-  font-size: 14px;
-}
-
-.lux-input {
-  padding: $input-padding;
-  font-size: $input-font-size;
-  width: $input-width;
-  border: 2px solid #ccc;
-  border-radius: 4px;
-  outline: none;
-  transition: border-color 0.3s;
-}
-
-.lux-input:focus {
-  border-color: var(--color, #007bff);
-}
-
-.button-group {
-  margin-top: 0.5rem;
-}
-
-.device-info {
-  border-radius: 10px;
-  filter: drop-shadow(0 5px 10px 0 #ffffff);
-  width: 15rem;
-  height: 5rem;
-  background-color: $background-crl-secondary;
-  padding: 1rem;
-  color: white;
-  font-family: "Poppins", sans-serif;
+/* Simple fade for status transitions */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(-2px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 </style>
