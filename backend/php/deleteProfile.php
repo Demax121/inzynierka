@@ -1,36 +1,61 @@
 <?php
 header('Content-Type: application/json; charset=utf-8');
 
-// Handle preflight OPTIONS request
+/*
+ * deleteProfile.php
+ * Deletes a profile row from the `profiles` table.
+ *
+ * Method: POST
+ * Request JSON:
+ *   { "profile_id": <int|string> }
+ *
+ * Responses:
+ *   200 OK:
+ *     { "success": true, "message": "Profile deleted successfully" }
+ *   400 Bad Request (missing/empty id):
+ *     { "success": false, "error": "Profile ID is required" }
+ *   404 Not Found (no row with that id):
+ *     { "success": false, "error": "No profile found with the provided ID" }
+ *   405 Method Not Allowed (not POST):
+ *     { "success": false, "error": "Only POST method is allowed" }
+ *   500 Internal Server Error (DB/other):
+ *     { "success": false, "error": "Database error: ..." } or generic error
+ *
+ * Notes:
+ * - CORS / other headers handled by Caddy (do not add here).
+ * - No existence pre-check; relies on DELETE rowCount to detect missing ID.
+ * - profile_id is not type-cast here; PostgreSQL will validate type implicitly.
+ */
+
+// Handle preflight OPTIONS (exit early; Caddy supplies headers)
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
-// Only accept POST requests for this endpoint
+// Enforce POST only
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405); // Method Not Allowed
+    http_response_code(405);
     echo json_encode(['success' => false, 'error' => 'Only POST method is allowed']);
     exit();
 }
 
-// Get JSON data from request body
+// Read raw body and decode JSON
 $jsonData = file_get_contents('php://input');
 $data = json_decode($jsonData, true);
 
-// Check if profile_id is provided
+// Validate presence of profile_id
 if (!isset($data['profile_id']) || empty($data['profile_id'])) {
-    http_response_code(400); // Bad Request
+    http_response_code(400);
     echo json_encode(['success' => false, 'error' => 'Profile ID is required']);
     exit();
 }
 
 $profile_id = $data['profile_id'];
 
-// Dołącz konfigurację bazy
 require_once 'config.php';
 
 try {
-    // Connect to PostgreSQL database
+    // Open DB connection (exception mode)
     $pdo = new PDO(
         "pgsql:host=" . DB_HOST . ";dbname=" . DB_NAME,
         DB_USER,
@@ -38,28 +63,26 @@ try {
     );
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
-    // Prepare DELETE query
+    // Prepare parameterized DELETE (avoids injection)
     $stmt = $pdo->prepare("DELETE FROM profiles WHERE profile_id = :profile_id");
     
-    // Execute DELETE query with parameters
+    // Execute with bound parameter
     $stmt->execute(['profile_id' => $profile_id]);
     
-    // Check if any rows were affected
+    // Check affected rows to determine existence
     if ($stmt->rowCount() > 0) {
-        // Success - Profile was deleted
         echo json_encode(['success' => true, 'message' => 'Profile deleted successfully']);
     } else {
-        // No profile found with that ID
-        http_response_code(404); // Not Found
+        http_response_code(404);
         echo json_encode(['success' => false, 'error' => 'No profile found with the provided ID']);
     }
 } catch (PDOException $e) {
-    // Database error
-    http_response_code(500); // Internal Server Error
+    // Database-level failure
+    http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Database error: ' . $e->getMessage()]);
 } catch (Exception $e) {
-    // Other errors
-    http_response_code(500); // Internal Server Error
+    // Any other unexpected failure
+    http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Error: ' . $e->getMessage()]);
 }
 ?>

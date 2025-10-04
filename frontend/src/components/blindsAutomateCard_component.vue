@@ -52,13 +52,29 @@ let ws
 const linkStore = useLinkStore()
 const automateStore = useAutomateStore()
 
-// Consolidated state
+// Additional client-side guard ranges (match backend expectations)
+const LUX_MIN = 0
+const LUX_MAX = 1000000
+
 const config = reactive({
   min_lux: 0,
   max_lux: 0,
   get automate() { return automateStore.automate_flag },
   set automate(val) { automateStore.automate_flag = val }
 })
+
+function validateLuxPair(minVal, maxVal) {
+  if (!Number.isFinite(minVal) || !Number.isFinite(maxVal)) {
+    return 'Lux values must be numeric'
+  }
+  if (minVal < LUX_MIN || maxVal < LUX_MIN || minVal > LUX_MAX || maxVal > LUX_MAX) {
+    return `Lux values out of range (${LUX_MIN}-${LUX_MAX})`
+  }
+  if (minVal >= maxVal) {
+    return 'Min lux must be less than Max lux'
+  }
+  return null
+}
 
 const getConfig = async () => {
   loading.value = true
@@ -129,10 +145,11 @@ const saveConfig = async (quiet = false) => {
     status.value = 'Saving...'
   }
 
-  if (config.min_lux >= config.max_lux && !quiet) {
-    status.value = 'Error: Min lux must be less than Max lux.'
+  const err = validateLuxPair(Number(config.min_lux), Number(config.max_lux))
+  if (err && !quiet) {
+    status.value = 'Error: ' + err
     loading.value = false
-    return Promise.reject(new Error('Min lux must be less than Max lux'))
+    return Promise.reject(new Error(err))
   }
 
   try {
@@ -140,26 +157,20 @@ const saveConfig = async (quiet = false) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        min_lux: config.min_lux,
-        max_lux: config.max_lux,
+        min_lux: Number(config.min_lux),
+        max_lux: Number(config.max_lux),
         automate: automateStore.automate_flag
       })
     })
-
     const data = await res.json()
-
     if (data?.error) {
       if (!quiet) setStatus(`Error while saving: ${data.error}`)
       throw new Error(data.error)
     }
-
-    // update config after save
     config.min_lux = Number(data.min_lux)
     config.max_lux = Number(data.max_lux)
     config.automate = Boolean(data.automate)
-
     if (!quiet) setStatus('Saved successfully')
-
     return data
   } catch (error) {
     if (!quiet) setStatus(`Connection error: ${error.message}`)

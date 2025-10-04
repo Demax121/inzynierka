@@ -47,7 +47,7 @@
             <label for="acTemperature" class="group-title">AC Control:</label>
             <div class="ac-control">
               <input 
-                type="number" 
+                type="double" 
                 id="acTemperature" 
                 v-model.number="profileSettings.acTemperature" 
                 min="16" 
@@ -113,195 +113,145 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue';
+import { ref, reactive, computed, onMounted } from 'vue';
 import { useLinkStore } from '@/stores/linkStore';
 
-// Use the linkStore for WLED functionality
 const linkStore = useLinkStore();
 
-// Get loading and presets state for template usage
 const loading = computed(() => linkStore.wledPresetsLoading);
 const presetsLoaded = computed(() => linkStore.wledPresetsLoaded);
 const presets = computed(() => linkStore.wledPresets);
 
-// Profile data
 const profileName = ref('');
 const profileSettings = reactive({
   wledPreset: '',
-  lightsOn: false, // Default state for main lights
-  acTemperature: null, // Temperature setting for AC
-  blindsMode: 'open', // Default to 'open', options: 'open', 'close', 'auto'
-  minLux: 5000, // Default min lux value
-  maxLux: 20000, // Default max lux value
-  // Add other settings for the profile here
+  lightsOn: false,
+  acTemperature: null,
+  blindsMode: 'open',
+  minLux: 5000,
+  maxLux: 20000,
 });
 
-// No custom validation, using HTML required attributes instead
+// Security: same regex as backend (keep in sync)
+const NAME_REGEX = /^[A-Za-z0-9 _-]{1,64}$/;
+const profileNameError = ref('');
 
-// Build the complete profile JSON structure
+function validateProfileName() {
+  const name = profileName.value.trim();
+  if (!name) {
+    profileNameError.value = 'Name required';
+    return false;
+  }
+  if (!NAME_REGEX.test(name)) {
+    profileNameError.value = 'Allowed: letters, numbers, space, _ , - (max 64)';
+    return false;
+  }
+  profileNameError.value = '';
+  return true;
+}
+
 function buildProfileJSON() {
-  // Base profile JSON (excluding the name, which will be saved separately)
   const profileJSON = {
-    WLED: {
-      // Default values that will be overridden based on selection
-      on: true,
-      lor: 2,
-      ps: null
-    },
+    WLED: { on: true, lor: 2, ps: null },
     lights: {
-      channel: "main_lights",
-      payload: {
-        state: profileSettings.lightsOn
-      }
+      channel: 'main_lights',
+      payload: { state: profileSettings.lightsOn }
     }
   };
-  
-  // Add AC settings if temperature is set
   if (profileSettings.acTemperature !== null && profileSettings.acTemperature !== '') {
     profileJSON.AC = {
-      channel: "air_conditioning",
-      payload: {
-        requestedTemp: profileSettings.acTemperature
-      }
+      channel: 'air_conditioning',
+      payload: { requestedTemp: profileSettings.acTemperature }
     };
   }
-
-  // Add blinds settings based on selected mode
   if (profileSettings.blindsMode === 'open' || profileSettings.blindsMode === 'close') {
-    profileJSON.blinds = {
-      state: profileSettings.blindsMode // 'open' or 'close'
-    };
+    profileJSON.blinds = { state: profileSettings.blindsMode };
   } else if (profileSettings.blindsMode === 'auto') {
-    // For auto mode, include min/max lux settings
     profileJSON.blinds = {
       minLux: profileSettings.minLux,
       maxLux: profileSettings.maxLux,
       automate: true
     };
   }
-
-  // Configure WLED settings based on the selected option
   if (profileSettings.wledPreset === 'off') {
-    // If "Wyłączone" is selected
     profileJSON.WLED.on = false;
-    profileJSON.WLED.preset_name = "OFF";
-    // lor and ps values aren't relevant when off
+    profileJSON.WLED.preset_name = 'OFF';
     delete profileJSON.WLED.lor;
     delete profileJSON.WLED.ps;
   } else if (profileSettings.wledPreset === 'ambilight') {
-    // If "Ambilight" is selected
     profileJSON.WLED.on = true;
-    profileJSON.WLED.lor = 0; // Ambilight mode
-    profileJSON.WLED.preset_name = "Ambilight";
-    // ps value isn't used in Ambilight mode
+    profileJSON.WLED.lor = 0;
+    profileJSON.WLED.preset_name = 'Ambilight';
     delete profileJSON.WLED.ps;
-  } else {
-    // If a regular preset is selected
+  } else if (profileSettings.wledPreset) {
     profileJSON.WLED.on = true;
-    profileJSON.WLED.lor = 2; // Regular WLED preset mode
-    profileJSON.WLED.ps = parseInt(profileSettings.wledPreset); // Use the preset ID
-    
-    // Find the preset name from the preset ID
+    profileJSON.WLED.lor = 2;
+    profileJSON.WLED.ps = parseInt(profileSettings.wledPreset);
     const presetObj = presets.value.find(p => p.id.toString() === profileSettings.wledPreset.toString());
-    if (presetObj) {
-      profileJSON.WLED.preset_name = presetObj.name;
-    } else {
-      profileJSON.WLED.preset_name = `Preset ${profileSettings.wledPreset}`;
-    }
+    profileJSON.WLED.preset_name = presetObj ? presetObj.name : `Preset ${profileSettings.wledPreset}`;
   }
-
   return profileJSON;
 }
 
-// Define props to receive shared profile names from parent
 const props = defineProps({
-  sharedProfileNames: {
-    type: Object, // Set object
-    default: () => new Set()
-  }
+  sharedProfileNames: { type: Object, default: () => new Set() }
 });
-
-// Define emits to send updates to parent
 const emit = defineEmits(['profile-created']);
 
-// Save profile function
 function saveProfile() {
-  // Validate profile name
-  if (!profileName.value.trim()) {
-    alert('Proszę podać nazwę profilu');
+  if (!validateProfileName()) {
+    alert(profileNameError.value);
     return;
   }
-  
-  // Check if profile name already exists in the shared Set
-  if (props.sharedProfileNames.has(profileName.value)) {
-    alert('Profil o tej nazwie już istnieje. Wybierz inną nazwę.');
+  if (props.sharedProfileNames.has(profileName.value.trim())) {
+    alert('Profile with this name already exists.');
     return;
   }
-  
-  // Build the profile JSON
+
   const profileData = buildProfileJSON();
-
-
-
-  // Send profile to backend
   const saveData = {
-    profile_name: profileName.value,
+    profile_name: profileName.value.trim(),
     profile_json: profileData
   };
-  
-  // Show saving indicator
+
   const saveBtn = document.querySelector('.button-group button');
   const originalText = saveBtn.innerText;
   saveBtn.innerText = 'Zapisywanie...';
   saveBtn.disabled = true;
-  
-  // Send to PHP endpoint
+
   fetch(linkStore.getPhpApiUrl('createProfile.php'), {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(saveData)
   })
-  .then(response => response.json())
-  .then(data => {
-    if (data.success) {
+  .then(r => r.json())
+  .then(d => {
+    if (d.success) {
       alert('Profil został zapisany!');
-      
-      // Update the shared profile names
-      const updatedNames = new Set(props.sharedProfileNames);
-      updatedNames.add(profileName.value);
-      emit('profile-created', updatedNames);
-      
-      // Reset form after successful save
+      const updated = new Set(props.sharedProfileNames);
+      updated.add(profileName.value.trim());
+      emit('profile-created', updated);
       profileName.value = '';
       profileSettings.wledPreset = '';
-      profileSettings.lightsOn = false; // Reset lightsOn state
-      profileSettings.acTemperature = null; // Reset temperature setting
-      profileSettings.blindsMode = 'open'; // Reset blinds mode to default
-      profileSettings.minLux = 5000; // Reset min lux
-      profileSettings.maxLux = 20000; // Reset max lux
+      profileSettings.lightsOn = false;
+      profileSettings.acTemperature = null;
+      profileSettings.blindsMode = 'open';
+      profileSettings.minLux = 5000;
+      profileSettings.maxLux = 20000;
     } else {
-      alert('Błąd: ' + (data.error || 'Nie udało się zapisać profilu'));
+      alert('Błąd: ' + (d.error || 'Nie udało się zapisać profilu'));
     }
   })
-  .catch(error => {
-    alert('Błąd połączenia: ' + error.message);
-  })
+  .catch(e => alert('Błąd połączenia: ' + e.message))
   .finally(() => {
-    // Restore button state
     saveBtn.innerText = originalText;
     saveBtn.disabled = false;
   });
 }
 
-// Using HTML required attributes for validation instead
-
 onMounted(() => {
-  // Fetch presets when component mounts
   linkStore.fetchWledPresets();
 });
-
 </script>
 
 <style lang="scss" scoped>
