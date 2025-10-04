@@ -1,22 +1,44 @@
 /*
-ESP32D + 2.8 TFT With Touch LCD ST7735/ST7789V + limit button
+=====================================================================
+ Air Conditioning Controller (ESP32 + ILI9341 TFT + WebSocket + AES)
+=====================================================================
+Hardware wiring (SPI TFT ILI9341):
+  LED/BACKLIGHT -> 3V3 (may be PWM'ed externally if dimming desired)
+  SCK          -> GPIO18 (HSPI SCK)
+  MOSI (SDI)   -> GPIO23
+  DC           -> GPIO21 (data/command select)
+  RESET        -> GPIO22 (can tie to EN with pull-up if you want auto reset)
+  CS           -> GPIO5  (chip select)
+  GND          -> GND
+  VCC          -> 3V3
+  MISO (SDO)   -> not used (read operations ignored)
 
-LED/BACKLIGHT -> 3V3
-SCK -> PIN18
-SOI<MOSI> -> PIN23
-DC -> PIN21
-RESET - > PIN22
-CS -> PIN5
-GND -> GND
-VCC -> 3V3
-SDO<MISO> -> NONE
+User input:
+  Momentary button (normally open) between GPIO13 and GND (internal pull-up used).
 
-TOUCH CONTROL -> NONE (not used)
-BUTTON NO -> PIN13
-BUTTON C -> GND
+Notes:
+  - If the board exposes only a single 3V3 pin, fan out both TFT VCC and LED/BACKLIGHT from it.
+  - Touch controller not used (omit related wiring).
 
-If only one 3V3 pin, connect both VCC and LED to it.
+Functional overview:
+  * Connect to WiFi (MyWiFi helper library abstracting credentials)
+  * Establish WebSocket to backend server (Bun) and identify on channel 'air_conditioning'
+  * Exchange encrypted JSON payloads (AES-128-CBC) for status + commands
+  * Display current temperature, requested temperature, on/off state, and function (heating / cooling) on TFT
+  * Local hysteresis control: if difference to requested temperature >= HISTERAZA, choose heating/cooling; else idle
+  * Manual override: button toggles klimaOn state; cancels function until automatic logic re-engages
+  * Periodically re-sends state when ping received, or when any local/remote change occurs
 
+Security & Encryption:
+  - Each outbound payload is AES encrypted with per-device key (encryption_key) and random IV
+  - Inbound messages expected to include msgIV + payload (hex) used for decryption
+
+Reconnect strategy:
+  - Library's internal reconnect + manual watchdog: if disconnected too long, explicit restart of connection
+
+Code style:
+  - Minimal dynamic allocation: StaticJsonDocument used for deterministic memory
+  - Strings kept as global 'String' for simplicity; consider migrating to constexpr char[] to reduce heap churn
 */
 
 #include <MyWiFi.h>
@@ -31,48 +53,50 @@ If only one 3V3 pin, connect both VCC and LED to it.
 #define TFT_DC   21
 #define TFT_RST  22
 
-const int buttonPin = 13;
-bool BTNstate = false;
+const int buttonPin = 13;           // GPIO for manual override button
+bool BTNstate = false;              // (Unused residual variable; kept for future expansion)
 
 Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_RST);
 
 WebSocketsClient webSocketClient;
 
-String WEBSOCKET_SERVER = "192.168.1.2";
-const int   WEBSOCKET_PORT   = 8884;
-const unsigned long RECONNECT_INTERVAL = 5000;
-String device_api_key = "NfzziMcV9Zyj";
-String encryption_key = "KQAzhJmqigFdUyD6";
+String WEBSOCKET_SERVER = "192.168.1.2";          // Backend WS host (LAN IP)
+const int   WEBSOCKET_PORT   = 8884;               // Backend WS port
+const unsigned long RECONNECT_INTERVAL = 5000;     // Library auto reconnect interval (ms)
+String device_api_key = "NfzziMcV9Zyj";            // Device API key (server uses to map encryption key & update last_seen)
+String encryption_key = "KQAzhJmqigFdUyD6";       // 16-char AES key (AES-128)
 
-bool klimaOn = false;
-bool manualOverride = false;
+bool klimaOn = false;               // Current HVAC state (relay active / compressor running)
+bool manualOverride = false;        // If true, automatic hysteresis adjustments are suspended
 
-float currentTemp = 0.0;
-float requestedTemp = 25.0;
-const float HISTERAZA = 2.0;
-String currentFunction = "";
+float currentTemp = 0.0;            // Last received ambient temperature (0 => not yet received)
+float requestedTemp = 25.0;         // Target temperature set by frontend
+const float HISTERAZA = 2.0;        // Hysteresis threshold (°C) before toggling cooling / heating
+String currentFunction = "";       // Display label: cooling / heating / idle
 
-AESCrypto crypto(encryption_key);
+AESCrypto crypto(encryption_key);   // AES helper instance (CBC mode with random IV)
 
-unsigned long lastWsConnected = 0;
-unsigned long lastWsAttempt = 0;
-const unsigned long WS_RECONNECT_TIMEOUT = 15000;
+unsigned long lastWsConnected = 0;          // Timestamp of last successful connection
+unsigned long lastWsAttempt = 0;            // Timestamp of last manual reconnect attempt
+const unsigned long WS_RECONNECT_TIMEOUT = 15000; // If stale this long, escalate reconnect
 
-StaticJsonDocument<256> doc;
-StaticJsonDocument<512> jsonPayload; // envelope only used on send
+StaticJsonDocument<256> doc;                 // For inbound decoded (outer) JSON structures
+StaticJsonDocument<512> jsonPayload;         // Prepared outbound envelope (payload field mutated per send)
 
-String temp_aktualna = "TEMP AKTUALNA:";
-String temp_oczekiwana = "TEMP OCZEKIWANA:";
-String status_text = "STATUS:";
-String funkcja_text = "FUNKCJA:";
-String on_text = "ON";
-String off_text = "OFF";
-String spoczynku_text = "W SPOCZYNKU";
-String space_c = " C";
-String dash_c = "-- C";
-String chlodzenie_text = "CHLODZIMY!!!";
-String grzanie_text = "GRZEJEMY!!!";
+// UI label strings (Polish localization)
+String temp_aktualna    = "TEMP AKTUALNA:"; // Current temp label
+String temp_oczekiwana  = "TEMP OCZEKIWANA:"; // Requested temp label
+String status_text      = "STATUS:";          // On/off status label
+String funkcja_text     = "FUNKCJA:";        // Function label (cool/heat)
+String on_text          = "ON";
+String off_text         = "OFF";
+String spoczynku_text   = "W SPOCZYNKU";     // Idle status
+String space_c          = " C";              // Unit suffix
+String dash_c           = "-- C";            // Placeholder before first reading
+String chlodzenie_text  = "CHLODZIMY!!!";    // Cooling label
+String grzanie_text     = "GRZEJEMY!!!";     // Heating label
 
+// Initialize TFT display layout and static labels
 void initializeDisplay() {
   tft.begin();
   tft.setRotation(1);
@@ -91,6 +115,7 @@ void initializeDisplay() {
   tft.print(funkcja_text);
 }
 
+// Refresh dynamic fields (temperature values, on/off status, function)
 void updateDisplay() {
   tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);
   tft.setTextSize(2);
@@ -131,10 +156,12 @@ void updateDisplay() {
   }
 }
 
+// Placeholder reserved for future preallocation / structure init
 void initializeJSON() {
-  // envelope created on send
+  // envelope created on send (currently no-op)
 }
 
+// Populate jsonPayload's payload object with current device state
 void updateJSONData() {
   JsonObject payload = jsonPayload["payload"];
   payload["requestedTemp"] = requestedTemp;
@@ -143,6 +170,7 @@ void updateJSONData() {
   payload["manualOverride"] = manualOverride;
 }
 
+// Send identification frame so server associates this socket with device_api_key & channel
 void identifyDevice() {
   StaticJsonDocument<128> idDoc;
   idDoc["type"] = "esp32_identification";
@@ -153,6 +181,7 @@ void identifyDevice() {
   webSocketClient.sendTXT(idMessage);
 }
 
+// Encrypt and send current AC state to server (channel: air_conditioning)
 void sendWebSocketData() {
   if (!webSocketClient.isConnected()) return;
   updateJSONData();
@@ -174,6 +203,7 @@ void sendWebSocketData() {
   Serial.printf("[TX] AC %s\n", klimaOn ? "Włączone" : "Wyłączone");
 }
 
+// Decide whether to heat / cool / idle based on hysteresis & user override
 void checkTemperatureControl() {
   if (currentTemp == 0) return;
   if (manualOverride) return;
@@ -208,6 +238,7 @@ void checkTemperatureControl() {
   }
 }
 
+// Parse inbound WebSocket text frames (outer JSON may be plaintext envelope with encrypted 'payload')
 void handleIncomingText(uint8_t* payload, size_t length) {
   String msg = "";
   for (size_t i = 0; i < length; i++) msg += (char)payload[i];
@@ -270,6 +301,7 @@ void handleIncomingText(uint8_t* payload, size_t length) {
   }
 }
 
+// Debounced button handling (toggles klimaOn, sets manualOverride)
 void handleButton() {
   static bool lastButton = HIGH;
   static unsigned long lastButtonChange = 0;
@@ -300,6 +332,7 @@ void handleButton() {
   lastButton = reading;
 }
 
+// Arduino setup: initializes serial, IO, WiFi, WebSocket, display
 void setup() {
   Serial.begin(19200);
   delay(500);
@@ -327,6 +360,7 @@ void setup() {
   webSocketClient.setReconnectInterval(RECONNECT_INTERVAL);
 }
 
+// Main loop: button handling, WebSocket service, reconnect watchdog
 void loop() {
   // Handle button at the beginning - independent of WebSocket
   handleButton();

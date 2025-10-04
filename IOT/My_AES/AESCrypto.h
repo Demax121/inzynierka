@@ -1,4 +1,25 @@
 // Minimal AES-128-CBC helper for ESP32 using mbedtls
+// Provides:
+//  * Key normalization to 16 bytes (AES-128)
+//  * Random IV generation (esp_random) returned as lowercase hex
+//  * PKCS#7 padding/unpadding
+//  * Hex encoding/decoding for ciphertext & IV (transport-friendly)
+//  * Simple Arduino String interface for ease of integration in small sketches
+//
+// Limitations / Notes:
+//  - No message authentication (consider HMAC or migrate to AES-GCM for integrity).
+//  - Uses dynamic allocations via std::vector (acceptable for small payload sizes).
+//  - hexToBytes silently ignores odd-length hex (returns empty vector implied error on caller path).
+//  - Not thread-safe (intended for single-task use typical in Arduino context).
+//
+// Typical usage:
+//    AESCrypto crypto("16charSecretKey!");
+//    String iv  = AESCrypto::generateIV();
+//    String cph = crypto.encrypt("{\"doorOpen\":true}", iv);
+//    String plain = crypto.decrypt(cph, iv);
+//
+// Security recommendation:
+//    Pair with an authenticity layer if operating across untrusted networks.
 #pragma once
 
 #include <Arduino.h>
