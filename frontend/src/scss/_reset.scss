@@ -35,7 +35,13 @@ body {
 body {
   text-rendering: optimizeSpeed;
   line-height: 1.5;
-  background: linear-gradient(360deg, #e2ddc6 0%, #ffe082 50%, #ffb74d 100%);
+  /* Simple radial gradient using existing palette colors */
+  background: radial-gradient(circle at 50% 40%,
+    #ffe082 0%,   /* warm center */
+    #e2ddc6 45%,  /* transitional ring */
+    #ffb74d 100%  /* outer edge */
+  );
+  //background: linear-gradient(360deg, #e2ddc6 0%, #ffe082 50%, #ffb74d 100%);
 }
 /* A elements that don't have a class get default styles */
 a:not([class]) {
