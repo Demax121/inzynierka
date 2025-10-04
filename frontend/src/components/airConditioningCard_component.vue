@@ -8,9 +8,9 @@
         <LoadingCard v-if="loading" />
         <div v-else class="card__content card__content--slider">
           <div class="temp-form">
-            <button type="button" class="btn btn--square" @click="changeTemp(-1)">-1</button>
+            <button type="button" class="btn btn--square" @click="changeTemp(-0.5)">-0.5</button>
             <span class="temp-display">{{ inputTemp }}°C</span>
-            <button type="button" class="btn btn--square" @click="changeTemp(1)">+1</button>
+            <button type="button" class="btn btn--square" @click="changeTemp(0.5)">+0.5</button>
           </div>
 
           <div class="temps-display">

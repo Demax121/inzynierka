@@ -1,3 +1,16 @@
+/*
+ESP32-C3 super mini + VEML7700 sensor
+
+VIN -> 5V
+3V0 -> NONE
+GND -> GND
+SCL -> PIN9
+SDA -> PIN8
+
+
+*/
+
+
 #include <Wire.h>
 #include <Adafruit_VEML7700.h>
 #include <MyWiFi.h>
@@ -5,8 +18,8 @@
 #include <WebSocketsClient.h>
 #include <AESCrypto.h>
 // Konfiguracja
-#define SDA_PIN 21
-#define SCL_PIN 22
+#define SDA_PIN 8
+#define SCL_PIN 9
 
 String WEBSOCKET_SERVER = "192.168.1.2";
 const int WEBSOCKET_PORT = 8884;

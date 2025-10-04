@@ -1,3 +1,11 @@
+/*
+ESP32-C3 super mini + limit button
+
+ Button C -> GND
+ Button NO -> PIN21
+ Button NC -> none
+ 
+ */
 #include <MyWiFi.h>
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>
@@ -27,14 +35,6 @@ unsigned long lastWsAttempt = 0;
 const unsigned long WS_RECONNECT_TIMEOUT = 15000;
 const unsigned long WS_RETRY_EVERY = 5000;
 
-
-// ENCRYPT AND DECRYPT BEGIN
-
-
-
-
-
-// ENCRYPT AND DECRYPT END
 
 
 // FUNCTIONS BEGIN

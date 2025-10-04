@@ -1,3 +1,15 @@
+/*
+ESP32-C3 super mini + BME280 / NOT BMP280 BMP is only pressure sensor BME has temp, hum, pres
+Sometimes named BME/BMP 280
+
+VIN - 5V
+GND - GND
+SCL - PIN5
+SDA - PIN4
+
+*/
+
+
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
@@ -15,7 +27,7 @@ String encryption_key = "xuCmb33pFJgJAwR5";
 #define SDA_PIN 4
 #define SCL_PIN 5
 const uint8_t BME280_I2C_ADDRESS = 0x76;
-const int TEMPERATURE_THRESHOLD = 2;  // 2 stopnie progu zmiany temperatury (jako int)
+const int TEMPERATURE_THRESHOLD = 1;  // 2 stopnie progu zmiany temperatury (jako int)
 
 AESCrypto crypto(encryption_key);
 

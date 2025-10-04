@@ -1,3 +1,20 @@
+/*
+NODEMCU ESP32S + 2 WAY 5V RELAY  HW-383A 5V + TOUCH BUTTON
+
+HW-383A 5V -> ESP32S:
+GND - GND
+INT1 - PIN27
+INT2 - NONE
+VCC - 5V
+
+TOUCH BUTTON -> ESP32S:
+GND - GND
+i/O - PIN22
+VCC - 3V3
+
+*/
+
+
 #include <MyWiFi.h>
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>

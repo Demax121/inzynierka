@@ -36,3 +36,9 @@ odszyfrowuje wiadomość
 
 jeśli trzeba zaszefrować wiadomość to używa klucza api aby znaleźć klucz
 szyfrujący dla danego urządzenia i następnie szyfruje i wysyła JSON
+
+
+Dodać funckję check connection do frontendu że jak nie ma połączenia z urządzeniem
+to karta przechodzi w loading state.
+
+Dodać wysłanie ping do urządzeniu od razu po jego połączeniu

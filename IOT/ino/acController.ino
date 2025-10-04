@@ -1,3 +1,24 @@
+/*
+ESP32D + 2.8 TFT With Touch LCD ST7735/ST7789V + limit button
+
+LED/BACKLIGHT -> 3V3
+SCK -> PIN18
+SOI<MOSI> -> PIN23
+DC -> PIN21
+RESET - > PIN22
+CS -> PIN5
+GND -> GND
+VCC -> 3V3
+SDO<MISO> -> NONE
+
+TOUCH CONTROL -> NONE (not used)
+BUTTON NO -> PIN13
+BUTTON C -> GND
+
+If only one 3V3 pin, connect both VCC and LED to it.
+
+*/
+
 #include <MyWiFi.h>
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>
