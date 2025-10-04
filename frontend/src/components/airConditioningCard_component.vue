@@ -119,16 +119,8 @@ const targetTempDisplay = computed(() =>
 );
 const isOn = computed(() => klimaON.value);
 
-// Map raw function codes to readable labels
-const modeLabel = computed(() => {
-  if (!functionState.value) return null;
-  switch (functionState.value) {
-    case 'CHLODZIMY!!!': return 'Cooling Mode';
-    case 'GRZEJEMY!!!':  return 'Heating Mode';
-    case 'W SPOCZYNKU':  return 'Idle Mode';
-    default: return functionState.value;
-  }
-});
+// Directly expose functionState (already normalized by device as English label or empty)
+const modeLabel = computed(() => functionState.value || null);
 
 /*
   Establish WebSocket and set up event handlers.
@@ -282,9 +274,7 @@ $ac-accent: #333;
     margin-bottom: 1.2rem;
   }
 
-  &__btn {
-    // Inherits global .btn + .btn--square
-  }
+  // &__btn intentionally inherits global .btn + .btn--square (no extra styles)
 
   &__temp-display {
     font-size: 1.5rem;
@@ -315,9 +305,7 @@ $ac-accent: #333;
 }
 
 /* Card modifier placeholder for AC-specific future needs */
-.card--ac {
-  // (empty intentionally)
-}
+// .card--ac reserved for future overrides (intentionally empty)
 
 /* Slider variant from existing global layout */
 .card__content--slider {

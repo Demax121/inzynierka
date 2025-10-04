@@ -84,17 +84,18 @@ StaticJsonDocument<256> doc;                 // For inbound decoded (outer) JSON
 StaticJsonDocument<512> jsonPayload;         // Prepared outbound envelope (payload field mutated per send)
 
 // UI label strings (Polish localization)
-String temp_aktualna    = "TEMP AKTUALNA:"; // Current temp label
-String temp_oczekiwana  = "TEMP OCZEKIWANA:"; // Requested temp label
-String status_text      = "STATUS:";          // On/off status label
-String funkcja_text     = "FUNKCJA:";        // Function label (cool/heat)
-String on_text          = "ON";
-String off_text         = "OFF";
-String spoczynku_text   = "W SPOCZYNKU";     // Idle status
-String space_c          = " C";              // Unit suffix
-String dash_c           = "-- C";            // Placeholder before first reading
-String chlodzenie_text  = "CHLODZIMY!!!";    // Cooling label
-String grzanie_text     = "GRZEJEMY!!!";     // Heating label
+// UI Strings (English)
+String label_current_temp   = "CURRENT TEMP:";      // Current temperature label
+String label_target_temp    = "TARGET TEMP:";       // Requested temperature label
+String label_status         = "STATUS:";            // On/off status label
+String label_function       = "FUNCTION:";          // Function label (cool / heat / idle)
+String on_text              = "ON";
+String off_text             = "OFF";
+String idle_text            = "Idle Mode";          // Idle status
+String space_c              = " C";                 // Unit suffix
+String dash_c               = "-- C";               // Placeholder before first reading
+String cooling_mode_text    = "Cooling Mode";       // Cooling label
+String heating_mode_text    = "Heating Mode";       // Heating label
 
 // Initialize TFT display layout and static labels
 void initializeDisplay() {
@@ -106,13 +107,13 @@ void initializeDisplay() {
   tft.setTextSize(2);
   
   tft.setCursor(10, 20);
-  tft.print(temp_aktualna);
+  tft.print(label_current_temp);
   tft.setCursor(10, 100);
-  tft.print(temp_oczekiwana);
+  tft.print(label_target_temp);
   tft.setCursor(10, 180);
-  tft.print(status_text);
+  tft.print(label_status);
   tft.setCursor(160, 180);
-  tft.print(funkcja_text);
+  tft.print(label_function);
 }
 
 // Refresh dynamic fields (temperature values, on/off status, function)
@@ -152,7 +153,7 @@ void updateDisplay() {
   if (currentFunction.length() > 0) {
     tft.print(currentFunction);
   } else {
-    tft.print(spoczynku_text);
+  tft.print(idle_text);
   }
 }
 
@@ -214,7 +215,7 @@ void checkTemperatureControl() {
   String previousFunction = currentFunction;
   if (tempDiff >= HISTERAZA) {
     klimaOn = true;
-    currentFunction = chlodzenie_text;
+    currentFunction = cooling_mode_text;
     if (!previousState || previousFunction != currentFunction) {
       Serial.println("CHŁODZIMY!!!");
       sendWebSocketData();
@@ -222,7 +223,7 @@ void checkTemperatureControl() {
     }
   } else if (tempDiff <= -HISTERAZA) {
     klimaOn = true;
-    currentFunction = grzanie_text;
+    currentFunction = heating_mode_text;
     if (!previousState || previousFunction != currentFunction) {
       Serial.println("GRZEJEMY!!!");
       sendWebSocketData();
@@ -231,7 +232,7 @@ void checkTemperatureControl() {
   } else {
     if (klimaOn) {
       klimaOn = false;
-      currentFunction = "";
+  currentFunction = idle_text;
       Serial.println("Temperatura OK - wyłączam klimę");
       sendWebSocketData();
       updateDisplay();
@@ -282,7 +283,7 @@ void handleIncomingText(uint8_t* payload, size_t length) {
         manualOverride = body["manualOverride"];
       }
       if (!newState) {
-        currentFunction = "";
+    currentFunction = idle_text;
       } else if (!manualOverride) {
         checkTemperatureControl();
       }
@@ -316,11 +317,21 @@ void handleButton() {
       klimaOn = !klimaOn;
       manualOverride = true;
       if (!klimaOn) {
-        currentFunction = "";
+        currentFunction = idle_text;
       } else {
-        manualOverride = false;
-        checkTemperatureControl();
-        manualOverride = true;
+        // Immediate evaluation of temperature difference when turning ON manually
+        if (currentTemp != 0) {
+          float diff = currentTemp - requestedTemp;
+          if (diff >= HISTERAZA) {
+            currentFunction = cooling_mode_text;
+          } else if (diff <= -HISTERAZA) {
+            currentFunction = heating_mode_text;
+          } else {
+            currentFunction = idle_text;
+          }
+        } else {
+          currentFunction = idle_text; // No reading yet
+        }
       }
       Serial.printf("Button pressed - AC %s (manual)\n", klimaOn ? "ON" : "OFF");
       updateDisplay();
