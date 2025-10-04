@@ -100,13 +100,14 @@ void identifyDevice() {
 void sendWebSocketData() {
   if (!webSocketClient.isConnected()) return;
   StaticJsonDocument<96> p; p["lightON"] = State; String plain; serializeJson(p, plain);
-  String iv = AESCrypto::generateIV(); String cipher = crypto.encrypt(plain, iv);
+  String nonce = AESCrypto::generateNonce(); String cipherHex, tagHex; if(!crypto.encrypt(plain, nonce, cipherHex, tagHex)) return;
   StaticJsonDocument<192> env;
   env["identity"] = "lights_controller";
   env["channel"] = "main_lights";
   env["device_api_key"] = device_api_key;
-  env["msgIV"] = iv;
-  env["payload"] = cipher;
+  env["nonce"] = nonce;
+  env["payload"] = cipherHex;
+  env["tag"] = tagHex;
   String out; serializeJson(env, out);
   webSocketClient.sendTXT(out);
 }
@@ -128,10 +129,11 @@ void handleIncomingText(uint8_t* payload, size_t length) {
   // Encrypted command from server: { channel:"main_lights", msgIV, payload } with payload { lightON }
   String ch = doc["channel"] | "";
   if (ch != "main_lights") return;
-  if (!doc.containsKey("msgIV") || !doc.containsKey("payload")) return;
-  String iv = doc["msgIV"].as<String>();
-  String cipher = doc["payload"].as<String>();
-  String plain = crypto.decrypt(cipher, iv);
+  if (!doc.containsKey("nonce") || !doc.containsKey("payload") || !doc.containsKey("tag")) return;
+  String nonce = doc["nonce"].as<String>();
+  String cipherHex = doc["payload"].as<String>();
+  String tagHex = doc["tag"].as<String>();
+  String plain = crypto.decrypt(cipherHex, nonce, tagHex);
   if (plain.length() == 0) return;
   StaticJsonDocument<128> cmd; if (deserializeJson(cmd, plain)) return;
   if (!cmd.containsKey("lightON")) return;

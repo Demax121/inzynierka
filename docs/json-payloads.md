@@ -5,7 +5,7 @@ This document captures the concrete JSON shapes used across ESP32 devices, Bun W
 Encryption overview
 - Device ↔ Server payloads are encrypted with AES-128-CBC (PKCS7).
 - Key: per-device `device_encryption_key` (first 16 bytes used as AES key).
-- IV: 16 random bytes per message; hex-encoded as `msgIV`.
+- Nonce: 12 random bytes per message (AES-GCM); hex-encoded as `nonce`.
 - Ciphertext: hex-encoded in `payload` field.
 - Frontend broadcasts remain plaintext JSON (unchanged).
 
@@ -18,7 +18,8 @@ All ESP32-origin messages include:
 - identity: string (device label)
 - channel: string (one of: door_sensor, room_stats, main_lights, lux_sensor, air_conditioning)
 - device_api_key: string
-- msgIV: string (32 hex chars: 16-byte IV)
+- nonce: string (24 hex chars: 12-byte nonce)
+- tag: string (32 hex chars: 16-byte auth tag)
 - payload: string (hex ciphertext of a UTF‑8 JSON object; see per-channel bodies below)
 
 ### door_sensor
@@ -27,7 +28,8 @@ All ESP32-origin messages include:
     "identity": "main_door_sensor",
     "channel": "door_sensor",
     "device_api_key": "<apiKey>",
-    "msgIV": "<32-hex>",
+  "nonce": "<24-hex>",
+  "tag": "<32-hex>",
     "payload": "<hex-cipher>"    // decrypts to { "doorOpen": boolean }
   }
 - Server → Frontends: identical shape (broadcast)
@@ -38,7 +40,8 @@ All ESP32-origin messages include:
     "identity": "room_stats_sensor",
     "channel": "room_stats",
     "device_api_key": "<apiKey>",
-    "msgIV": "<32-hex>",
+  "nonce": "<24-hex>",
+  "tag": "<32-hex>",
     "payload": "<hex-cipher>"     // decrypts to { "temperature": number, "humidity": number, "pressure": number }
   }
 - Server → Frontends:
@@ -52,7 +55,8 @@ All ESP32-origin messages include:
     "identity": "lux_sensor",
     "channel": "lux_sensor",
     "device_api_key": "<apiKey>",
-    "msgIV": "<32-hex>",
+  "nonce": "<24-hex>",
+  "tag": "<32-hex>",
     "payload": "<hex-cipher>"     // decrypts to { "lux": number }
   }
 - Server → Frontends:
@@ -66,13 +70,14 @@ All ESP32-origin messages include:
     "identity": "lights_controller",
     "channel": "main_lights",
     "device_api_key": "<apiKey>",
-    "msgIV": "<32-hex>",
+  "nonce": "<24-hex>",
+  "tag": "<32-hex>",
     "payload": "<hex-cipher>"     // decrypts to { "lightON": boolean }
   }
 - Server → Frontends (mirror status):
   { "channel": "main_lights", "lightON": boolean }
 - Server → ESP32 (relay command):
-  { "channel": "main_lights", "msgIV": "<32-hex>", "payload": "<hex-cipher>" } // decrypts to { "lightON": boolean }
+  { "channel": "main_lights", "nonce": "<24-hex>", "tag": "<32-hex>", "payload": "<hex-cipher>" } // decrypts to { "lightON": boolean }
 
 ### air_conditioning
 - Device → Server (status):
@@ -80,7 +85,8 @@ All ESP32-origin messages include:
     "identity": "air_conditioning",
     "channel": "air_conditioning",
     "device_api_key": "<apiKey>",
-    "msgIV": "<32-hex>",
+  "nonce": "<24-hex>",
+  "tag": "<32-hex>",
     "payload": "<hex-cipher>"     // decrypts to { requestedTemp, function, klimaON, manualOverride }
   }
 - Frontend → Server (command to device):
@@ -88,7 +94,7 @@ All ESP32-origin messages include:
 - Server → Frontends (status broadcast):
   { "channel": "air_conditioning", "payload": { "requestedTemp": number, "function": string, "klimaON": boolean, "manualOverride": boolean, "currentTemp": number|null } }
 - Server → ESP32 (room temp from room_stats):
-  { "channel": "air_conditioning", "msgIV": "<32-hex>", "payload": "<hex-cipher>" } // decrypts to { "temperature": number }
+  { "channel": "air_conditioning", "nonce": "<24-hex>", "tag": "<32-hex>", "payload": "<hex-cipher>" } // decrypts to { "temperature": number }
 
 ## PHP endpoints (request/response)
 
@@ -163,6 +169,6 @@ Profiles (`profiles.profile_json`) drive multiple subsystems. Example rows from 
 
 ## Notes
 
-- Device ↔ Server messages now require `msgIV` and hex `payload` per message.
+- Device ↔ Server messages now require `nonce`, `payload`, and `tag` per message (AES-128-GCM).
 - For ESP32-origin updates, always include `device_api_key`; the server uses it to decrypt and to update `last_seen`.
 - Frontend WS subscriptions stay plaintext and follow the broadcast shapes shown above.

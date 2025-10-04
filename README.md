@@ -10,7 +10,7 @@ This project is an offline-capable smart home control & telemetry stack composed
 
 ### High-Level Flow
 1. ESP32 device connects to WS server, sends identification `{type:"esp32_identification", channel, device_api_key}`.
-2. Device sends encrypted frames `{channel, device_api_key, msgIV, payload}` (payload = hex ciphertext of JSON body via AES-128-CBC).
+2. Device sends encrypted frames `{channel, device_api_key, nonce, payload, tag}` (payload = hex ciphertext of JSON body via AES-128-GCM; tag = 16-byte auth tag).
 3. Server decrypts, validates, updates `device_last_seen`, and broadcasts simplified plaintext to all frontends.
 4. Frontend dispatches user commands (lights, AC) in plaintext WS messages; server encrypts per-device when forwarding to ESP32.
 5. Periodic or event-driven values are persisted through PHP REST-like endpoints into PostgreSQL.
@@ -20,7 +20,7 @@ This project is an offline-capable smart home control & telemetry stack composed
 |--------|--------|-----------|------------------------|
 | API Layer | Thin PHP endpoints | Fast iteration, low overhead, simple PDO usage | Full Node REST API (would duplicate WS server responsibilities) |
 | Real-time | Dedicated Bun WS server | Clear separation of stateless WS logic and stateful DB writes | Embedding WS inside PHP stack (complex) |
-| Encryption | AES-128-CBC device ↔ server only | Keeps secrets server-side; avoids exposing keys to browser | Frontend encryption (would leak keys); TLS-only (still leaves LAN plaintext) |
+| Encryption | AES-128-GCM device ↔ server only | Confidentiality + integrity; keeps secrets server-side | Frontend encryption (would leak keys); TLS-only (still leaves LAN plaintext) |
 | Data Storage | PostgreSQL | Strong relational and JSONB support | SQLite (concurrency), MySQL (no advantage here) |
 | Frontend | Vue 3 + Pinia | Reactive store pattern, lightweight, Vite dev speed | React (heavier for small scope) |
 | Device Messages | Per-channel JSON inside encrypted envelope | Extensible, easily debug via simulator | Binary custom protocol (harder maintainability) |
@@ -56,7 +56,7 @@ Defined in `postgreSQL/init.sql`; container runs it on first launch. Extend by a
 ```
 ### Encrypted Device Frame
 ```
-{ "channel": "room_stats", "device_api_key": "<apiKey>", "msgIV": "<32-hex>", "payload": "<cipher-hex>" }
+{ "channel": "room_stats", "device_api_key": "<apiKey>", "nonce": "<24-hex>", "tag": "<32-hex>", "payload": "<cipher-hex>" }
 ```
 Decrypted JSON body shapes per channel (examples):
 - `door_sensor`: `{ doorOpen: true }`
@@ -80,12 +80,31 @@ Decrypted JSON body shapes per channel (examples):
 Server encrypts commands per recipient device.
 
 ## 6. Encryption Details
-- Algorithm: AES-128-CBC (16 byte key direct from `device_encryption_key` column) + PKCS7 padding.
-- IV: 16 random bytes per message (hex encoded `msgIV`).
-- Ciphertext: hex string in `payload`.
-- Keys loaded every 5 minutes (refresh) + at server start.
-- Rationale: Simple symmetric scheme with deterministic key provisioning on device flash; CBC chosen for library availability.
-- Not Implemented: Frontend encryption (would require exposing keys or a proxy key-exchange; intentionally omitted for security confines).
+Algorithm: AES-128-GCM (16 byte key from `device_encryption_key` column)
+
+Per message:
+- 12-byte random nonce (hex `nonce` – 24 hex chars)
+- 16-byte auth tag (hex `tag` – 32 hex chars)
+- Hex ciphertext of JSON body (`payload`)
+- Optional `alg: "AES-128-GCM"` for clarity
+
+Operational Notes:
+- Keys cached and refreshed every 5 minutes (or on server restart)
+- GCM provides authenticity; modified ciphertext/tag causes decrypt failure
+- Nonce uniqueness per device enforced via hardware RNG; no padding required
+- Frontend remains plaintext to avoid exposing keys
+
+Example frame:
+```json
+{
+  "channel":"door_sensor",
+  "device_api_key":"<key>",
+  "nonce":"a1b2c3d4e5f60718293a4b5c",
+  "payload":"7fa9...",
+  "tag":"d3c2b1a09f8e7d6c5b4a392817161514",
+  "alg":"AES-128-GCM"
+}
+```
 
 ## 7. PHP Endpoint Conventions
 All endpoints now:
@@ -124,13 +143,13 @@ Utility modules:
 Each sketch:
 1. Connect Wi-Fi, open WS.
 2. Identify (`esp32_identification`).
-3. Assemble JSON → encrypt with key + random IV → hex envelope.
+3. Assemble JSON → encrypt with key + random 12-byte nonce (GCM) → envelope with nonce + tag.
 4. Send periodic telemetry or event updates.
-5. Decrypt inbound commands (lights / AC) and act.
+5. Decrypt & authenticate inbound commands (lights / AC) and act.
 
 Libraries & Crypto:
-- Custom `AESCrypto` wrapper around mbedtls performing AES-128-CBC with PKCS7.
-- IV generation: `esp_random()` seeded by Wi-Fi hardware RNG.
+- Custom `AESCrypto` wrapper around mbedtls performing AES-128-GCM (no padding).
+- Nonce generation: 12 bytes from `esp_random()` seeded by Wi-Fi hardware RNG.
 
 ## 10. Development Setup
 ### Prerequisites
@@ -243,7 +262,7 @@ Docs | Diagram images for architecture + sequence flow
 ## 16. Glossary
 Term | Definition
 -----|-----------
-Envelope | Outer JSON wrapper containing `channel`, `msgIV`, `payload` (ciphertext)
+Envelope | Outer JSON wrapper containing `channel`, `nonce`, `tag`, `payload` (ciphertext)
 Frontend broadcast | Plaintext WS message from server to browsers
 ESP32 identification | Initial unencrypted JSON to bind connection to device key
 Key refresh | Periodic reload of encryption keys from DB every 5 minutes

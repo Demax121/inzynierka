@@ -42,3 +42,10 @@ Dodać funckję check connection do frontendu że jak nie ma połączenia z urz�
 to karta przechodzi w loading state.
 
 Dodać wysłanie ping do urządzeniu od razu po jego połączeniu
+
+Przetłumaczyć wszystko na angielski, razem ze zmiennymi, ulepszyć readme, dodac pełną dokumentację
+funkcje, szyfrowanie, wyjaśnienia funkcji, bibliotek etc.
+
+Dodać dialog popup component, żeby pozbyć się alertów.
+
+Poprawić w AC, ręczne włączanie, aby sprawdziłor różnicę reqTemp - currentTemp i wyświetlało dobrą funkcję

@@ -1,6 +1,6 @@
 import { WebSocketServer } from "ws";
-import * as CryptoJS from "crypto-js";
-import fetch from "node-fetch"; // Import fetch for HTTP requests
+import fetch from "node-fetch"; // HTTP requests to PHP backend
+import { randomBytes, createCipheriv, createDecipheriv } from 'crypto'; // Node crypto for AES-128-GCM
 
 const database_url = "http://offline_backend_server_caddy_dyplom/"; // Updated to use Docker service name
 const encryptionKeyMap = new Map(); // api_key -> encryption_key
@@ -73,40 +73,44 @@ setInterval(populateKeyMap, 5 * 60 * 1000);
 
 
 
-// AES-128-CBC helpers (PKCS7). We treat payload as a UTF-8 JSON string.
+// AES-128-GCM helpers (nonce 12 bytes, tag 16 bytes). Payload is UTF-8 JSON string.
 function encryptPayloadForDevice(obj, apiKey) {
   const key = getEncryptionKey(apiKey);
   if (!key) return null;
-  const iv = CryptoJS.lib.WordArray.random(16); // 16 bytes
-  const plain = JSON.stringify(obj);
-  const encrypted = CryptoJS.AES.encrypt(plain, CryptoJS.enc.Utf8.parse(key.slice(0, 16)), {
-    iv: iv,
-    padding: CryptoJS.pad.Pkcs7,
-    mode: CryptoJS.mode.CBC,
-  });
-  // to hex
-  const ivHex = CryptoJS.enc.Hex.stringify(iv);
-  const cipherHex = encrypted.ciphertext.toString(CryptoJS.enc.Hex);
-  return { msgIV: ivHex, payload: cipherHex };
+  try {
+    const nonce = randomBytes(12); // 96-bit recommended
+    const cipher = createCipheriv('aes-128-gcm', Buffer.from(key.slice(0,16), 'utf8'), nonce);
+    const plain = JSON.stringify(obj);
+    const enc = Buffer.concat([cipher.update(plain, 'utf8'), cipher.final()]);
+    const tag = cipher.getAuthTag();
+    return {
+      nonce: nonce.toString('hex'),
+      payload: enc.toString('hex'),
+      tag: tag.toString('hex'),
+      alg: 'AES-128-GCM'
+    };
+  } catch (e) {
+    console.error('Encryption error', e);
+    return null;
+  }
 }
 
 function decryptDevicePayload(data) {
-  // Expects data: { device_api_key, msgIV, payload }
-  if (!data || typeof data.payload !== "string" || typeof data.msgIV !== "string") return null;
+  // Expects: { device_api_key, nonce, payload, tag }
+  if (!data || typeof data.payload !== 'string' || typeof data.nonce !== 'string' || typeof data.tag !== 'string') return null;
   const key = getEncryptionKey(data.device_api_key);
   if (!key) return null;
   try {
-    const iv = CryptoJS.enc.Hex.parse(data.msgIV);
-    const cipher = CryptoJS.enc.Hex.parse(data.payload);
-    const decrypted = CryptoJS.AES.decrypt({ ciphertext: cipher }, CryptoJS.enc.Utf8.parse(key.slice(0, 16)), {
-      iv: iv,
-      padding: CryptoJS.pad.Pkcs7,
-      mode: CryptoJS.mode.CBC,
-    });
-    const txt = CryptoJS.enc.Utf8.stringify(decrypted);
-    return JSON.parse(txt);
+    const nonce = Buffer.from(data.nonce, 'hex');
+    const cipherBuf = Buffer.from(data.payload, 'hex');
+    const tag = Buffer.from(data.tag, 'hex');
+    if (nonce.length !== 12 || tag.length !== 16) return null;
+    const decipher = createDecipheriv('aes-128-gcm', Buffer.from(key.slice(0,16), 'utf8'), nonce);
+    decipher.setAuthTag(tag);
+    const dec = Buffer.concat([decipher.update(cipherBuf), decipher.final()]);
+    return JSON.parse(dec.toString('utf8'));
   } catch (e) {
-    console.error("Failed to decrypt/parse device payload", e);
+    console.error('Failed to decrypt/parse device payload', e);
     return null;
   }
 }
@@ -189,7 +193,7 @@ wss.on("connection", (ws) => {
           console.log(`Sent initial ping to newly connected ESP32 device: ${data.channel}`);
         }
 
-        // If it's air_conditioning and we have last temp – send encrypted immediately
+        // If it's air_conditioning and we have last temp – send encrypted immediately (GCM)
         if (data.channel === "air_conditioning" && lastRoomTemperature !== null) {
           const apiKey = data.device_api_key || clients.get(ws)?.device_api_key;
           if (apiKey) {
@@ -207,9 +211,9 @@ wss.on("connection", (ws) => {
         return;
       }
 
-      // All channels from devices now carry encrypted payload: { msgIV, payload }
+      // All channels from devices now carry encrypted payload: { nonce, payload, tag }
       if (data.channel === "door_sensor") {
-        if (!data.payload || !data.device_api_key || !data.msgIV) {
+        if (!data.payload || !data.device_api_key || !data.nonce || !data.tag) {
           console.log(`Invalid door_sensor format - missing required fields`);
           return;
         }
@@ -242,7 +246,7 @@ wss.on("connection", (ws) => {
 
       if (data.channel === "room_stats") {
         console.log(`Received room_stats data:`, data);
-        if (!data.payload || !data.device_api_key || !data.msgIV) {
+        if (!data.payload || !data.device_api_key || !data.nonce || !data.tag) {
           console.log(`Invalid room_stats format - missing required fields`);
           return;
         }
@@ -331,7 +335,7 @@ wss.on("connection", (ws) => {
             if (client.readyState === client.OPEN && client !== ws) {
               const clientInfo = clients.get(client);
               if (clientInfo && clientInfo.type === "esp32") {
-                // Encrypt for each device using its api key
+                // Encrypt for each device using its api key (GCM)
                 if (clientInfo.device_api_key) {
                   const enc = encryptPayloadForDevice({ lightON }, clientInfo.device_api_key);
                   if (enc) {
@@ -356,7 +360,7 @@ wss.on("connection", (ws) => {
           console.log(`main_lights command from frontend: ${lightON ? "ON" : "OFF"}`);
         }
         // Handle ESP32 status update (requires device_api_key)
-        else if (data.payload && data.msgIV) {
+        else if (data.payload && data.nonce && data.tag) {
           const dec = decryptDevicePayload(data);
           if (!dec || typeof dec.lightON !== "boolean") return;
           const lightON = dec.lightON;
@@ -386,7 +390,7 @@ wss.on("connection", (ws) => {
       }
 
       if (data.channel === "lux_sensor") {
-        if (!data.payload || !data.device_api_key || !data.msgIV) {
+        if (!data.payload || !data.device_api_key || !data.nonce || !data.tag) {
           console.log(`Invalid lux_sensor format - missing required fields`);
           return;
         }
@@ -420,7 +424,7 @@ wss.on("connection", (ws) => {
           return;
         }
 
-        if (data.payload && data.msgIV && senderInfo && senderInfo.type === "esp32") {
+        if (data.payload && data.nonce && data.tag && senderInfo && senderInfo.type === "esp32") {
           const dec = decryptDevicePayload(data);
           if (!dec) return;
           const payload = dec;

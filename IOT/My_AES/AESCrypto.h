@@ -1,25 +1,27 @@
-// Minimal AES-128-CBC helper for ESP32 using mbedtls
-// Provides:
+// AES-128-GCM helper for ESP32 using mbedtls (migrated from CBC implementation)
+// Provides authenticated encryption (confidentiality + integrity).
+// Features:
 //  * Key normalization to 16 bytes (AES-128)
-//  * Random IV generation (esp_random) returned as lowercase hex
-//  * PKCS#7 padding/unpadding
-//  * Hex encoding/decoding for ciphertext & IV (transport-friendly)
-//  * Simple Arduino String interface for ease of integration in small sketches
+//  * Random 12-byte nonce (96-bit) generation (hex, 24 chars)
+//  * GCM encrypt returns ciphertext + tag (16-byte/32-hex)
+//  * GCM decrypt verifies tag (empty string on failure)
+//  * Hex helpers reused for all binary fields
 //
-// Limitations / Notes:
-//  - No message authentication (consider HMAC or migrate to AES-GCM for integrity).
-//  - Uses dynamic allocations via std::vector (acceptable for small payload sizes).
-//  - hexToBytes silently ignores odd-length hex (returns empty vector implied error on caller path).
-//  - Not thread-safe (intended for single-task use typical in Arduino context).
+// Usage example:
+//    AESCrypto crypto("16charSecretKey");
+//    String nonce = AESCrypto::generateNonce();
+//    String cipherHex, tagHex;
+//    if (crypto.encrypt("{\"lux\":123}", nonce, cipherHex, tagHex)) {
+//        String plain = crypto.decrypt(cipherHex, nonce, tagHex);
+//    }
 //
-// Typical usage:
-//    AESCrypto crypto("16charSecretKey!");
-//    String iv  = AESCrypto::generateIV();
-//    String cph = crypto.encrypt("{\"doorOpen\":true}", iv);
-//    String plain = crypto.decrypt(cph, iv);
-//
-// Security recommendation:
-//    Pair with an authenticity layer if operating across untrusted networks.
+// Nonce policy:
+//  - Random 96-bit nonces are fine for low/medium volume IoT messages.
+//  - Never reuse (key, nonce) pair. If extreme volume: switch to counter-based scheme.
+// Limitations:
+//  - No AAD currently used; can be added by extending API.
+//  - Not thread-safe (typical Arduino single-core usage).
+//  - Returns false from encrypt / empty string from decrypt on failure.
 #pragma once
 
 #include <Arduino.h>
@@ -29,21 +31,19 @@ class AESCrypto {
 public:
 	explicit AESCrypto(const String &keyUtf8);
 
-	// Generate random 16-byte IV, returned as lower-case hex (32 chars)
-	static String generateIV();
+	// Generate random 12-byte nonce (returns 24-char hex string)
+	static String generateNonce();
 
-	// Encrypt plaintext (UTF-8) with given ivHex (32 hex chars). Returns hex ciphertext.
-	String encrypt(const String &plainUtf8, const String &ivHex);
+	// Encrypt plaintext with nonce (hex) -> outputs cipher & tag hex; returns true on success
+	bool encrypt(const String &plainUtf8, const String &nonceHex, String &cipherHexOut, String &tagHexOut);
 
-	// Decrypt hex ciphertext with given ivHex. Returns UTF-8 plaintext (empty on error).
-	String decrypt(const String &cipherHex, const String &ivHex);
+	// Decrypt using nonce & tag (hex). Returns plaintext or empty string on auth failure.
+	String decrypt(const String &cipherHex, const String &nonceHex, const String &tagHex);
 
 private:
 	std::vector<uint8_t> key_; // 16 bytes
 
 	static void hexToBytes(const String &hex, std::vector<uint8_t> &out);
 	static String bytesToHex(const uint8_t *buf, size_t len);
-	static void pkcs7Pad(std::vector<uint8_t> &data, size_t blockSize = 16);
-	static bool pkcs7Unpad(std::vector<uint8_t> &data, size_t blockSize = 16);
 };
 

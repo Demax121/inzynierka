@@ -191,13 +191,14 @@ void sendWebSocketData() {
   p["klimaON"] = klimaOn;
   p["manualOverride"] = manualOverride;
   String plain; serializeJson(p, plain);
-  String iv = AESCrypto::generateIV(); String cipher = crypto.encrypt(plain, iv);
+  String nonce = AESCrypto::generateNonce(); String cipherHex, tagHex; if(!crypto.encrypt(plain, nonce, cipherHex, tagHex)) return;
   StaticJsonDocument<320> env;
   env["identity"] = "air_conditioning";
   env["channel"] = "air_conditioning";
   env["device_api_key"] = device_api_key;
-  env["msgIV"] = iv;
-  env["payload"] = cipher;
+  env["nonce"] = nonce;
+  env["payload"] = cipherHex;
+  env["tag"] = tagHex;
   String out; serializeJson(env, out);
   webSocketClient.sendTXT(out);
   Serial.printf("[TX] AC %s\n", klimaOn ? "Włączone" : "Wyłączone");
@@ -254,11 +255,12 @@ void handleIncomingText(uint8_t* payload, size_t length) {
   String channel = doc["channel"] | "";
   if (channel != "air_conditioning") return;
 
-  // Encrypted payloads from server for both temperature push and commands
-  if (!doc.containsKey("msgIV") || !doc.containsKey("payload")) return;
-  String iv = doc["msgIV"].as<String>();
-  String cipher = doc["payload"].as<String>();
-  String plain = crypto.decrypt(cipher, iv);
+  // Encrypted payloads from server for both temperature push and commands (GCM)
+  if (!doc.containsKey("nonce") || !doc.containsKey("payload") || !doc.containsKey("tag")) return;
+  String nonce = doc["nonce"].as<String>();
+  String cipherHex = doc["payload"].as<String>();
+  String tagHex = doc["tag"].as<String>();
+  String plain = crypto.decrypt(cipherHex, nonce, tagHex);
   if (plain.length() == 0) return;
   StaticJsonDocument<256> body; if (deserializeJson(body, plain)) return;
 

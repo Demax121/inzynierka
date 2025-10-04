@@ -93,15 +93,16 @@ void sendWebSocketData() {
   StaticJsonDocument<128> p;
   p["doorOpen"] = doorOpen;
   String plain; serializeJson(p, plain);
-  String iv = AESCrypto::generateIV();
-  String cipher = crypto.encrypt(plain, iv);
-  
+  String nonce = AESCrypto::generateNonce();
+  String cipherHex, tagHex;
+  if (!crypto.encrypt(plain, nonce, cipherHex, tagHex)) return;
   StaticJsonDocument<256> env;
   env["identity"] = "main_door_sensor";
   env["channel"] = "door_sensor";
   env["device_api_key"] = device_api_key;
-  env["msgIV"] = iv;
-  env["payload"] = cipher;
+  env["nonce"] = nonce;
+  env["payload"] = cipherHex;
+  env["tag"] = tagHex;
   String out; serializeJson(env, out);
   webSocketClient.sendTXT(out);
 }

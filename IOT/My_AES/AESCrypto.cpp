@@ -1,25 +1,20 @@
-// Implementation of minimal AES-128-CBC helper tailored for ESP32 sketches.
-// Provides:
-//  * PKCS#7 padding
-//  * Hex encoding/decoding helpers (for IV and ciphertext transport)
-//  * Random IV generation using esp_random()
-//  * Simple String-based interface (adequate for small payloads typical in IoT telemetry)
+// AES-128-GCM implementation (replaces previous CBC version) for ESP32.
+// Features:
+//  * 12-byte random nonce (96-bit) per encryption
+//  * Authenticated encryption producing ciphertext + 16-byte tag
+//  * Hex encoding for nonce / ciphertext / tag
+//  * No padding needed (stream-like GCM)
+//  * Empty string returned on decrypt failure (auth/tag mismatch or malformed input)
 //
-// Security notes:
-//  - AES key is provided directly as UTF-8 string (truncated / padded to 16 bytes).
-//  - Random IV per message ensures semantic security (no IV reuse).
-//  - No authentication (MAC) included. For stronger guarantees against tampering,
-//    consider adding HMAC-SHA256 over (IV || ciphertext) or migrating to an AEAD mode
-//    (e.g., AES-GCM). Current usage assumes trusted LAN + server side validation.
-//  - hexToBytes() silently ignores malformed odd-length hex (returns empty result).
-//
-// Performance considerations:
-//  - Uses mbedtls AES implementation (hardware acceleration on ESP32 where available).
-//  - Temporary std::vector allocations are acceptable for small payloads; could be
-//    optimized with static buffers if needed.
+// Notes:
+//  - No Additional Authenticated Data (AAD) used presently; extend if context binding required.
+//  - Nonce collisions MUST be avoided for a given key; random 96-bit nonces are statistically safe
+//    for low-volume IoT traffic. For very high volume, adopt a monotonic counter-based nonce.
+//  - Uses mbedtls hardware acceleration when available on ESP32.
+//  - Key is normalized (truncate/pad) to 16 bytes.
 
 #include "AESCrypto.h"
-#include <mbedtls/aes.h>
+#include <mbedtls/gcm.h>
 #include <esp_random.h>
 
 // Convert a single hex character to its 4-bit value (0 on invalid char)
@@ -31,16 +26,14 @@ static inline uint8_t nybble(char c) {
 }
 
 AESCrypto::AESCrypto(const String &keyUtf8) {
-	// Normalize provided key to exactly 16 bytes (AES-128)
-	// Longer input => truncated; shorter => right-padded with zeros.
-	key_.assign(16, 0);
-	for (size_t i = 0; i < 16 && i < (size_t)keyUtf8.length(); ++i) key_[i] = (uint8_t)keyUtf8[i];
+    key_.assign(16, 0);
+    for (size_t i = 0; i < 16 && i < (size_t)keyUtf8.length(); ++i) key_[i] = (uint8_t)keyUtf8[i];
 }
 
-String AESCrypto::generateIV() {
-	uint8_t iv[16];
-	for (int i = 0; i < 16; ++i) iv[i] = (uint8_t)esp_random();
-	return bytesToHex(iv, 16);
+String AESCrypto::generateNonce() {
+    uint8_t n[12];
+    for (int i = 0; i < 12; ++i) n[i] = (uint8_t)esp_random();
+    return bytesToHex(n, 12);
 }
 
 void AESCrypto::hexToBytes(const String &hex, std::vector<uint8_t> &out) {
@@ -64,52 +57,53 @@ String AESCrypto::bytesToHex(const uint8_t *buf, size_t len) {
 	return s;
 }
 
-void AESCrypto::pkcs7Pad(std::vector<uint8_t> &data, size_t blockSize) {
-	size_t padLen = blockSize - (data.size() % blockSize);
-	if (padLen == 0) padLen = blockSize;
-	data.insert(data.end(), padLen, (uint8_t)padLen);
-}
+bool AESCrypto::encrypt(const String &plainUtf8, const String &nonceHex, String &cipherHexOut, String &tagHexOut) {
+	std::vector<uint8_t> nonce; hexToBytes(nonceHex, nonce);
+	if (nonce.size() != 12) return false;
 
-bool AESCrypto::pkcs7Unpad(std::vector<uint8_t> &data, size_t blockSize) {
-	if (data.empty() || data.size() % blockSize != 0) return false;
-	uint8_t padLen = data.back();
-	if (padLen == 0 || padLen > blockSize) return false;
-	if (padLen > data.size()) return false;
-	for (size_t i = 0; i < padLen; ++i) {
-		if (data[data.size() - 1 - i] != padLen) return false;
+	const uint8_t *keyPtr = key_.data();
+	const uint8_t *noncePtr = nonce.data();
+
+	std::vector<uint8_t> plain(plainUtf8.begin(), plainUtf8.end());
+	std::vector<uint8_t> cipher(plain.size());
+	std::vector<uint8_t> tag(16);
+
+	mbedtls_gcm_context gcm; mbedtls_gcm_init(&gcm);
+	if (mbedtls_gcm_setkey(&gcm, MBEDTLS_CIPHER_ID_AES, keyPtr, 128) != 0) {
+		mbedtls_gcm_free(&gcm); return false;
 	}
-	data.resize(data.size() - padLen);
+	int rc = mbedtls_gcm_crypt_and_tag(&gcm, MBEDTLS_GCM_ENCRYPT,
+									   plain.size(),
+									   noncePtr, 12,
+									   nullptr, 0,
+									   plain.data(), cipher.data(),
+									   tag.size(), tag.data());
+	mbedtls_gcm_free(&gcm);
+	if (rc != 0) return false;
+
+	cipherHexOut = bytesToHex(cipher.data(), cipher.size());
+	tagHexOut = bytesToHex(tag.data(), tag.size());
 	return true;
 }
 
-String AESCrypto::encrypt(const String &plainUtf8, const String &ivHex) {
-	std::vector<uint8_t> iv; hexToBytes(ivHex, iv);
-	if (iv.size() != 16) return String("");
-
-	std::vector<uint8_t> data(plainUtf8.begin(), plainUtf8.end());
-	pkcs7Pad(data, 16);
-
-	mbedtls_aes_context ctx; mbedtls_aes_init(&ctx);
-	mbedtls_aes_setkey_enc(&ctx, key_.data(), 128);
-	std::vector<uint8_t> out(data.size(), 0);
-	uint8_t ivBuf[16]; memcpy(ivBuf, iv.data(), 16);
-	mbedtls_aes_crypt_cbc(&ctx, MBEDTLS_AES_ENCRYPT, data.size(), ivBuf, data.data(), out.data());
-	mbedtls_aes_free(&ctx);
-	return bytesToHex(out.data(), out.size());
-}
-
-String AESCrypto::decrypt(const String &cipherHex, const String &ivHex) {
-	std::vector<uint8_t> iv; hexToBytes(ivHex, iv);
+String AESCrypto::decrypt(const String &cipherHex, const String &nonceHex, const String &tagHex) {
+	std::vector<uint8_t> nonce; hexToBytes(nonceHex, nonce);
 	std::vector<uint8_t> cipher; hexToBytes(cipherHex, cipher);
-	if (iv.size() != 16 || cipher.empty() || cipher.size() % 16 != 0) return String("");
+	std::vector<uint8_t> tag; hexToBytes(tagHex, tag);
+	if (nonce.size() != 12 || tag.size() != 16 || cipher.empty()) return String("");
 
-	mbedtls_aes_context ctx; mbedtls_aes_init(&ctx);
-	mbedtls_aes_setkey_dec(&ctx, key_.data(), 128);
-	std::vector<uint8_t> out(cipher.size(), 0);
-	uint8_t ivBuf[16]; memcpy(ivBuf, iv.data(), 16);
-	mbedtls_aes_crypt_cbc(&ctx, MBEDTLS_AES_DECRYPT, cipher.size(), ivBuf, cipher.data(), out.data());
-	mbedtls_aes_free(&ctx);
-	if (!pkcs7Unpad(out, 16)) return String("");
+	std::vector<uint8_t> out(cipher.size());
+	mbedtls_gcm_context gcm; mbedtls_gcm_init(&gcm);
+	if (mbedtls_gcm_setkey(&gcm, MBEDTLS_CIPHER_ID_AES, key_.data(), 128) != 0) {
+		mbedtls_gcm_free(&gcm); return String("");
+	}
+	int rc = mbedtls_gcm_auth_decrypt(&gcm, cipher.size(),
+									  nonce.data(), 12,
+									  nullptr, 0,
+									  tag.data(), tag.size(),
+									  cipher.data(), out.data());
+	mbedtls_gcm_free(&gcm);
+	if (rc != 0) return String("");
 	return String((const char*)out.data());
 }
 

@@ -11,7 +11,7 @@ The app uses Vite with Bun for dev scripts. Global SCSS via `@use "@/scss" as *;
 
 - Algorithm: AES-128-CBC, PKCS7 padding.
 - Key: per-device `device_encryption_key` (16 chars) stored only on server + device.
-- IV: 16 random bytes per message (hex as `msgIV`).
+- Nonce: 12 random bytes per message (hex as `nonce`) and 16-byte auth tag (`tag`).
 - Ciphertext: hex in `payload` field.
 - Frontend broadcasts remain plaintext; only device traffic is encrypted.
 
@@ -20,12 +20,13 @@ Envelope sent by a device:
 	"identity": "<device_name>",
 	"channel": "<channel>",
 	"device_api_key": "<apiKey>",
-	"msgIV": "<32-hex>",
+	"nonce": "<24-hex>",
+	"tag": "<32-hex>",
 	"payload": "<hex-cipher>" // decrypts to channel JSON
 }
 
-Server → device command (same structure, minus identity/device_api_key not strictly required but channel + msgIV + payload):
-{ "channel": "main_lights", "msgIV": "<32-hex>", "payload": "<hex-cipher>" }
+Server → device command (same structure, minus identity/device_api_key not strictly required but channel + nonce + tag + payload):
+{ "channel": "main_lights", "nonce": "<24-hex>", "tag": "<32-hex>", "payload": "<hex-cipher>" }
 
 ## Testing encrypted flow
 

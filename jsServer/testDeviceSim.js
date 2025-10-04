@@ -3,7 +3,7 @@
 // Example: bun run testDeviceSim.js main_lights kZ8UQmdrDar8 Vfyu3xT6e6yy79iE
 
 import WebSocket from 'ws';
-import * as CryptoJS from 'crypto-js';
+import { randomBytes, createCipheriv, createDecipheriv } from 'crypto';
 
 const [,, channel, apiKey, encKey] = process.argv;
 if (!channel || !apiKey || !encKey) {
@@ -27,10 +27,12 @@ const samplePayloads = {
 const payloadObj = samplePayloads[channel] || { test: true };
 
 function encrypt(obj) {
-  const iv = CryptoJS.lib.WordArray.random(16);
-  const keyWA = CryptoJS.enc.Utf8.parse(encKey.slice(0,16));
-  const cipher = CryptoJS.AES.encrypt(JSON.stringify(obj), keyWA, { iv, padding: CryptoJS.pad.Pkcs7, mode: CryptoJS.mode.CBC });
-  return { msgIV: CryptoJS.enc.Hex.stringify(iv), payload: cipher.ciphertext.toString(CryptoJS.enc.Hex) };
+  const nonce = randomBytes(12);
+  const keyBuf = Buffer.from(encKey.slice(0,16), 'utf8');
+  const cipher = createCipheriv('aes-128-gcm', keyBuf, nonce);
+  const enc = Buffer.concat([cipher.update(JSON.stringify(obj), 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return { nonce: nonce.toString('hex'), payload: enc.toString('hex'), tag: tag.toString('hex'), alg: 'AES-128-GCM' };
 }
 
 const wsUrl = process.env.SIM_WS || 'ws://localhost:3000';
@@ -43,7 +45,7 @@ ws.on('open', () => {
   setTimeout(() => {
     const enc = encrypt(payloadObj);
     ws.send(JSON.stringify({ identity: channel + '_sim', channel, device_api_key: apiKey, ...enc }));
-    console.log('Encrypted frame sent:', enc);
+    console.log('Encrypted frame sent (GCM):', enc);
   }, 500);
 });
 

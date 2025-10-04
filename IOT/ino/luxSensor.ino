@@ -88,14 +88,15 @@ void sendWebSocketData() {
   StaticJsonDocument<96> p;
   p["lux"] = lastLux;
   String plain; serializeJson(p, plain);
-  String iv = AESCrypto::generateIV();
-  String cipher = crypto.encrypt(plain, iv);
+  String nonce = AESCrypto::generateNonce();
+  String cipherHex, tagHex; if(!crypto.encrypt(plain, nonce, cipherHex, tagHex)) return;
   StaticJsonDocument<192> env;
   env["identity"] = "lux_sensor";
   env["channel"] = "lux_sensor";
   env["device_api_key"] = device_api_key;
-  env["msgIV"] = iv;
-  env["payload"] = cipher;
+  env["nonce"] = nonce;
+  env["payload"] = cipherHex;
+  env["tag"] = tagHex;
   String out; serializeJson(env, out);
   webSocket.sendTXT(out);
 }

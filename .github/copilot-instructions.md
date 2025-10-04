@@ -100,23 +100,25 @@ Scope
 - Device ↔ Server traffic is encrypted per device; frontend broadcasts remain plaintext.
 
 Envelope (device → server)
-{ identity, channel, device_api_key, msgIV, payload }
-- msgIV: 32‑hex (16-byte IV)
+{ identity, channel, device_api_key, nonce, payload, tag, alg }
+- nonce: 24‑hex (12-byte AES-GCM nonce)
 - payload: hex ciphertext of JSON body (channel-specific)
+- tag: 32-hex (16-byte authentication tag)
+- alg: 'AES-128-GCM'
 - Key: devices.device_encryption_key (exactly 16 chars used directly)
 
 Server flow
 1. On startup: fetch all {device_api_key, device_encryption_key} into Map.
 2. On `esp32_identification`: store {channel, device_api_key} on ws connection.
-3. When a device message arrives: decrypt using (key, msgIV) → apply logic → broadcast plaintext to frontends.
-4. When sending to a device: build JSON body, encrypt with device key + fresh IV, send {channel, msgIV, payload}.
+3. When a device message arrives: decrypt using (key, nonce, tag) → apply logic → broadcast plaintext to frontends.
+4. When sending to a device: build JSON body, encrypt with device key + fresh nonce, send {channel, nonce, payload, tag, alg}.
 
 Device flow
 1. Build JSON body (e.g., {doorOpen:true}).
 2. Generate IV (esp_random) → hex.
 3. AES-128-CBC encrypt with key.
 4. Send envelope.
-5. On inbound server command: decrypt using msgIV + key → act.
+5. On inbound server command: decrypt using nonce + tag + key → act.
 
 Testing (simulator)
 Use `jsServer/testDeviceSim.js`:
