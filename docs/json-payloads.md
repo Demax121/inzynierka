@@ -1,4 +1,4 @@
-# JSON payload reference
+# JSON payload reference {#json-payload-reference}
 
 This document captures the concrete JSON shapes used across ESP32 devices, Bun WebSocket server, Vue frontend, and PHP endpoints.
 
@@ -9,7 +9,7 @@ Encryption overview
 - Ciphertext: hex-encoded in `payload` field.
 - Frontend broadcasts remain plaintext JSON (unchanged).
 
-## WebSocket channels (device → server → frontend)
+## WebSocket channels (device → server → frontend) {#ws-channels}
 
 All ESP32-origin messages include:
 - Identification message (device → server):
@@ -22,7 +22,7 @@ All ESP32-origin messages include:
 - tag: string (32 hex chars: 16-byte auth tag)
 - payload: string (hex ciphertext of a UTF‑8 JSON object; see per-channel bodies below)
 
-### door_sensor
+### door_sensor {#channel-door-sensor}
 - Device → Server:
   {
     "identity": "main_door_sensor",
@@ -34,7 +34,7 @@ All ESP32-origin messages include:
   }
 - Server → Frontends: identical shape (broadcast)
 
-### room_stats
+### room_stats {#channel-room-stats}
 - Device → Server:
   {
     "identity": "room_stats_sensor",
@@ -49,7 +49,7 @@ All ESP32-origin messages include:
 - Server → ESP32 (air_conditioning devices):
   { "channel": "air_conditioning", "temperature": number }
 
-### lux_sensor
+### lux_sensor {#channel-lux-sensor}
 - Device → Server:
   {
     "identity": "lux_sensor",
@@ -62,7 +62,7 @@ All ESP32-origin messages include:
 - Server → Frontends:
   { "channel": "lux_sensor", "lux": number }
 
-### main_lights
+### main_lights {#channel-main-lights}
 - Frontend → Server (command):
   { "channel": "main_lights", "lightON": boolean }
 - Device → Server (status):
@@ -79,7 +79,7 @@ All ESP32-origin messages include:
 - Server → ESP32 (relay command):
   { "channel": "main_lights", "nonce": "<24-hex>", "tag": "<32-hex>", "payload": "<hex-cipher>" } // decrypts to { "lightON": boolean }
 
-### air_conditioning
+### air_conditioning {#channel-air-conditioning}
 - Device → Server (status):
   {
     "identity": "air_conditioning",
@@ -96,7 +96,7 @@ All ESP32-origin messages include:
 - Server → ESP32 (room temp from room_stats):
   { "channel": "air_conditioning", "nonce": "<24-hex>", "tag": "<32-hex>", "payload": "<hex-cipher>" } // decrypts to { "temperature": number }
 
-## PHP endpoints (request/response)
+## PHP endpoints (request/response) {#php-endpoints}
 
 Base: http://offline_backend_server_caddy_dyplom/<file>.php (inside Docker network). From frontend, use `linkStore.getPhpApiUrl(name)`.
 
@@ -147,7 +147,7 @@ Base: http://offline_backend_server_caddy_dyplom/<file>.php (inside Docker netwo
   Req: { "device_api_key": string }
   Res: { "success": true } | 404/500 with { "success": false, "error": string }
 
-## Frontend profile JSON (examples)
+## Frontend profile JSON (examples) {#frontend-profile-json-examples}
 
 Profiles (`profiles.profile_json`) drive multiple subsystems. Example rows from seed data:
 
@@ -167,7 +167,15 @@ Profiles (`profiles.profile_json`) drive multiple subsystems. Example rows from 
     "lights": { "channel": "main_lights", "payload": { "state": true } }
   }
 
-## Notes
+## Notes {#notes}
+
+### Device Simulation Quickstart {#device-simulation-quickstart}
+```
+cd jsServer
+bun run testDeviceSim.js door_sensor <device_api_key> <16charKey>
+```
+Channels supported: door_sensor, room_stats, lux_sensor, main_lights, air_conditioning.
+Integrity test: modify one hex nibble in `payload` → server drops frame silently.
 
 - Device ↔ Server messages now require `nonce`, `payload`, and `tag` per message (AES-128-GCM).
 - For ESP32-origin updates, always include `device_api_key`; the server uses it to decrypt and to update `last_seen`.
