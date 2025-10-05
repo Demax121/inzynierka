@@ -25,7 +25,7 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5173,
     allowedHosts: [
-      'website.simplysmart.duckdns.org',
+      'testserver.simplysmart.duckdns.org',
       'websocket.simplysmart.duckdns.org'
     ],
     /**
