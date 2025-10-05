@@ -46,7 +46,7 @@ String encryption_key = "J247J3LBDegpAUaU";   // 16-char AES key (keep secret)
 const unsigned int WEBSOCKET_RECONNECT_INTERVAL = 5000; // Library auto-reconnect interval (ms)
 const int LUX_THRESHOLD = 10;                            // Minimum change in lux to trigger transmission
 
-WebSocketsClient webSocket;              // WS client instance
+WebSocketsClient webSocketClient;              // WS client instance
 Adafruit_VEML7700 veml;                  // Ambient light sensor driver
 StaticJsonDocument<256> jsonPayload;     // Placeholder (envelope assembly not strictly needed here)
 
@@ -137,7 +137,7 @@ void setup() {
   updateJSONData(initialLux);
   lastLux = initialLux;
 
-  webSocket.begin(WEBSOCKET_SERVER.c_str(), WEBSOCKET_PORT);
+  webSocketClient.begin(WEBSOCKET_SERVER.c_str(), WEBSOCKET_PORT);
   webSocket.setReconnectInterval(WEBSOCKET_RECONNECT_INTERVAL);
   webSocket.onEvent([](WStype_t type, uint8_t *payload, size_t length) {
     if (type == WStype_CONNECTED) {
@@ -149,6 +149,20 @@ void setup() {
 
     lastWsConnected = millis();
   lastWsAttempt = millis();
+}
+
+// Watchdog: monitor stale connection & manually force reconnect
+void websocketWatchdog() {
+  if (webSocket.isConnected()) return;
+  unsigned long now = millis();
+  const unsigned long RETRY_EVERY = 5000;
+  if (now - lastWsConnected > WS_RECONNECT_TIMEOUT && now - lastWsAttempt > RETRY_EVERY) {
+    Serial.println("WebSocket nie odpowiada, restart połączenia...");
+    webSocket.disconnect();
+    delay(100);
+    webSocketClient.begin(WEBSOCKET_SERVER.c_str(), WEBSOCKET_PORT);
+    lastWsAttempt = now;
+  }
 }
 
 // Main loop: service WS, sample sensor, send if threshold crossed, watchdog reconnect
@@ -164,13 +178,5 @@ void loop() {
   }
 
     // Watchdog WebSocket
-  if (!webSocket.isConnected()) {
-    if (millis() - lastWsConnected > WS_RECONNECT_TIMEOUT && millis() - lastWsAttempt > 5000) {
-      Serial.println("WebSocket nie odpowiada, restart połączenia...");
-      webSocket.disconnect();
-      delay(100);
-  webSocket.begin(WEBSOCKET_SERVER.c_str(), WEBSOCKET_PORT);
-      lastWsAttempt = millis();
-    }
-  }
+  websocketWatchdog();
 }

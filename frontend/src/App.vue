@@ -6,9 +6,11 @@ import HomeTab from './components/Tabs/homeTab.vue'
 import ProfilesTab from './components/Tabs/profilesTab.vue'
 import WeatherTab from './components/Tabs/weatherTab.vue'
 import WledTab from './components/Tabs/wledTab.vue'
+import DoorStatusTab from './components/Tabs/doorStatusTab.vue'
+import RoomStatsTab from './components/Tabs/roomStatsTab.vue'
 
 const currentTab = ref('HomeTab');
-const Tabs = { HomeTab, WeatherTab, WledTab, ProfilesTab };
+const Tabs = { HomeTab, WeatherTab, WledTab, ProfilesTab, DoorStatusTab, RoomStatsTab };
 
 
 // this is comment

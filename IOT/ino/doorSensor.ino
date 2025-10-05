@@ -62,6 +62,9 @@ const unsigned long WS_RETRY_EVERY = 5000;        // Minimum delay between manua
 
 
 
+// ===================================================================
+//  3. Funkcje (Functions)
+// ===================================================================
 // FUNCTIONS BEGIN
 // Initialize state / JSON scaffolding (currently simple flag reset)
 void initializeJSON() { 
@@ -156,6 +159,20 @@ void setup() {
   lastWsAttempt = millis();
 }
 
+// Watchdog: monitor stale connection & manually force reconnect
+void websocketWatchdog() {
+  if (webSocketClient.isConnected()) return;
+  unsigned long now = millis();
+  if (now - lastWsConnected > WS_RECONNECT_TIMEOUT && now - lastWsAttempt > WS_RETRY_EVERY) {
+    Serial.println("WebSocket nie odpowiada, restart połączenia...");
+    webSocketClient.disconnect();
+    delay(100);
+    // upewnij się, że próbujemy na tym samym path jak na początku
+    webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
+    lastWsAttempt = now;
+  }
+}
+
 // Main loop: maintain WiFi, debounce switch, service WebSocket, watchdog reconnect
 void loop() {
   // Utrzymanie połączenia WiFi (nieblokujące)
@@ -183,14 +200,5 @@ void loop() {
   }
 
   // Watchdog WebSocket
-  if (!webSocketClient.isConnected()) {
-    if (millis() - lastWsConnected > WS_RECONNECT_TIMEOUT && millis() - lastWsAttempt > WS_RETRY_EVERY) {
-      Serial.println("WebSocket nie odpowiada, restart połączenia...");
-      webSocketClient.disconnect();
-      delay(100);
-      // upewnij się, że próbujemy na tym samym path jak na początku
-      webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
-      lastWsAttempt = millis();
-    }
-  }
+  websocketWatchdog();
 }

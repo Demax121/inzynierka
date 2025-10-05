@@ -48,11 +48,19 @@ Code style:
 #include <Adafruit_ILI9341.h>
 #include <SPI.h>
 #include <AESCrypto.h>
+#include <AESCrypto.h>
 
+// ===================================================================
+//  1. Piny / Podłączenie (Pins / Hardware mapping)
+// ===================================================================
 #define TFT_CS   5
 #define TFT_DC   21
 #define TFT_RST  22
 
+
+// ===================================================================
+//  2. Zmienne (Variables / Configuration & State)
+// ===================================================================
 const int buttonPin = 13;           // GPIO for manual override button
 bool BTNstate = false;              // (Unused residual variable; kept for future expansion)
 
@@ -161,6 +169,10 @@ void updateDisplay() {
 void initializeJSON() {
   // envelope created on send (currently no-op)
 }
+
+// ===================================================================
+//  3. Funkcje (Functions)
+// ===================================================================
 
 // Populate jsonPayload's payload object with current device state
 void updateJSONData() {
@@ -373,6 +385,20 @@ void setup() {
   webSocketClient.setReconnectInterval(RECONNECT_INTERVAL);
 }
 
+// Watchdog: monitor stale connection & manually force reconnect
+void websocketWatchdog() {
+  if (webSocketClient.isConnected()) return;
+  unsigned long now = millis();
+  const unsigned long RETRY_EVERY = 5000;
+  if (now - lastWsConnected > WS_RECONNECT_TIMEOUT && now - lastWsAttempt > RETRY_EVERY) {
+    Serial.println("WebSocket not responding, restarting connection...");
+    webSocketClient.disconnect();
+    delay(100);
+    webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
+    lastWsAttempt = now;
+  }
+}
+
 // Main loop: button handling, WebSocket service, reconnect watchdog
 void loop() {
   // Handle button at the beginning - independent of WebSocket
@@ -381,14 +407,6 @@ void loop() {
   // WebSocket loop - may block during reconnect
   webSocketClient.loop();
 
-  if (!webSocketClient.isConnected()) {
-    if (millis() - lastWsConnected > WS_RECONNECT_TIMEOUT && millis() - lastWsAttempt > 5000) {
-      Serial.println("WebSocket not responding, restarting connection...");
-      webSocketClient.disconnect();
-      delay(100);
-      webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
-      lastWsAttempt = millis();
-    }
-  }
+  websocketWatchdog();
 }
 

@@ -32,6 +32,12 @@
         <li class="navbar__item" role="none">
           <button class="navbar__link" role="menuitem" @click="selectTab('ProfilesTab')">Profiles</button>
         </li>
+                <li class="navbar__item" role="none">
+          <button class="navbar__link" role="menuitem" @click="selectTab('DoorStatusTab')">Door Status log</button>
+        </li>
+                <li class="navbar__item" role="none">
+          <button class="navbar__link" role="menuitem" @click="selectTab('RoomStatsTab')">Room statistics log</button>
+        </li>
       </ul>
     </div>
   </nav>
