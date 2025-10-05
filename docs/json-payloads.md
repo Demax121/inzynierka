@@ -98,7 +98,7 @@ All ESP32-origin messages include:
 
 ## PHP endpoints (request/response) {#php-endpoints}
 
-Base: http://offline_backend_server_caddy_dyplom/<file>.php (inside Docker network). From frontend, use `linkStore.getPhpApiUrl(name)`.
+Base: http://https_backend_server_caddy_dyplom/<file>.php (inside Docker network). From frontend, use `linkStore.getPhpApiUrl(name)`.
 
 - saveRoomStats.php (POST)
   Req: { "temperature": number, "humidity": number, "pressure": number }

@@ -48,6 +48,8 @@ Code style:
 #include <Adafruit_ILI9341.h>
 #include <SPI.h>
 #include <AESCrypto.h>
+#include <WiFiClientSecure.h>
+#include "certs.h" // for root CA if using wss://
 
 #define TFT_CS   5
 #define TFT_DC   21
@@ -58,10 +60,10 @@ bool BTNstate = false;              // (Unused residual variable; kept for futur
 
 Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_RST);
 
-WebSocketsClient webSocketClient;
-
-String WEBSOCKET_SERVER = "192.168.1.2";          // Backend WS host (LAN IP)
-const int   WEBSOCKET_PORT   = 8884;               // Backend WS port
+WebSocketsClient webSocketClient;          // WebSocket client instance (async event-driven)
+WiFiClientSecure clientSSL;  
+String WEBSOCKET_SERVER = "websocket.simplysmart.duckdns.org";// Backend Bun server (proxy endpoint)
+const int WEBSOCKET_PORT = 443;                       // WebSocket port
 const unsigned long RECONNECT_INTERVAL = 5000;     // Library auto reconnect interval (ms)
 String device_api_key = "NfzziMcV9Zyj";            // Device API key (server uses to map encryption key & update last_seen)
 String encryption_key = "KQAzhJmqigFdUyD6";       // 16-char AES key (AES-128)
@@ -71,7 +73,7 @@ bool manualOverride = false;        // If true, automatic hysteresis adjustments
 
 float currentTemp = 0.0;            // Last received ambient temperature (0 => not yet received)
 float requestedTemp = 25.0;         // Target temperature set by frontend
-const float HISTERAZA = 2.0;        // Hysteresis threshold (°C) before toggling cooling / heating
+const float HISTERAZA = 1.0;        // Hysteresis threshold (°C) before toggling cooling / heating
 String currentFunction = "";       // Display label: cooling / heating / idle
 
 AESCrypto crypto(encryption_key);   // AES helper instance (CBC mode with random IV)
@@ -356,7 +358,7 @@ void setup() {
 
   initializeJSON();
 
-  webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
+  webSocketClient.beginSSL(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
   lastWsConnected = millis();
   lastWsAttempt = millis();
   webSocketClient.onEvent([](WStype_t type, uint8_t* payload, size_t length) {
@@ -386,7 +388,7 @@ void loop() {
       Serial.println("WebSocket not responding, restarting connection...");
       webSocketClient.disconnect();
       delay(100);
-      webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
+      webSocketClient.beginSSL(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
       lastWsAttempt = millis();
     }
   }

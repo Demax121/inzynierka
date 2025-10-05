@@ -24,7 +24,7 @@
 
 ---
 ## 1. Executive Summary {#sec-1-executive-summary}
-This project implements a compact, offline‑capable smart home environment with authenticated encrypted device telemetry, real‑time UI updates, and configurable automation. A deliberately simple stack (PostgreSQL + thin PHP + Bun WebSocket + Vue 3 + ESP32 firmware) maximizes transparency and educational value while retaining production‑adjacent patterns (encryption, debouncing, modular stores, key rotation refresh, structured messages).
+This project implements a compact, HTTPS‑capable smart home environment with authenticated encrypted device telemetry, real‑time UI updates, and configurable automation. A deliberately simple stack (PostgreSQL + thin PHP + Bun WebSocket + Vue 3 + ESP32 firmware) maximizes transparency and educational value while retaining production‑adjacent patterns (encryption, debouncing, modular stores, key rotation refresh, structured messages).
 
 ## 2. Architectural Overview {#sec-2-architectural-overview}
 Layer | Responsibility | Key Tech

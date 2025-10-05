@@ -34,22 +34,25 @@ Potential improvements:
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>
 #include <AESCrypto.h>
+#include <WiFiClientSecure.h>
+#include "certs.h" // for root CA if using wss://
+
 // Configuration (GPIO assignments / network / thresholds)
 #define SDA_PIN 8
 #define SCL_PIN 9
 
-String WEBSOCKET_SERVER = "192.168.1.2";     // Backend WebSocket server IP
-const int WEBSOCKET_PORT = 8884;               // Port for WS server
+String WEBSOCKET_SERVER = "websocket.simplysmart.duckdns.org";// Backend Bun server (proxy endpoint)
+const int WEBSOCKET_PORT = 443;                       // WebSocket port
 String device_api_key = "9ekJU68REYTR";       // Device API key (maps to server devices table)
 String encryption_key = "J247J3LBDegpAUaU";   // 16-char AES key (keep secret)
 
 const unsigned int WEBSOCKET_RECONNECT_INTERVAL = 5000; // Library auto-reconnect interval (ms)
 const int LUX_THRESHOLD = 10;                            // Minimum change in lux to trigger transmission
 
-WebSocketsClient webSocket;              // WS client instance
+WebSocketsClient webSocketClient;          // WebSocket client instance (async event-driven)
 Adafruit_VEML7700 veml;                  // Ambient light sensor driver
 StaticJsonDocument<256> jsonPayload;     // Placeholder (envelope assembly not strictly needed here)
-
+WiFiClientSecure clientSSL;  
 AESCrypto crypto(encryption_key);        // AES helper for encrypt/decrypt
 
 // Watchdog state for manual reconnection strategy
@@ -79,12 +82,12 @@ void identifyDevice() {
   idDoc["device_api_key"] = device_api_key;
   String idMessage;
   serializeJson(idDoc, idMessage);
-  webSocket.sendTXT(idMessage);
+  webSocketClient.sendTXT(idMessage);
 }
 
 // Encrypt current lux value and transmit to server
 void sendWebSocketData() {
-  if (!webSocket.isConnected()) return;
+  if (!webSocketClient.isConnected()) return;
   StaticJsonDocument<96> p;
   p["lux"] = lastLux;
   String plain; serializeJson(p, plain);
@@ -98,7 +101,7 @@ void sendWebSocketData() {
   env["payload"] = cipherHex;
   env["tag"] = tagHex;
   String out; serializeJson(env, out);
-  webSocket.sendTXT(out);
+  webSocketClient.sendTXT(out);
 }
 
 // Handle inbound WS text frames (currently only plaintext 'ping')
@@ -137,9 +140,9 @@ void setup() {
   updateJSONData(initialLux);
   lastLux = initialLux;
 
-  webSocket.begin(WEBSOCKET_SERVER.c_str(), WEBSOCKET_PORT);
-  webSocket.setReconnectInterval(WEBSOCKET_RECONNECT_INTERVAL);
-  webSocket.onEvent([](WStype_t type, uint8_t *payload, size_t length) {
+  webSocketClient.begin(WEBSOCKET_SERVER.c_str(), WEBSOCKET_PORT);
+  webSocketClient.setReconnectInterval(WEBSOCKET_RECONNECT_INTERVAL);
+  webSocketClient.onEvent([](WStype_t type, uint8_t *payload, size_t length) {
     if (type == WStype_CONNECTED) {
       identifyDevice();
     } else if (type == WStype_TEXT) {
@@ -153,7 +156,7 @@ void setup() {
 
 // Main loop: service WS, sample sensor, send if threshold crossed, watchdog reconnect
 void loop() {
-  webSocket.loop();
+  webSocketClient.loop();
 
   int currentLux = sensorReady ? (int)veml.readLux() : -1;
 
@@ -164,12 +167,12 @@ void loop() {
   }
 
     // Watchdog WebSocket
-  if (!webSocket.isConnected()) {
+  if (!webSocketClient.isConnected()) {
     if (millis() - lastWsConnected > WS_RECONNECT_TIMEOUT && millis() - lastWsAttempt > 5000) {
       Serial.println("WebSocket nie odpowiada, restart połączenia...");
-      webSocket.disconnect();
+      webSocketClient.disconnect();
       delay(100);
-  webSocket.begin(WEBSOCKET_SERVER.c_str(), WEBSOCKET_PORT);
+  webSocketClient.beginSSL(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
       lastWsAttempt = millis();
     }
   }

@@ -12,6 +12,7 @@ node_modules/
 *.swp
 *.swo
 
+./IOT/My_WiFi/certs.h
 # OS files
 .DS_Store
 Thumbs.db
@@ -24,3 +25,13 @@ build/
 # Docker volumes
 postgres_data/
 pgadmin_data/
+
+nginx/data/letsencrypt/
+nginx/data/custom_ssl/
+nginx/data/logs/
+nginx/data/database/
+
+# certyfikaty prywatne
+*.key
+*.pem
+*.crt

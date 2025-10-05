@@ -17,8 +17,8 @@
 
 // NOTE: Plaintext credentials (development). For production, store in NVS or
 // load from a secure channel at runtime.
-const char* WIFI_SSID     = "PLAY_Swiatlowod_610C";
-const char* WIFI_PASSWORD = "HQj1@59PUaaz";
+const char* WIFI_SSID     = "";
+const char* WIFI_PASSWORD = "";
 
 void MyWiFi::connect() {
     WiFi.mode(WIFI_STA);                 // Station mode only (no AP)
@@ -35,6 +35,7 @@ void MyWiFi::connect() {
     Serial.println();
     if (WiFi.status() == WL_CONNECTED) {
         Serial.println("Połączono z WiFi!");
+        delay(1000); // Allow some time for stable connection
         Serial.print("Adres IP: "); Serial.println(WiFi.localIP());
         Serial.print("MAC: ");     Serial.println(WiFi.macAddress());
     } else {

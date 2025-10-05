@@ -1,7 +1,7 @@
 # Dokumentacja Projektu Inżynierskiego (Wersja Skrócona – PL) {#pl-readme-skrocona}
 
 ## 1. Przegląd {#pl-readme-sec-1-przeglad}
-Projekt to offline‑zdolny system sterowania i telemetryczny dla inteligentnego pomieszczenia:
+Projekt to system sterowania i telemetryczny z obsługą HTTPS dla inteligentnego pomieszczenia:
 - PostgreSQL – trwałość danych, statystyki, konfiguracje
 - PHP (Caddy + PHP-FPM) – cienkie endpointy JSON
 - Serwer WebSocket (Bun) – szyfrowana komunikacja urządzeń (ESP32 ↔ serwer)

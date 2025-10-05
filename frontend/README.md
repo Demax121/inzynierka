@@ -1,6 +1,6 @@
-# Offline smart‑home frontend (Vue 3 + Vite) {#frontend-readme-root}
+# HTTPS smart‑home frontend (Vue 3 + Vite) {#frontend-readme-root}
 
-This frontend is part of the offline stack (Vue 3 + Vite + Pinia). For repo-wide guidance tailored to AI coding agents and contributors, see:
+This frontend is part of the HTTPS-enabled stack (Vue 3 + Vite + Pinia). For repo-wide guidance tailored to AI coding agents and contributors, see:
 
 - `.github/copilot-instructions.md` — architecture, workflows, conventions
 - `docs/json-payloads.md` — full JSON layouts for WS channels, profiles, and PHP endpoints

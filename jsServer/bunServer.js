@@ -3,7 +3,7 @@ import fetch from "node-fetch"; // HTTP requests to PHP backend
 import { randomBytes, createCipheriv, createDecipheriv } from 'crypto'; // Node crypto for AES-128-GCM
 
 // Backend PHP base URL (internal Docker network). Can be overridden with BACKEND_INTERNAL_URL env var.
-const database_url = process.env.BACKEND_INTERNAL_URL || "http://offline_backend_server_caddy_dyplom/"; // fallback to service name
+const database_url = process.env.BACKEND_INTERNAL_URL || "http://https_backend_server_caddy_dyplom/"; // fallback to service name (updated from offline_ to https_)
 const encryptionKeyMap = new Map(); // api_key -> encryption_key
 
 

@@ -36,9 +36,11 @@ Potential improvements:
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>
 #include <AESCrypto.h>
+#include <WiFiClientSecure.h>
+#include "certs.h" // for root CA if using wss://
 
-WebSocketsClient webSocketClient;
-
+WebSocketsClient webSocketClient;          // WebSocket client instance (async event-driven)
+WiFiClientSecure clientSSL;  
 const int RELAY_PIN = 27;                  // Relay control GPIO (channel 1)
 const int TOUCH_BUTTON_PIN = 22;           // Capacitive touch / digital input
 const int RELAY_ACTIVE_LEVEL = LOW;        // Module triggers on LOW (adjust if different board)
@@ -51,8 +53,8 @@ int lastButtonState = LOW;                 // Last sampled raw reading
 int buttonState = LOW;                     // Debounced stable state
 unsigned int lastButtonChangeMs = 0;       // Timestamp of last edge (for debounce timing)
 
-String WEBSOCKET_SERVER = "192.168.1.2";          // Backend WS server
-const int WEBSOCKET_PORT = 8884;                    // WS port
+String WEBSOCKET_SERVER = "websocket.simplysmart.duckdns.org";// Backend Bun server (proxy endpoint)
+const int WEBSOCKET_PORT = 443;                       // WebSocket port
 const unsigned int WEBSOCKET_RECONNECT_INTERVAL = 5000; // Library-managed reconnect interval
 String device_api_key = "kZ8UQmdrDar8";            // Device API key (maps to devices table / encryption key)
 String encryption_key = "Vfyu3xT6e6yy79iE";       // 16-char AES key
@@ -151,7 +153,7 @@ void setup() {
   initializeJSON();
   setRelay(false);
   MyWiFi::connect();
-  webSocketClient.begin(WEBSOCKET_SERVER.c_str(), WEBSOCKET_PORT, "/");
+  webSocketClient.beginSSL(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
   webSocketClient.onEvent([](WStype_t type, uint8_t* payload, size_t length) {
     if (type == WStype_CONNECTED) {
       lastWsConnected = millis(); // aktualizuj czas połączenia
@@ -201,7 +203,7 @@ void loop() {
       Serial.println("WebSocket nie odpowiada, restart połączenia...");
       webSocketClient.disconnect();
       delay(100);
-  webSocketClient.begin(WEBSOCKET_SERVER.c_str(), WEBSOCKET_PORT, "/");
+  webSocketClient.beginSSL(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
       lastWsAttempt = millis();
     }
   }

@@ -1,9 +1,9 @@
 # AI agent guide for this repo
 
-This stack runs offline in Docker: PostgreSQL + pgAdmin, PHP (via Caddy) for JSON endpoints, a Bun WebSocket server for realtime, and a Vite + Vue 3 frontend.
+This stack runs in Docker behind HTTPS (via reverse proxy): PostgreSQL + pgAdmin, PHP (via Caddy) for JSON endpoints, a Bun WebSocket server for realtime, and a Vite + Vue 3 frontend.
 
 ## Key structure
-- docker-compose.yml — service names are used as internal DNS (e.g., offline_backend_server_caddy_dyplom)
+- docker-compose.yml — service names are used as internal DNS (e.g., https_backend_server_caddy_dyplom)
 - backend/
   - Caddyfile — serves /var/www/php with CORS
   - php/*.php — thin JSON endpoints (GET for reads, POST for writes)
@@ -17,7 +17,7 @@ This stack runs offline in Docker: PostgreSQL + pgAdmin, PHP (via Caddy) for JSO
 ## How services talk
 - Frontend ↔ Bun WS: WebSocket at VITE_WS_URL_PREFIX
 - ESP32 ↔ Bun WS: identify with {type:"esp32_identification", channel}
-- Bun WS → PHP: HTTP to http://offline_backend_server_caddy_dyplom/<file>.php
+- Bun WS → PHP: HTTP to http://https_backend_server_caddy_dyplom/<file>.php
 - PHP → PostgreSQL: PDO using config.php constants
 
 ## WebSocket channels (shapes from bunServer.js)
@@ -78,7 +78,7 @@ See also: docs/json-payloads.md for complete JSON layouts (WS messages, profile 
   - Point to exact paths: e.g., `jsServer/bunServer.js`, `backend/php/saveBlindsConfig.php`, specific Vue components/stores.
   - Include WS/PHP JSON shapes explicitly (channel names, payload keys, status codes).
   - Acceptance criteria: UI state, WS broadcasts, DB rows, and error handling behavior.
-  - Constraints: follow CORS/headers + PDO prepared statements; use `linkStore.getPhpApiUrl(name)`; use service DNS from docker-compose (e.g., `offline_backend_server_caddy_dyplom`).
+  - Constraints: follow CORS/headers + PDO prepared statements; use `linkStore.getPhpApiUrl(name)`; use service DNS from docker-compose (e.g., `https_backend_server_caddy_dyplom`).
 
 - Repo-specific prompt templates
   1) Add a WebSocket channel end-to-end

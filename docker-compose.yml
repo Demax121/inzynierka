@@ -1,6 +1,6 @@
 services:
-  offline_postgres_dyplom:
-    container_name: offline_postgres_dyplom
+  https_postgres_dyplom:
+    container_name: https_postgres_dyplom
     build:
       context: ./postgreSQL
       dockerfile: postgresDB.Dockerfile
@@ -12,10 +12,9 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgreSQL/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    networks:
-      - offline_dyplom_network
-  offline_pgadmin_dyplom:
-    container_name: offline_pgadmin_dyplom
+
+  https_pgadmin_dyplom:
+    container_name: https_pgadmin_dyplom
     build:
       context: ./postgreSQL
       dockerfile: pgAdmin.Dockerfile
@@ -24,15 +23,12 @@ services:
         PGADMIN_PASSWORD: ${PGADMIN_PASSWORD}
     restart: unless-stopped
     depends_on:
-      - offline_postgres_dyplom
-    ports:
-      - ${PGADMIN_PORT_EX}:${PGADMIN_PORT_NATIVE}
+      - https_postgres_dyplom
     volumes:
       - pgadmin_data:/var/lib/pgadmin
-    networks:
-      - offline_dyplom_network
-  offline_frontend_dyplom:
-    container_name: offline_frontend_dyplom
+
+  https_frontend_dyplom:
+    container_name: https_frontend_dyplom
     build:
       context: ./frontend
       dockerfile: frontend.Dockerfile
@@ -41,9 +37,7 @@ services:
         HOST_REFERENCE: ${HOST_REFERENCE}
     restart: unless-stopped
     depends_on:
-      - offline_backend_server_caddy_dyplom
-    ports:
-      - ${FRONTEND_PORT_EX}:${FRONTEND_PORT_NATIVE}
+      - https_backend_server_caddy_dyplom
     volumes:
       - ./frontend:/app
       - node_modules_cache:/app/node_modules
@@ -51,10 +45,9 @@ services:
       VITE_BACKEND_URL_PREFIX: ${VITE_BACKEND_URL_PREFIX}
       VITE_WS_URL_PREFIX: ${VITE_WS_URL_PREFIX}
       VITE_WLED_URL_PREFIX: ${VITE_WLED_URL_PREFIX}
-    networks:
-      - offline_dyplom_network
-  offline_php_dyplom:
-    container_name: offline_php_dyplom
+
+  https_php_dyplom:
+    container_name: https_php_dyplom
     build:
       context: ./backend
       dockerfile: php-manager.Dockerfile
@@ -73,37 +66,53 @@ services:
       TUYA_API_ENDPOINT: ${TUYA_API_ENDPOINT}
     restart: unless-stopped
     depends_on:
-      - offline_postgres_dyplom
+      - https_postgres_dyplom
     volumes:
       - ./backend/php:/var/www/php
-    networks:
-      - offline_dyplom_network
-  offline_backend_server_caddy_dyplom:
-    container_name: offline_backend_server_caddy_dyplom
+
+  https_backend_server_caddy_dyplom:
+    container_name: https_backend_server_caddy_dyplom
     build:
       context: ./backend
       dockerfile: caddy-server.Dockerfile
     restart: unless-stopped
     depends_on:
-      - offline_php_dyplom
-    ports:
-      - ${BACKEND_CADDY_PORT_EX}:${BACKEND_CADDY_PORT_NATIVE}
+      - https_php_dyplom
     volumes:
       - ./backend/php:/var/www/php
-    networks:
-      - offline_dyplom_network
-  offline_bun_api_dyplom:
-    container_name: offline_bun_api_dyplom
+
+  https_bun_api_dyplom:
+    container_name: https_bun_api_dyplom
     build:
       context: ./jsServer
       dockerfile: bun-api.Dockerfile
     restart: unless-stopped
-    ports:
-      - ${BUN_API_PORT_EX}:${BUN_API_PORT_NATIVE}
     volumes:
       - ./jsServer:/app
-    networks:
-      - offline_dyplom_network
+
+  # Nginx Proxy Manager for HTTPS reverse proxy & SSL certificate management
+  https_nginx_proxy_manager:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: https_nginx_proxy_manager
+    restart: unless-stopped
+    ports:
+      - '80:80'      # HTTP
+      - '81:81'      # Admin UI
+      - '443:443'    # HTTPS
+    volumes:
+      - ./nginx/data:/data
+      - ./nginx/letsencrypt:/etc/letsencrypt
+    depends_on:
+      - https_backend_server_caddy_dyplom
+      - https_frontend_dyplom
+
+  caddy-simple-server:
+    image: caddy:latest
+    container_name: caddy-simple-server
+    volumes:
+      - ./website/dist:/usr/share/caddy
+    command: caddy file-server --root /usr/share/caddy --listen :80
+
 
 volumes:
   postgres_data: null
@@ -111,5 +120,6 @@ volumes:
   node_modules_cache: null
 
 networks:
-  offline_dyplom_network:
-    driver: bridge
+  default:
+    external: true
+    name: https_dyplom_network

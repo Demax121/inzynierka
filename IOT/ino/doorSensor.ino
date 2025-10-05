@@ -36,13 +36,16 @@ Possible improvements (future):
 #include <Arduino.h>
 #include <esp_random.h>
 #include <AESCrypto.h>
+#include <WiFiClientSecure.h>
+#include "certs.h" // for root CA if using wss://
 
 // Network & encryption configuration
-String WEBSOCKET_SERVER = "192.168.1.2";              // Backend Bun server (LAN IP)
-const int WEBSOCKET_PORT = 8884;                       // WebSocket port
+String WEBSOCKET_SERVER = "websocket.simplysmart.duckdns.org";// Backend Bun server (proxy endpoint)
+const int WEBSOCKET_PORT = 443;                       // WebSocket port
 const unsigned long WEBSOCKET_RECONNECT_INTERVAL = 5000; // Library-managed reconnect interval (ms)
 String device_api_key = "akr3ZPYDU5rM";                // Device API key (identifies row in devices table)
-String encryption_key = "2zBxk8uBiQd7p32T";           // 16-char AES-128 key (DO NOT SHARE)
+String encryption_key = "2zBxk8uBiQd7p32T";         // 16-byte AES-128 key (must be kept secret)
+WiFiClientSecure clientSSL;        
 
 // Hardware input & debounce
 const int BUTTON_PIN = 21;                 // Door switch input (with internal pull-up)
@@ -133,12 +136,13 @@ void setup() {
   
   MyWiFi::connect();
   // dalsze próby łączenia obsłuży MyWiFi::loop() w pętli głównej
+  clientSSL.setCACert(root_ca);
 
   pinMode(BUTTON_PIN, INPUT_PULLUP);
   initializeJSON();
   lastButtonState = digitalRead(BUTTON_PIN);
   updateJSONData(lastButtonState);
-  webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
+  webSocketClient.beginSSL(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
   webSocketClient.onEvent([](WStype_t type, uint8_t* payload, size_t length) {
     if (type == WStype_CONNECTED) {
       lastWsConnected = millis(); // aktualizuj czas połączenia
@@ -189,7 +193,7 @@ void loop() {
       webSocketClient.disconnect();
       delay(100);
       // upewnij się, że próbujemy na tym samym path jak na początku
-      webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
+      webSocketClient.beginSSL(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
       lastWsAttempt = millis();
     }
   }

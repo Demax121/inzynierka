@@ -1,7 +1,7 @@
 # Engineering Project Documentation {#root-engineering-project-documentation}
 
 ## 1. Overview {#root-sec-1-overview}
-This project is an offline-capable smart home control & telemetry stack composed of:
+This project is an HTTPS-ready smart home control & telemetry stack composed of:
 - PostgreSQL database (state, telemetry, configuration)
 - PHP (Caddy + PHP-FPM) thin JSON endpoints
 - Bun WebSocket server for real-time encrypted device ↔ server messaging

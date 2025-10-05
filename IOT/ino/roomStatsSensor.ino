@@ -39,9 +39,11 @@ Possible improvements:
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>
 #include <AESCrypto.h>
+#include <WiFiClientSecure.h>
+#include "certs.h" // for root CA if using wss://
 
-String WEBSOCKET_SERVER = "192.168.1.2";          // Backend WS server address
-const int WEBSOCKET_PORT = 8884;                    // WS port
+String WEBSOCKET_SERVER = "websocket.simplysmart.duckdns.org";// Backend Bun server (proxy endpoint)
+const int WEBSOCKET_PORT = 443;                       // WebSocket port
 const unsigned int WEBSOCKET_RECONNECT_INTERVAL = 5000; // Library auto reconnect interval (ms)
 String device_api_key = "b3odiEjCNSf7";            // Device API key (maps to server devices table)
 String encryption_key = "xuCmb33pFJgJAwR5";       // 16-char AES key (keep secret)
@@ -59,9 +61,9 @@ unsigned long lastWsAttempt = 0;                // Last manual reconnect attempt
 const unsigned long WS_RECONNECT_TIMEOUT = 15000; // Stale threshold forcing reconnect
 
 Adafruit_BME280 bme;
-WebSocketsClient webSocketClient;
+WebSocketsClient webSocketClient;          // WebSocket client instance (async event-driven)
 StaticJsonDocument<256> jsonPayload;           // Placeholder envelope (payload built on demand)
-
+WiFiClientSecure clientSSL;  
 // Tylko jedna zmienna do śledzenia ostatniej temperatury jako float
 float lastTemperature = -100.0;                 // Sentinel initial value (unlikely real temp)
 
@@ -119,7 +121,7 @@ void setup() {
   lastTemperature = (float)bme.readTemperature();
   updateJSONData();
   
-  webSocketClient.begin(WEBSOCKET_SERVER.c_str(), WEBSOCKET_PORT);
+  webSocketClient.beginSSL(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
   webSocketClient.onEvent([](WStype_t type, uint8_t* payload, size_t length) {
     if (type == WStype_CONNECTED) {
       lastWsConnected = millis(); // aktualizuj czas połączenia
@@ -164,7 +166,7 @@ void loop() {
       Serial.println("WebSocket nie odpowiada, restart połączenia...");
       webSocketClient.disconnect();
       delay(100);
-  webSocketClient.begin(WEBSOCKET_SERVER.c_str(), WEBSOCKET_PORT);
+  webSocketClient.beginSSL(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
       lastWsAttempt = millis();
     }
   }
