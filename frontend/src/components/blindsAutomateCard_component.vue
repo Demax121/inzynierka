@@ -102,6 +102,7 @@
 */
 
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { useWsStore } from '@/stores/wsStore'
 import { useLinkStore } from '@/stores/linkStore'
 import { useAutomateStore } from '@/stores/automateStore'
 
@@ -111,6 +112,7 @@ const loading = ref(false)                   // Network action state
 const lastAutomateChange = ref(Date.now())   // Timestamp of last auto decision
 const AUTOMATE_DEBOUNCE = 2000               // ms debounce to avoid rapid toggles
 let ws                                        // WebSocket reference
+const wsStore = useWsStore()
 
 /* Stores */
 const linkStore = useLinkStore()
@@ -265,7 +267,7 @@ const handleLuxAutomation = (luxValue) => {
 onMounted(() => {
   getConfig()
 
-  ws = new WebSocket(import.meta.env.VITE_WS_URL_PREFIX)
+  ws = new WebSocket(wsStore.wsUrl)
   ws.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data)

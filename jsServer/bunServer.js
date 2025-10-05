@@ -2,7 +2,8 @@ import { WebSocketServer } from "ws";
 import fetch from "node-fetch"; // HTTP requests to PHP backend
 import { randomBytes, createCipheriv, createDecipheriv } from 'crypto'; // Node crypto for AES-128-GCM
 
-const database_url = "http://offline_backend_server_caddy_dyplom/"; // Updated to use Docker service name
+// Backend PHP base URL (internal Docker network). Can be overridden with BACKEND_INTERNAL_URL env var.
+const database_url = process.env.BACKEND_INTERNAL_URL || "http://offline_backend_server_caddy_dyplom/"; // fallback to service name
 const encryptionKeyMap = new Map(); // api_key -> encryption_key
 
 

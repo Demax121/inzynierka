@@ -6,12 +6,22 @@
  */
 import { defineStore } from 'pinia';
 
+function resolveEnv(name) {
+  const injected = typeof window !== 'undefined' && window.__APP_CFG && window.__APP_CFG[name];
+  const envVal = import.meta.env[name];
+  const finalVal = injected || envVal;
+  if (!finalVal) {
+    console.warn(`[linkStore] Missing env var ${name} and no window.__APP_CFG override provided`);
+  }
+  return finalVal;
+}
+
 export const useLinkStore = defineStore('linkStore', {
   // State: Holds the base URLs for different services
   state: () => ({
     links: {
-      databaseApi: import.meta.env.VITE_BACKEND_URL_PREFIX,  // Base URL for PHP API endpoints
-      wledIP: import.meta.env.VITE_WLED_URL_PREFIX,          // WLED device IP
+      databaseApi: resolveEnv('VITE_BACKEND_URL_PREFIX'),  // Base URL for PHP API endpoints
+      wledIP: resolveEnv('VITE_WLED_URL_PREFIX'),          // WLED device IP
     },
     // WLED state variables
     wledPresets: [],

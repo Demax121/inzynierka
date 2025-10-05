@@ -169,6 +169,24 @@ VITE_BACKEND_URL_PREFIX=http://localhost:8883/
 VITE_WLED_URL_PREFIX=http://<wled-ip>
 ```
 
+### Unified Environment Configuration {#root-unified-env}
+A single root `.env` file now drives:
+- Docker Compose service build args & exposed ports
+- PHP backend (via `backend/php/config.php` which reads DB + Tuya credentials from environment)
+- Bun WebSocket server internal PHP calls (`BACKEND_INTERNAL_URL`)
+- Frontend runtime variables (`VITE_*` consumed by Vite)
+
+See `.env.example` for a complete template including:
+- Database / PgAdmin (`POSTGRES_*`, `PGADMIN_*`)
+- Ports (`*_PORT_EX`, `*_PORT_NATIVE`)
+- Frontend dev server (`PORT_REFERENCE`, `HOST_REFERENCE`)
+- Runtime Vite vars (`VITE_BACKEND_URL_PREFIX`, `VITE_WS_URL_PREFIX`, `VITE_WLED_URL_PREFIX`)
+- Internal service URL (`BACKEND_INTERNAL_URL` for server-to-server HTTP inside the Docker network)
+- Tuya credentials (`TUYA_CLIENT_ID`, `TUYA_CLIENT_SECRET`, `TUYA_DEVICE_ID`, `TUYA_API_ENDPOINT`)
+- Simulator override (`SIM_WS`)
+
+Secrets (Tuya credentials, DB password) should be rotated and never committed with production values—use deployment-specific `.env` managed via secrets tooling (Vault, Docker swarm secrets, etc.).
+
 ### Run (Docker) {#root-run-docker}
 ```
 docker compose up -d

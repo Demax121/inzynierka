@@ -5,9 +5,9 @@ services:
       context: ./postgreSQL
       dockerfile: postgresDB.Dockerfile
       args:
-        DB_USER: ${POSTGRES_USER}
-        DB_PASSWORD: ${POSTGRES_PASSWORD}
-        DB_NAME: ${POSTGRES_DB}
+        DB_USER: ${DB_USER}
+        DB_PASSWORD: ${DB_PASS}
+        DB_NAME: ${DB_NAME}
     restart: unless-stopped
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -47,6 +47,10 @@ services:
     volumes:
       - ./frontend:/app
       - node_modules_cache:/app/node_modules
+    environment:
+      VITE_BACKEND_URL_PREFIX: ${VITE_BACKEND_URL_PREFIX}
+      VITE_WS_URL_PREFIX: ${VITE_WS_URL_PREFIX}
+      VITE_WLED_URL_PREFIX: ${VITE_WLED_URL_PREFIX}
     networks:
       - offline_dyplom_network
   offline_php_dyplom:
@@ -55,9 +59,18 @@ services:
       context: ./backend
       dockerfile: php-manager.Dockerfile
       args:
-        POSTGRES_USER: ${POSTGRES_USER}
-        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-        POSTGRES_DB: ${POSTGRES_DB}
+        POSTGRES_USER: ${DB_USER}
+        POSTGRES_PASSWORD: ${DB_PASS}
+        POSTGRES_DB: ${DB_NAME}
+    environment:
+      DB_HOST: ${DB_HOST}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+      TUYA_CLIENT_ID: ${TUYA_CLIENT_ID}
+      TUYA_CLIENT_SECRET: ${TUYA_CLIENT_SECRET}
+      TUYA_DEVICE_ID: ${TUYA_DEVICE_ID}
+      TUYA_API_ENDPOINT: ${TUYA_API_ENDPOINT}
     restart: unless-stopped
     depends_on:
       - offline_postgres_dyplom

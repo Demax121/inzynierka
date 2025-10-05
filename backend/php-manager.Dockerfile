@@ -3,6 +3,7 @@ FROM php:8.2-fpm
 ARG POSTGRES_USER
 ARG POSTGRES_PASSWORD
 ARG POSTGRES_DB
+# These ARGs map from unified DB_* variables in docker-compose (passed as POSTGRES_* here for consistency with upstream env names)
 
 ENV POSTGRES_USER=$POSTGRES_USER
 ENV POSTGRES_PASSWORD=$POSTGRES_PASSWORD
