@@ -30,6 +30,9 @@ Possible improvements (future):
   - Tamper detection (rapid state toggling) -> alert
   - Heartbeat every N minutes even if unchanged
 */
+// ===================================================================
+//  Includes
+// ===================================================================
 #include <MyWiFi.h>
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>
@@ -39,33 +42,43 @@ Possible improvements (future):
 #include <WiFiClientSecure.h>
 #include "certs.h" // for root CA if using wss://
 
-// Network & encryption configuration
-String WEBSOCKET_SERVER = "websocket.simplysmart.duckdns.org";// Backend Bun server (proxy endpoint)
-const int WEBSOCKET_PORT = 443;                       // WebSocket port
-const unsigned long WEBSOCKET_RECONNECT_INTERVAL = 5000; // Library-managed reconnect interval (ms)
-String device_api_key = "akr3ZPYDU5rM";                // Device API key (identifies row in devices table)
-String encryption_key = "2zBxk8uBiQd7p32T";         // 16-byte AES-128 key (must be kept secret)
-WiFiClientSecure clientSSL;        
+// ===================================================================
+//  1. Piny / Podłączenie (Pins & Hardware)
+// ===================================================================
+const int BUTTON_PIN = 21;                 // Door switch input (internal pull-up)
 
-// Hardware input & debounce
-const int BUTTON_PIN = 21;                 // Door switch input (with internal pull-up)
-int lastButtonState = HIGH;                // Last stable sampled state
-const unsigned long DEBOUNCE_MS = 30;      // Debounce threshold (ms)
-unsigned long lastChangeTime = 0;          // Timestamp when a potential state change was first observed
+// ===================================================================
+//  2. Zmienne (Variables / Configuration & State)
+// ===================================================================
+// Network & encryption
+String WEBSOCKET_SERVER = "websocket.simplysmart.duckdns.org"; // Backend server
+const int WEBSOCKET_PORT = 443;                 // WebSocket port
+const unsigned long WEBSOCKET_RECONNECT_INTERVAL = 5000; // Library auto reconnect (ms)
+const unsigned long WS_RECONNECT_TIMEOUT = 15000;        // Stale threshold
+const unsigned long WS_RETRY_EVERY = 5000;               // Manual retry interval
+String device_api_key = "akr3ZPYDU5rM";                  // Device API key
+String encryption_key = "2zBxk8uBiQd7p32T";             // 16-byte AES key
 
-WebSocketsClient webSocketClient;          // WebSocket client instance (async event-driven)
-bool doorOpen = false;                     // Logical state of the door (true => open)
-AESCrypto crypto(encryption_key);          // AES encrypt/decrypt helper
+// Debounce
+int lastButtonState = HIGH;                 // Last stable state
+const unsigned long DEBOUNCE_MS = 30;       // Debounce threshold
+unsigned long lastChangeTime = 0;           // Potential change start timestamp
 
-// WebSocket watchdog (additional layer beyond library auto reconnect)
-unsigned long lastWsConnected = 0;         // Time of last successful connection event
-unsigned long lastWsAttempt = 0;           // Time of last forced reconnect attempt
-const unsigned long WS_RECONNECT_TIMEOUT = 15000; // If disconnected this long -> escalate
-const unsigned long WS_RETRY_EVERY = 5000;        // Minimum delay between manual reconnect attempts
+// Runtime state
+bool doorOpen = false;                      // Logical door state
 
+// WS / crypto objects
+WebSocketsClient webSocketClient;           // WS client
+WiFiClientSecure clientSSL;                 // TLS client
+AESCrypto crypto(encryption_key);           // AES helper
 
+// Watchdog timing
+unsigned long lastWsConnected = 0;          // Last connect event
+unsigned long lastWsAttempt = 0;            // Last manual attempt
 
-// FUNCTIONS BEGIN
+// ===================================================================
+//  3. Funkcje (Functions)
+// ===================================================================
 // Initialize state / JSON scaffolding (currently simple flag reset)
 void initializeJSON() { 
   doorOpen = false; // explicit init
@@ -128,7 +141,18 @@ void handleIncomingText(uint8_t* payload, size_t length) {
   // Handle other unencrypted messages if needed in the future
 }
 
-// FUNCTIONS END
+// Watchdog: monitor stale WS connection & attempt manual reconnect
+void handleWebSocketWatchdog() {
+  if (webSocketClient.isConnected()) return;
+  unsigned long now = millis();
+  if (now - lastWsConnected > WS_RECONNECT_TIMEOUT && now - lastWsAttempt > WS_RETRY_EVERY) {
+    Serial.println("WebSocket nie odpowiada, restart połączenia...");
+    webSocketClient.disconnect();
+    delay(100);
+    webSocketClient.beginSSL(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
+    lastWsAttempt = now;
+  }
+}
 
 // Arduino setup: initialize serial, WiFi, IO, WS client
 void setup() {
@@ -186,15 +210,5 @@ void loop() {
     lastChangeTime = 0;
   }
 
-  // Watchdog WebSocket
-  if (!webSocketClient.isConnected()) {
-    if (millis() - lastWsConnected > WS_RECONNECT_TIMEOUT && millis() - lastWsAttempt > WS_RETRY_EVERY) {
-      Serial.println("WebSocket nie odpowiada, restart połączenia...");
-      webSocketClient.disconnect();
-      delay(100);
-      // upewnij się, że próbujemy na tym samym path jak na początku
-      webSocketClient.beginSSL(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
-      lastWsAttempt = millis();
-    }
-  }
+  handleWebSocketWatchdog();
 }

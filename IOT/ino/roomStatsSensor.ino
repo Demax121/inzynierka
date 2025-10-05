@@ -32,6 +32,9 @@ Possible improvements:
 */
 
 
+// ===================================================================
+//  Includes
+// ===================================================================
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
@@ -42,30 +45,43 @@ Possible improvements:
 #include <WiFiClientSecure.h>
 #include "certs.h" // for root CA if using wss://
 
-String WEBSOCKET_SERVER = "websocket.simplysmart.duckdns.org";// Backend Bun server (proxy endpoint)
-const int WEBSOCKET_PORT = 443;                       // WebSocket port
-const unsigned int WEBSOCKET_RECONNECT_INTERVAL = 5000; // Library auto reconnect interval (ms)
-String device_api_key = "b3odiEjCNSf7";            // Device API key (maps to server devices table)
-String encryption_key = "xuCmb33pFJgJAwR5";       // 16-char AES key (keep secret)
-
+// ===================================================================
+//  1. Piny / Podłączenie (Pins / Hardware)
+// ===================================================================
 #define SDA_PIN 4                               // I2C SDA
 #define SCL_PIN 5                               // I2C SCL
-const uint8_t BME280_I2C_ADDRESS = 0x76;        // Default BME280 address (alternatively 0x77)
-const int TEMPERATURE_THRESHOLD = 1;            // Minimum °C delta to trigger transmission
+const uint8_t BME280_I2C_ADDRESS = 0x76;        // BME280 address
 
-AESCrypto crypto(encryption_key);               // AES helper (CBC mode)
+// ===================================================================
+//  2. Zmienne (Variables / Configuration & State)
+// ===================================================================
+// Network / WS
+String WEBSOCKET_SERVER = "websocket.simplysmart.duckdns.org"; // Backend server
+const int WEBSOCKET_PORT = 443;                   // Port
+const unsigned int WEBSOCKET_RECONNECT_INTERVAL = 5000; // Library auto reconnect interval (ms)
+const unsigned long WS_RECONNECT_TIMEOUT = 15000;        // Manual stale threshold
+const unsigned long WS_RETRY_EVERY = 5000;               // Manual retry interval
+String device_api_key = "b3odiEjCNSf7";                  // Device API key
+String encryption_key = "xuCmb33pFJgJAwR5";              // 16-char AES key
 
-// WebSocket watchdog timing
-unsigned long lastWsConnected = 0;              // Last time a connection event fired
-unsigned long lastWsAttempt = 0;                // Last manual reconnect attempt
-const unsigned long WS_RECONNECT_TIMEOUT = 15000; // Stale threshold forcing reconnect
+// Sensor / thresholds
+const int TEMPERATURE_THRESHOLD = 1;             // Minimum Δ°C to send
+float lastTemperature = -100.0;                  // Last sent temperature (sentinel)
 
-Adafruit_BME280 bme;
-WebSocketsClient webSocketClient;          // WebSocket client instance (async event-driven)
-StaticJsonDocument<256> jsonPayload;           // Placeholder envelope (payload built on demand)
-WiFiClientSecure clientSSL;  
-// Tylko jedna zmienna do śledzenia ostatniej temperatury jako float
-float lastTemperature = -100.0;                 // Sentinel initial value (unlikely real temp)
+// Objects
+Adafruit_BME280 bme;                             // Sensor driver
+WebSocketsClient webSocketClient;                // WS client
+StaticJsonDocument<256> jsonPayload;             // Envelope cache
+WiFiClientSecure clientSSL;                      // TLS client
+AESCrypto crypto(encryption_key);                // AES helper
+
+// Watchdog timing
+unsigned long lastWsConnected = 0;               // Last connected timestamp
+unsigned long lastWsAttempt = 0;                 // Last manual attempt
+
+// ===================================================================
+//  3. Funkcje (Functions)
+// ===================================================================
 
 // Prepare JSON scaffold (currently no-op; retained for consistency across device sketches)
 void initializeJSON() { }
@@ -107,6 +123,19 @@ void sendWebSocketData() {
   env["tag"] = tagHex;
   String out; serializeJson(env, out);
   webSocketClient.sendTXT(out);
+}
+
+// Watchdog: monitor stale WS connection & attempt manual reconnect
+void handleWebSocketWatchdog() {
+  if (webSocketClient.isConnected()) return;
+  unsigned long now = millis();
+  if (now - lastWsConnected > WS_RECONNECT_TIMEOUT && now - lastWsAttempt > WS_RETRY_EVERY) {
+    Serial.println("WebSocket nie odpowiada, restart połączenia...");
+    webSocketClient.disconnect();
+    delay(100);
+    webSocketClient.beginSSL(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
+    lastWsAttempt = now;
+  }
 }
 
 // Setup: serial, WiFi, I2C, sensor init, initial sample, WS connect + handlers
@@ -160,14 +189,5 @@ void loop() {
     lastTemperature = currentTemperature;
   }
 
-    // Watchdog WebSocket
-  if (!webSocketClient.isConnected()) {
-    if (millis() - lastWsConnected > WS_RECONNECT_TIMEOUT && millis() - lastWsAttempt > 5000) {
-      Serial.println("WebSocket nie odpowiada, restart połączenia...");
-      webSocketClient.disconnect();
-      delay(100);
-  webSocketClient.beginSSL(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
-      lastWsAttempt = millis();
-    }
-  }
+  handleWebSocketWatchdog();
 }

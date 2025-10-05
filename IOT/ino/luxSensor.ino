@@ -28,6 +28,9 @@ Potential improvements:
 */
 
 
+// ===================================================================
+//  Includes
+// ===================================================================
 #include <Wire.h>
 #include <Adafruit_VEML7700.h>
 #include <MyWiFi.h>
@@ -37,32 +40,43 @@ Potential improvements:
 #include <WiFiClientSecure.h>
 #include "certs.h" // for root CA if using wss://
 
-// Configuration (GPIO assignments / network / thresholds)
+// ===================================================================
+//  1. Piny / Podłączenie (Pins / Hardware)
+// ===================================================================
 #define SDA_PIN 8
 #define SCL_PIN 9
 
-String WEBSOCKET_SERVER = "websocket.simplysmart.duckdns.org";// Backend Bun server (proxy endpoint)
-const int WEBSOCKET_PORT = 443;                       // WebSocket port
-String device_api_key = "9ekJU68REYTR";       // Device API key (maps to server devices table)
-String encryption_key = "J247J3LBDegpAUaU";   // 16-char AES key (keep secret)
+// ===================================================================
+//  2. Zmienne (Variables / Configuration & State)
+// ===================================================================
+// Network / WS
+String WEBSOCKET_SERVER = "websocket.simplysmart.duckdns.org"; // Backend Bun server
+const int WEBSOCKET_PORT = 443;                // Port
+const unsigned int WEBSOCKET_RECONNECT_INTERVAL = 5000; // Library auto reconnect interval (ms)
+const unsigned long WS_RECONNECT_TIMEOUT = 15000;        // Manual watchdog stale threshold
+const unsigned long WS_RETRY_EVERY = 5000;               // Manual retry interval
+String device_api_key = "9ekJU68REYTR";                  // Device API key
+String encryption_key = "J247J3LBDegpAUaU";              // 16-char AES key
 
-const unsigned int WEBSOCKET_RECONNECT_INTERVAL = 5000; // Library auto-reconnect interval (ms)
-const int LUX_THRESHOLD = 10;                            // Minimum change in lux to trigger transmission
+// Sensor / thresholds
+const int LUX_THRESHOLD = 10;                 // Minimum change to trigger transmission
+int lastLux = -999;                           // Last sent lux
+bool sensorReady = false;                     // Sensor init flag
 
-WebSocketsClient webSocketClient;          // WebSocket client instance (async event-driven)
-Adafruit_VEML7700 veml;                  // Ambient light sensor driver
-StaticJsonDocument<256> jsonPayload;     // Placeholder (envelope assembly not strictly needed here)
-WiFiClientSecure clientSSL;  
-AESCrypto crypto(encryption_key);        // AES helper for encrypt/decrypt
+// Objects
+WebSocketsClient webSocketClient;             // WS client
+Adafruit_VEML7700 veml;                       // VEML7700 driver
+StaticJsonDocument<256> jsonPayload;          // (Placeholder) envelope cache
+WiFiClientSecure clientSSL;                   // TLS client
+AESCrypto crypto(encryption_key);             // AES helper
 
-// Watchdog state for manual reconnection strategy
-unsigned long lastWsConnected = 0;       // Timestamp of last confirmed connection
-unsigned long lastWsAttempt = 0;         // Timestamp of last manual reconnect attempt
-const unsigned long WS_RECONNECT_TIMEOUT = 15000; // Stale threshold to force reconnect
+// Watchdog timing
+unsigned long lastWsConnected = 0;            // Last connected timestamp
+unsigned long lastWsAttempt = 0;              // Last manual reconnect attempt
 
-
-int lastLux = -999;                      // Last transmitted lux (-999 sentinel before first valid read)
-bool sensorReady = false;                // True if sensor initialized successfully
+// ===================================================================
+//  3. Funkcje (Functions)
+// ===================================================================
 
 // (Reserved) Initialize JSON envelope; currently unused beyond structural placeholder
 void initializeJSON() {
@@ -119,6 +133,19 @@ void handleWebSocketMessage(uint8_t* payload, size_t length) {
   }
 }
 
+// Watchdog: monitor stale WS connection & attempt manual reconnect
+void handleWebSocketWatchdog() {
+  if (webSocketClient.isConnected()) return;
+  unsigned long now = millis();
+  if (now - lastWsConnected > WS_RECONNECT_TIMEOUT && now - lastWsAttempt > WS_RETRY_EVERY) {
+    Serial.println("WebSocket nie odpowiada, restart połączenia...");
+    webSocketClient.disconnect();
+    delay(100);
+    webSocketClient.beginSSL(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
+    lastWsAttempt = now;
+  }
+}
+
 // Setup: initialize serial, WiFi, I2C, sensor, initial lux sample, WebSocket connection
 void setup() {
   Serial.begin(19200);
@@ -140,10 +167,11 @@ void setup() {
   updateJSONData(initialLux);
   lastLux = initialLux;
 
-  webSocketClient.begin(WEBSOCKET_SERVER.c_str(), WEBSOCKET_PORT);
+  webSocketClient.beginSSL(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
   webSocketClient.setReconnectInterval(WEBSOCKET_RECONNECT_INTERVAL);
   webSocketClient.onEvent([](WStype_t type, uint8_t *payload, size_t length) {
     if (type == WStype_CONNECTED) {
+      lastWsConnected = millis();
       identifyDevice();
     } else if (type == WStype_TEXT) {
       handleWebSocketMessage(payload, length);
@@ -166,14 +194,5 @@ void loop() {
     lastLux = currentLux;
   }
 
-    // Watchdog WebSocket
-  if (!webSocketClient.isConnected()) {
-    if (millis() - lastWsConnected > WS_RECONNECT_TIMEOUT && millis() - lastWsAttempt > 5000) {
-      Serial.println("WebSocket nie odpowiada, restart połączenia...");
-      webSocketClient.disconnect();
-      delay(100);
-  webSocketClient.beginSSL(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
-      lastWsAttempt = millis();
-    }
-  }
+  handleWebSocketWatchdog();
 }

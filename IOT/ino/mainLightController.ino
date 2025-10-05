@@ -32,6 +32,9 @@ Potential improvements:
 */
 
 
+// ===================================================================
+//  Includes
+// ===================================================================
 #include <MyWiFi.h>
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>
@@ -39,37 +42,47 @@ Potential improvements:
 #include <WiFiClientSecure.h>
 #include "certs.h" // for root CA if using wss://
 
-WebSocketsClient webSocketClient;          // WebSocket client instance (async event-driven)
-WiFiClientSecure clientSSL;  
-const int RELAY_PIN = 27;                  // Relay control GPIO (channel 1)
-const int TOUCH_BUTTON_PIN = 22;           // Capacitive touch / digital input
-const int RELAY_ACTIVE_LEVEL = LOW;        // Module triggers on LOW (adjust if different board)
-const int RELAY_INACTIVE_LEVEL = HIGH;     // Idle relay level
-const int BUTTON_ACTIVE_LEVEL = HIGH;      // Touch module outputs HIGH when activated
-const unsigned int BUTTON_DEBOUNCE_MS = 50;// Debounce threshold (ms)
+// ===================================================================
+//  1. Piny / Podłączenie (Pins / Hardware)
+// ===================================================================
+const int RELAY_PIN = 27;                  // Relay GPIO
+const int TOUCH_BUTTON_PIN = 22;           // Touch input
+const int RELAY_ACTIVE_LEVEL = LOW;        // Active state for relay
+const int RELAY_INACTIVE_LEVEL = HIGH;     // Inactive state
+const int BUTTON_ACTIVE_LEVEL = HIGH;      // Touch active level
+const unsigned int BUTTON_DEBOUNCE_MS = 50;// Debounce interval (ms)
 
-bool State = false;                        // Current logical light state
-int lastButtonState = LOW;                 // Last sampled raw reading
-int buttonState = LOW;                     // Debounced stable state
-unsigned int lastButtonChangeMs = 0;       // Timestamp of last edge (for debounce timing)
+// ===================================================================
+//  2. Zmienne (Variables / Configuration & State)
+// ===================================================================
+// Network / WS
+String WEBSOCKET_SERVER = "websocket.simplysmart.duckdns.org"; // Backend server
+const int WEBSOCKET_PORT = 443;                 // Port
+const unsigned int WEBSOCKET_RECONNECT_INTERVAL = 5000; // Library auto reconnect
+const unsigned long WS_RECONNECT_TIMEOUT = 15000;        // Manual watchdog stale threshold
+const unsigned long WS_RETRY_EVERY = 5000;               // Manual retry interval
+String device_api_key = "kZ8UQmdrDar8";                 // Device API key
+String encryption_key = "Vfyu3xT6e6yy79iE";             // 16-char AES key
 
-String WEBSOCKET_SERVER = "websocket.simplysmart.duckdns.org";// Backend Bun server (proxy endpoint)
-const int WEBSOCKET_PORT = 443;                       // WebSocket port
-const unsigned int WEBSOCKET_RECONNECT_INTERVAL = 5000; // Library-managed reconnect interval
-String device_api_key = "kZ8UQmdrDar8";            // Device API key (maps to devices table / encryption key)
-String encryption_key = "Vfyu3xT6e6yy79iE";       // 16-char AES key
+// Light state & button debounce
+bool State = false;                         // Logical light state
+int lastButtonState = LOW;                  // Raw last reading
+int buttonState = LOW;                      // Debounced state
+unsigned int lastButtonChangeMs = 0;        // Debounce timer
 
+// Objects
+WebSocketsClient webSocketClient;           // WS client
+WiFiClientSecure clientSSL;                 // TLS client
+AESCrypto crypto(encryption_key);           // AES helper
+StaticJsonDocument<256> jsonPayload;        // Envelope cache
 
-AESCrypto crypto(encryption_key);                // AES helper instance
+// Watchdog timing
+unsigned long lastWsConnected = 0;          // Last successful connect
+unsigned long lastWsAttempt = 0;            // Last manual attempt
 
-
-// WebSocket watchdog timestamps
-unsigned long lastWsConnected = 0;                 // Last successful connect time
-unsigned long lastWsAttempt = 0;                   // Last manual reconnect attempt
-const unsigned long WS_RECONNECT_TIMEOUT = 15000;  // Stale threshold
-
-
-StaticJsonDocument<256> jsonPayload;              // Optional envelope cache (payload mutated per send)
+// ===================================================================
+//  3. Funkcje (Functions)
+// ===================================================================
 
 // Prepare JSON scaffold (currently no-op; kept for symmetry with other nodes)
 void initializeJSON() { }
@@ -144,6 +157,19 @@ void handleIncomingText(uint8_t* payload, size_t length) {
   sendWebSocketData();
 }
 
+// Watchdog: monitor stale WS connection & attempt manual reconnect
+void handleWebSocketWatchdog() {
+  if (webSocketClient.isConnected()) return;
+  unsigned long now = millis();
+  if (now - lastWsConnected > WS_RECONNECT_TIMEOUT && now - lastWsAttempt > WS_RETRY_EVERY) {
+    Serial.println("WebSocket nie odpowiada, restart połączenia...");
+    webSocketClient.disconnect();
+    delay(100);
+    webSocketClient.beginSSL(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
+    lastWsAttempt = now;
+  }
+}
+
 // Setup: IO config, WiFi connect, WS connect, identify, initial state broadcast
 void setup() {
   Serial.begin(19200);
@@ -197,14 +223,5 @@ void loop() {
 
 
 
-    // Watchdog WebSocket
-  if (!webSocketClient.isConnected()) {
-    if (millis() - lastWsConnected > WS_RECONNECT_TIMEOUT && millis() - lastWsAttempt > 5000) {
-      Serial.println("WebSocket nie odpowiada, restart połączenia...");
-      webSocketClient.disconnect();
-      delay(100);
-  webSocketClient.beginSSL(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
-      lastWsAttempt = millis();
-    }
-  }
+  handleWebSocketWatchdog();
 }

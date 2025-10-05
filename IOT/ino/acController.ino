@@ -41,6 +41,9 @@ Code style:
   - Strings kept as global 'String' for simplicity; consider migrating to constexpr char[] to reduce heap churn
 */
 
+// ===================================================================
+//  Includes
+// ===================================================================
 #include <MyWiFi.h>
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>
@@ -51,53 +54,64 @@ Code style:
 #include <WiFiClientSecure.h>
 #include "certs.h" // for root CA if using wss://
 
+// ===================================================================
+//  1. Piny / Podłączenie (Pins / Hardware mapping)
+// ===================================================================
 #define TFT_CS   5
 #define TFT_DC   21
 #define TFT_RST  22
+const int buttonPin = 13;                 // Manual override button
 
-const int buttonPin = 13;           // GPIO for manual override button
-bool BTNstate = false;              // (Unused residual variable; kept for future expansion)
+// ===================================================================
+//  2. Zmienne (Variables / Configuration & State)
+// ===================================================================
+// Network / WS
+WebSocketsClient webSocketClient;          // WebSocket client instance (async event-driven)
+WiFiClientSecure clientSSL;                // Secure client (wss)
+String WEBSOCKET_SERVER = "websocket.simplysmart.duckdns.org"; // Backend Bun server (proxy endpoint)
+const int WEBSOCKET_PORT = 443;            // WebSocket port
+const unsigned long RECONNECT_INTERVAL = 5000;      // Library auto reconnect interval (ms)
+const unsigned long WS_RECONNECT_TIMEOUT = 15000;   // Stale connection threshold (ms)
+const unsigned long WS_RETRY_EVERY = 5000;           // Minimum delay between manual reconnect attempts (watchdog)
+String device_api_key = "NfzziMcV9Zyj";             // Device API key
+String encryption_key = "KQAzhJmqigFdUyD6";         // 16-char AES key (AES-128)
 
+// HVAC runtime state
+bool klimaOn = false;                      // Current HVAC state
+bool manualOverride = false;               // Manual override flag
+float currentTemp = 0.0;                   // Last received ambient temperature
+float requestedTemp = 25.0;                // Target temperature
+const float HISTERAZA = 1.0;               // Hysteresis threshold (°C)
+String currentFunction = "";              // cooling / heating / idle
+
+// Timing helpers
+unsigned long lastWsConnected = 0;         // Timestamp of last successful connection
+unsigned long lastWsAttempt = 0;           // Timestamp of last manual reconnect attempt
+
+// JSON / Crypto
+StaticJsonDocument<256> doc;               // Inbound parsed message
+StaticJsonDocument<512> jsonPayload;       // Outbound envelope (payload mutated)
+AESCrypto crypto(encryption_key);          // AES helper instance
+
+// Display instance
 Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_RST);
 
-WebSocketsClient webSocketClient;          // WebSocket client instance (async event-driven)
-WiFiClientSecure clientSSL;  
-String WEBSOCKET_SERVER = "websocket.simplysmart.duckdns.org";// Backend Bun server (proxy endpoint)
-const int WEBSOCKET_PORT = 443;                       // WebSocket port
-const unsigned long RECONNECT_INTERVAL = 5000;     // Library auto reconnect interval (ms)
-String device_api_key = "NfzziMcV9Zyj";            // Device API key (server uses to map encryption key & update last_seen)
-String encryption_key = "KQAzhJmqigFdUyD6";       // 16-char AES key (AES-128)
-
-bool klimaOn = false;               // Current HVAC state (relay active / compressor running)
-bool manualOverride = false;        // If true, automatic hysteresis adjustments are suspended
-
-float currentTemp = 0.0;            // Last received ambient temperature (0 => not yet received)
-float requestedTemp = 25.0;         // Target temperature set by frontend
-const float HISTERAZA = 1.0;        // Hysteresis threshold (°C) before toggling cooling / heating
-String currentFunction = "";       // Display label: cooling / heating / idle
-
-AESCrypto crypto(encryption_key);   // AES helper instance (CBC mode with random IV)
-
-unsigned long lastWsConnected = 0;          // Timestamp of last successful connection
-unsigned long lastWsAttempt = 0;            // Timestamp of last manual reconnect attempt
-const unsigned long WS_RECONNECT_TIMEOUT = 15000; // If stale this long, escalate reconnect
-
-StaticJsonDocument<256> doc;                 // For inbound decoded (outer) JSON structures
-StaticJsonDocument<512> jsonPayload;         // Prepared outbound envelope (payload field mutated per send)
-
-// UI label strings (Polish localization)
-// UI Strings (English)
-String label_current_temp   = "CURRENT TEMP:";      // Current temperature label
-String label_target_temp    = "TARGET TEMP:";       // Requested temperature label
-String label_status         = "STATUS:";            // On/off status label
-String label_function       = "FUNCTION:";          // Function label (cool / heat / idle)
+// UI label strings
+String label_current_temp   = "CURRENT TEMP:";
+String label_target_temp    = "TARGET TEMP:";
+String label_status         = "STATUS:";
+String label_function       = "FUNCTION:";
 String on_text              = "ON";
 String off_text             = "OFF";
-String idle_text            = "Idle Mode";          // Idle status
-String space_c              = " C";                 // Unit suffix
-String dash_c               = "-- C";               // Placeholder before first reading
-String cooling_mode_text    = "Cooling Mode";       // Cooling label
-String heating_mode_text    = "Heating Mode";       // Heating label
+String idle_text            = "Idle Mode";
+String space_c              = " C";
+String dash_c               = "-- C";
+String cooling_mode_text    = "Cooling Mode";
+String heating_mode_text    = "Heating Mode";
+
+// ===================================================================
+//  3. Funkcje (Functions)
+// ===================================================================
 
 // Initialize TFT display layout and static labels
 void initializeDisplay() {
@@ -375,22 +389,23 @@ void setup() {
   webSocketClient.setReconnectInterval(RECONNECT_INTERVAL);
 }
 
-// Main loop: button handling, WebSocket service, reconnect watchdog
-void loop() {
-  // Handle button at the beginning - independent of WebSocket
-  handleButton();
-  
-  // WebSocket loop - may block during reconnect
-  webSocketClient.loop();
-
-  if (!webSocketClient.isConnected()) {
-    if (millis() - lastWsConnected > WS_RECONNECT_TIMEOUT && millis() - lastWsAttempt > 5000) {
-      Serial.println("WebSocket not responding, restarting connection...");
-      webSocketClient.disconnect();
-      delay(100);
-      webSocketClient.beginSSL(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
-      lastWsAttempt = millis();
-    }
+// Watchdog: monitor stale connection & manually force reconnect
+void handleWebSocketWatchdog() {
+  if (webSocketClient.isConnected()) return;
+  unsigned long now = millis();
+  if (now - lastWsConnected > WS_RECONNECT_TIMEOUT && now - lastWsAttempt > WS_RETRY_EVERY) {
+    Serial.println("WebSocket not responding, restarting connection...");
+    webSocketClient.disconnect();
+    delay(100);
+    webSocketClient.beginSSL(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
+    lastWsAttempt = now;
   }
+}
+
+// Main loop: button handling, WebSocket service, watchdog
+void loop() {
+  handleButton();              // Local input
+  webSocketClient.loop();      // Service WS
+  handleWebSocketWatchdog();   // Reconnect logic
 }
 
