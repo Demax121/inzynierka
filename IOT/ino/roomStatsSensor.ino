@@ -56,7 +56,7 @@ const uint8_t BME280_I2C_ADDRESS = 0x76;        // BME280 address
 //  2. Zmienne (Variables / Configuration & State)
 // ===================================================================
 // Network / WS
-String WEBSOCKET_SERVER = "websocket.simplysmart.duckdns.org"; // Backend server
+String WEBSOCKET_SERVER = "websocket server domain name"; // Backend server
 const int WEBSOCKET_PORT = 443;                   // Port
 const unsigned int WEBSOCKET_RECONNECT_INTERVAL = 5000; // Library auto reconnect interval (ms)
 const unsigned long WS_RECONNECT_TIMEOUT = 15000;        // Manual stale threshold
