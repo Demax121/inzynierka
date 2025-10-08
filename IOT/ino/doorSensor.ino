@@ -133,7 +133,7 @@ void handleIncomingText(uint8_t* payload, size_t length) {
 // Arduino setup: initialize serial, WiFi, IO, WS client
 void setup() {
   Serial.begin(19200);
-  
+  WiFi.setHostname("esp32_door_sensor");
   MyWiFi::connect();
   // dalsze próby łączenia obsłuży MyWiFi::loop() w pętli głównej
 
@@ -178,12 +178,6 @@ void loop() {
   // Utrzymanie połączenia WiFi (nieblokujące)
   MyWiFi::loop();
 
-  // Jeśli nie ma WiFi, nie próbuj obsługiwać WebSocket ani odczytu zdarzeń (redukcja hałasu)
-  if (!MyWiFi::isConnected()) {
-    delay(10);
-    return;
-  }
-
   webSocketClient.loop();
   int currentState = digitalRead(BUTTON_PIN);
   if (currentState != lastButtonState) {
@@ -199,6 +193,8 @@ void loop() {
     lastChangeTime = 0;
   }
 
-  // Watchdog WebSocket
-  websocketWatchdog();
+  if (MyWiFi::isConnected())
+  {
+    websocketWatchdog();
+  }
 }

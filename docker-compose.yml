@@ -12,8 +12,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgreSQL/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    networks:
-      - offline_dyplom_network
+
   offline_pgadmin_dyplom:
     container_name: offline_pgadmin_dyplom
     build:
@@ -29,8 +28,7 @@ services:
       - ${PGADMIN_PORT_EX}:${PGADMIN_PORT_NATIVE}
     volumes:
       - pgadmin_data:/var/lib/pgadmin
-    networks:
-      - offline_dyplom_network
+
   offline_frontend_dyplom:
     container_name: offline_frontend_dyplom
     build:
@@ -51,8 +49,7 @@ services:
       VITE_BACKEND_URL_PREFIX: ${VITE_BACKEND_URL_PREFIX}
       VITE_WS_URL_PREFIX: ${VITE_WS_URL_PREFIX}
       VITE_WLED_URL_PREFIX: ${VITE_WLED_URL_PREFIX}
-    networks:
-      - offline_dyplom_network
+
   offline_php_dyplom:
     container_name: offline_php_dyplom
     build:
@@ -76,8 +73,7 @@ services:
       - offline_postgres_dyplom
     volumes:
       - ./backend/php:/var/www/php
-    networks:
-      - offline_dyplom_network
+
   offline_backend_server_caddy_dyplom:
     container_name: offline_backend_server_caddy_dyplom
     build:
@@ -90,8 +86,7 @@ services:
       - ${BACKEND_CADDY_PORT_EX}:${BACKEND_CADDY_PORT_NATIVE}
     volumes:
       - ./backend/php:/var/www/php
-    networks:
-      - offline_dyplom_network
+
   offline_bun_api_dyplom:
     container_name: offline_bun_api_dyplom
     build:
@@ -102,8 +97,6 @@ services:
       - ${BUN_API_PORT_EX}:${BUN_API_PORT_NATIVE}
     volumes:
       - ./jsServer:/app
-    networks:
-      - offline_dyplom_network
 
 volumes:
   postgres_data: null
@@ -111,5 +104,6 @@ volumes:
   node_modules_cache: null
 
 networks:
-  offline_dyplom_network:
-    driver: bridge
+  default:
+    external: true
+    name: https_dyplom_network

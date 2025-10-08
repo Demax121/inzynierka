@@ -150,6 +150,7 @@ void setup() {
   pinMode(TOUCH_BUTTON_PIN, INPUT);
   initializeJSON();
   setRelay(false);
+  WiFi.setHostname("esp32_lights_controller");
   MyWiFi::connect();
   webSocketClient.begin(WEBSOCKET_SERVER.c_str(), WEBSOCKET_PORT, "/");
   webSocketClient.onEvent([](WStype_t type, uint8_t* payload, size_t length) {
@@ -182,6 +183,7 @@ void websocketWatchdog() {
 
 // Main loop: debounce touch button, service WS, force broadcast on local toggle, watchdog reconnect
 void loop() {
+  MyWiFi::loop();
   webSocketClient.loop();
 
   // Czytaj aktualny stan przycisku
@@ -209,6 +211,8 @@ void loop() {
 
 
 
-    // Watchdog WebSocket
-  websocketWatchdog();
+  if (MyWiFi::isConnected())
+  {
+    websocketWatchdog();
+  }
 }

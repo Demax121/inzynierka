@@ -119,6 +119,7 @@ void handleWebSocketMessage(uint8_t* payload, size_t length) {
 // Setup: initialize serial, WiFi, I2C, sensor, initial lux sample, WebSocket connection
 void setup() {
   Serial.begin(19200);
+  WiFi.setHostname("esp32_lux_sensor");
   MyWiFi::connect();
 
 
@@ -167,6 +168,8 @@ void websocketWatchdog() {
 
 // Main loop: service WS, sample sensor, send if threshold crossed, watchdog reconnect
 void loop() {
+
+  MyWiFi::loop();
   webSocket.loop();
 
   int currentLux = sensorReady ? (int)veml.readLux() : -1;
@@ -177,6 +180,8 @@ void loop() {
     lastLux = currentLux;
   }
 
-    // Watchdog WebSocket
-  websocketWatchdog();
+  if (MyWiFi::isConnected())
+  {
+    websocketWatchdog();
+  }
 }

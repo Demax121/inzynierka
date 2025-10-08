@@ -23,9 +23,9 @@
         <li class="navbar__item" role="none">
           <button class="navbar__link" role="menuitem" @click="selectTab('HomeTab')">Home</button>
         </li>
-        <li class="navbar__item" role="none">
+        <!-- <li class="navbar__item" role="none">
           <button class="navbar__link" role="menuitem" @click="selectTab('WeatherTab')">Weather</button>
-        </li>
+        </li> -->
         <li class="navbar__item" role="none">
           <button class="navbar__link" role="menuitem" @click="selectTab('WledTab')">WLED</button>
         </li>

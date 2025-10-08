@@ -110,6 +110,7 @@ void sendWebSocketData() {
 // Setup: serial, WiFi, I2C, sensor init, initial sample, WS connect + handlers
 void setup() {
   Serial.begin(19200);
+  WiFi.setHostname("esp32_room_stats_sensor");
   MyWiFi::connect();
   Wire.begin(SDA_PIN, SCL_PIN);
   bme.begin(BME280_I2C_ADDRESS);
@@ -160,6 +161,7 @@ void websocketWatchdog() {
 
 // Main loop: WS service, evaluate temperature delta, watchdog reconnect
 void loop() {
+  MyWiFi::loop();
   webSocketClient.loop();
   
   // Sample current temperature (float precision retained)
@@ -172,6 +174,8 @@ void loop() {
     lastTemperature = currentTemperature;
   }
 
-    // Watchdog WebSocket
-  websocketWatchdog();
+  if (MyWiFi::isConnected())
+  {
+    websocketWatchdog();
+  }
 }

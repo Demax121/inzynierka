@@ -79,7 +79,7 @@ bool manualOverride = false;        // If true, automatic hysteresis adjustments
 
 float currentTemp = 0.0;            // Last received ambient temperature (0 => not yet received)
 float requestedTemp = 25.0;         // Target temperature set by frontend
-const float HISTERAZA = 2.0;        // Hysteresis threshold (°C) before toggling cooling / heating
+const float HISTERAZA = 1.0;        // Hysteresis threshold (°C) before toggling cooling / heating
 String currentFunction = "";       // Display label: cooling / heating / idle
 
 AESCrypto crypto(encryption_key);   // AES helper instance (CBC mode with random IV)
@@ -252,6 +252,26 @@ void checkTemperatureControl() {
   }
 }
 
+// Evaluate currentFunction based purely on current temperature vs requestedTemp (ignores manualOverride)
+void evaluateFunctionByTemp() {
+  if (!klimaOn) { // If AC is off -> idle
+    currentFunction = idle_text;
+    return;
+  }
+  if (currentTemp == 0) { // No reading yet
+    currentFunction = idle_text;
+    return;
+  }
+  float diff = currentTemp - requestedTemp;
+  if (diff >= HISTERAZA) {
+    currentFunction = cooling_mode_text;
+  } else if (diff <= -HISTERAZA) {
+    currentFunction = heating_mode_text;
+  } else {
+    currentFunction = idle_text;
+  }
+}
+
 // Parse inbound WebSocket text frames (outer JSON may be plaintext envelope with encrypted 'payload')
 void handleIncomingText(uint8_t* payload, size_t length) {
   String msg = "";
@@ -295,9 +315,14 @@ void handleIncomingText(uint8_t* payload, size_t length) {
         manualOverride = body["manualOverride"];
       }
       if (!newState) {
-    currentFunction = idle_text;
-      } else if (!manualOverride) {
-        checkTemperatureControl();
+        currentFunction = idle_text;
+      } else {
+        // Always evaluate function when turning ON (even in manual override)
+        evaluateFunctionByTemp();
+        // If not manual override, allow automatic hysteresis decisions next cycles
+        if (!manualOverride) {
+          checkTemperatureControl();
+        }
       }
       updateDisplay();
       sendWebSocketData();
@@ -331,19 +356,8 @@ void handleButton() {
       if (!klimaOn) {
         currentFunction = idle_text;
       } else {
-        // Immediate evaluation of temperature difference when turning ON manually
-        if (currentTemp != 0) {
-          float diff = currentTemp - requestedTemp;
-          if (diff >= HISTERAZA) {
-            currentFunction = cooling_mode_text;
-          } else if (diff <= -HISTERAZA) {
-            currentFunction = heating_mode_text;
-          } else {
-            currentFunction = idle_text;
-          }
-        } else {
-          currentFunction = idle_text; // No reading yet
-        }
+        // Determine initial function immediately based on temperature difference
+        evaluateFunctionByTemp();
       }
       Serial.printf("Button pressed - AC %s (manual)\n", klimaOn ? "ON" : "OFF");
       updateDisplay();
@@ -363,7 +377,7 @@ void setup() {
   delay(500);
   pinMode(buttonPin, INPUT_PULLUP);
   initializeDisplay();
-
+  WiFi.setHostname("esp32_ac_controller");
   MyWiFi::connect();
 
   initializeJSON();
@@ -405,8 +419,14 @@ void loop() {
   handleButton();
   
   // WebSocket loop - may block during reconnect
+  MyWiFi::loop();
   webSocketClient.loop();
 
-  websocketWatchdog();
+  if (MyWiFi::isConnected())
+  {
+    websocketWatchdog();
+  }
+  
+  
 }
 
