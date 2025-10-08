@@ -194,10 +194,10 @@ const toggleAutomate = () => {
     .finally(() => { loading.value = false })
 }
 
-/* Fire Tuya command (open | close); silent errors by design */
+/* Fire blindsControl command (open | close); silent errors by design */
 const controlBlinds = async (action) => {
   try {
-    await fetch(linkStore.getPhpApiUrl('tuyaBlindsApi.php') + `?action=${action}`)
+    await fetch(linkStore.getPhpApiUrl('blindsControl.php') + `?action=${action}`)
   } catch {
     /* swallow */
   }

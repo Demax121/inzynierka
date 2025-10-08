@@ -62,6 +62,9 @@ const unsigned long WS_RETRY_EVERY = 5000;        // Minimum delay between manua
 
 
 
+// ===================================================================
+//  3. Funkcje (Functions)
+// ===================================================================
 // FUNCTIONS BEGIN
 // Initialize state / JSON scaffolding (currently simple flag reset)
 void initializeJSON() { 
@@ -130,7 +133,7 @@ void handleIncomingText(uint8_t* payload, size_t length) {
 // Arduino setup: initialize serial, WiFi, IO, WS client
 void setup() {
   Serial.begin(19200);
-  
+  WiFi.setHostname("esp32_door_sensor");
   MyWiFi::connect();
   // dalsze próby łączenia obsłuży MyWiFi::loop() w pętli głównej
 
@@ -156,16 +159,24 @@ void setup() {
   lastWsAttempt = millis();
 }
 
+// Watchdog: monitor stale connection & manually force reconnect
+void websocketWatchdog() {
+  if (webSocketClient.isConnected()) return;
+  unsigned long now = millis();
+  if (now - lastWsConnected > WS_RECONNECT_TIMEOUT && now - lastWsAttempt > WS_RETRY_EVERY) {
+    Serial.println("WebSocket nie odpowiada, restart połączenia...");
+    webSocketClient.disconnect();
+    delay(100);
+    // upewnij się, że próbujemy na tym samym path jak na początku
+    webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
+    lastWsAttempt = now;
+  }
+}
+
 // Main loop: maintain WiFi, debounce switch, service WebSocket, watchdog reconnect
 void loop() {
   // Utrzymanie połączenia WiFi (nieblokujące)
   MyWiFi::loop();
-
-  // Jeśli nie ma WiFi, nie próbuj obsługiwać WebSocket ani odczytu zdarzeń (redukcja hałasu)
-  if (!MyWiFi::isConnected()) {
-    delay(10);
-    return;
-  }
 
   webSocketClient.loop();
   int currentState = digitalRead(BUTTON_PIN);
@@ -182,15 +193,8 @@ void loop() {
     lastChangeTime = 0;
   }
 
-  // Watchdog WebSocket
-  if (!webSocketClient.isConnected()) {
-    if (millis() - lastWsConnected > WS_RECONNECT_TIMEOUT && millis() - lastWsAttempt > WS_RETRY_EVERY) {
-      Serial.println("WebSocket nie odpowiada, restart połączenia...");
-      webSocketClient.disconnect();
-      delay(100);
-      // upewnij się, że próbujemy na tym samym path jak na początku
-      webSocketClient.begin(WEBSOCKET_SERVER, WEBSOCKET_PORT, "/");
-      lastWsAttempt = millis();
-    }
+  if (MyWiFi::isConnected())
+  {
+    websocketWatchdog();
   }
 }

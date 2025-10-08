@@ -21,6 +21,17 @@
         </div>
       </div>
       <!-- Loading state -->
+      <!-- Manual save button (visible when we have stats) -->
+      <!-- <div class="card__actions" v-if="statsInfo">
+        <button
+          class="btn room-stats__save-btn"
+          @click="saveNow"
+          :disabled="saving"
+        >
+          <span v-if="!saving">Save now</span>
+          <span v-else>Saving…</span>
+        </button>
+      </div> -->
       <LoadingCard v-else />
     </div>
   </div>
@@ -42,6 +53,7 @@ const saveStore = useSaveStatsStore();
 // Latest stats object: { temperature, humidity, pressure }
 const statsInfo = ref(null);
 let ws; // WebSocket instance
+const saving = ref(false);
 
 // Formatting helpers (kept pure & defensive)
 const formatTemperature = (temp) => (typeof temp === 'number' ? `${temp.toFixed(1)} °C` : 'N/A');
@@ -66,6 +78,22 @@ onMounted(() => {
 });
 
 onUnmounted(() => { if (ws) ws.close(); });
+
+// Manual save trigger for user
+const saveNow = async () => {
+  if (!statsInfo.value) return
+  if (saving.value) return
+  saving.value = true
+  try {
+    await saveStore.forceSaveNow()
+  } catch (e) {
+    // Minimal UX feedback: log error
+    console.error('Manual save failed', e)
+  } finally {
+    // small delay so UI feels responsive even on very fast ops
+    setTimeout(() => { saving.value = false }, 300)
+  }
+}
 </script>
 
 
@@ -87,5 +115,16 @@ $value-font-size: 14pt;
   &__row { display:flex; justify-content:space-between; align-items:baseline; }
   &__label { font-weight:$rs-label-font-weight; color:$rs-label-color; font-size: $label-font-size;}
   &__value { font-weight:$rs-value-font-weight; color:$rs-value-color; letter-spacing:0.5px; font-size: $value-font-size };
+  &__save-btn {
+    padding: 0.5rem 1rem;
+    background: #1976d2;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: opacity $rs-transition;
+  }
+  &__save-btn:disabled { opacity: 0.6; cursor: default }
 }
+
 </style>

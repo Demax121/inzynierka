@@ -110,6 +110,7 @@ void sendWebSocketData() {
 // Setup: serial, WiFi, I2C, sensor init, initial sample, WS connect + handlers
 void setup() {
   Serial.begin(19200);
+  WiFi.setHostname("esp32_room_stats_sensor");
   MyWiFi::connect();
   Wire.begin(SDA_PIN, SCL_PIN);
   bme.begin(BME280_I2C_ADDRESS);
@@ -144,8 +145,23 @@ void setup() {
   lastWsAttempt = millis();
 }
 
+// Watchdog: monitor stale connection & manually force reconnect
+void websocketWatchdog() {
+  if (webSocketClient.isConnected()) return;
+  unsigned long now = millis();
+  const unsigned long RETRY_EVERY = 5000;
+  if (now - lastWsConnected > WS_RECONNECT_TIMEOUT && now - lastWsAttempt > RETRY_EVERY) {
+    Serial.println("WebSocket nie odpowiada, restart połączenia...");
+    webSocketClient.disconnect();
+    delay(100);
+    webSocketClient.begin(WEBSOCKET_SERVER.c_str(), WEBSOCKET_PORT);
+    lastWsAttempt = now;
+  }
+}
+
 // Main loop: WS service, evaluate temperature delta, watchdog reconnect
 void loop() {
+  MyWiFi::loop();
   webSocketClient.loop();
   
   // Sample current temperature (float precision retained)
@@ -158,14 +174,8 @@ void loop() {
     lastTemperature = currentTemperature;
   }
 
-    // Watchdog WebSocket
-  if (!webSocketClient.isConnected()) {
-    if (millis() - lastWsConnected > WS_RECONNECT_TIMEOUT && millis() - lastWsAttempt > 5000) {
-      Serial.println("WebSocket nie odpowiada, restart połączenia...");
-      webSocketClient.disconnect();
-      delay(100);
-  webSocketClient.begin(WEBSOCKET_SERVER.c_str(), WEBSOCKET_PORT);
-      lastWsAttempt = millis();
-    }
+  if (MyWiFi::isConnected())
+  {
+    websocketWatchdog();
   }
 }

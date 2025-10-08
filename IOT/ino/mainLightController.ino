@@ -150,6 +150,7 @@ void setup() {
   pinMode(TOUCH_BUTTON_PIN, INPUT);
   initializeJSON();
   setRelay(false);
+  WiFi.setHostname("esp32_lights_controller");
   MyWiFi::connect();
   webSocketClient.begin(WEBSOCKET_SERVER.c_str(), WEBSOCKET_PORT, "/");
   webSocketClient.onEvent([](WStype_t type, uint8_t* payload, size_t length) {
@@ -166,8 +167,23 @@ void setup() {
   lastWsAttempt = millis();
 }
 
+// Watchdog: monitor stale connection & manually force reconnect
+void websocketWatchdog() {
+  if (webSocketClient.isConnected()) return;
+  unsigned long now = millis();
+  const unsigned long RETRY_EVERY = 5000;
+  if (now - lastWsConnected > WS_RECONNECT_TIMEOUT && now - lastWsAttempt > RETRY_EVERY) {
+    Serial.println("WebSocket nie odpowiada, restart połączenia...");
+    webSocketClient.disconnect();
+    delay(100);
+    webSocketClient.begin(WEBSOCKET_SERVER.c_str(), WEBSOCKET_PORT, "/");
+    lastWsAttempt = now;
+  }
+}
+
 // Main loop: debounce touch button, service WS, force broadcast on local toggle, watchdog reconnect
 void loop() {
+  MyWiFi::loop();
   webSocketClient.loop();
 
   // Czytaj aktualny stan przycisku
@@ -195,14 +211,8 @@ void loop() {
 
 
 
-    // Watchdog WebSocket
-  if (!webSocketClient.isConnected()) {
-    if (millis() - lastWsConnected > WS_RECONNECT_TIMEOUT && millis() - lastWsAttempt > 5000) {
-      Serial.println("WebSocket nie odpowiada, restart połączenia...");
-      webSocketClient.disconnect();
-      delay(100);
-  webSocketClient.begin(WEBSOCKET_SERVER.c_str(), WEBSOCKET_PORT, "/");
-      lastWsAttempt = millis();
-    }
+  if (MyWiFi::isConnected())
+  {
+    websocketWatchdog();
   }
 }

@@ -17,8 +17,8 @@
 
 // NOTE: Plaintext credentials (development). For production, store in NVS or
 // load from a secure channel at runtime.
-const char* WIFI_SSID     = "PLAY_Swiatlowod_610C";
-const char* WIFI_PASSWORD = "HQj1@59PUaaz";
+const char* WIFI_SSID     = "ssid here";
+const char* WIFI_PASSWORD = "password here";
 
 void MyWiFi::connect() {
     WiFi.mode(WIFI_STA);                 // Station mode only (no AP)

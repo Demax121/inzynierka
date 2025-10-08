@@ -120,6 +120,7 @@
             <button type="submit" class="create-profile__btn" ref="saveButtonRef">Save profile</button>
           </div>
         </form>
+        <dialog-box ref="dialogRef" />
       </div>
     </div>
   </div>
@@ -136,6 +137,7 @@
 
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useLinkStore } from '@/stores/linkStore';
+import dialogBox from '@/components/dialogBox_component.vue'
 
 const linkStore = useLinkStore();
 
@@ -162,6 +164,7 @@ const profileNameError = ref('');
 // --- Refs to DOM elements (avoid querySelector) ---
 const saveButtonRef = ref(null);
 const formRef = ref(null);
+const dialogRef = ref(null);
 
 function validateProfileName() {
   const name = profileName.value.trim();
@@ -225,8 +228,8 @@ function resetFormState() {
 }
 
 function saveProfile() {
-  if (!validateProfileName()) { alert(profileNameError.value); return; }
-  if (props.sharedProfileNames.has(profileName.value.trim())) { alert('Profile with this name already exists.'); return; }
+  if (!validateProfileName()) { dialogRef.value?.openMessage(profileNameError.value); return; }
+  if (props.sharedProfileNames.has(profileName.value.trim())) { dialogRef.value?.openMessage('Profile with this name already exists.'); return; }
 
   const profileData = buildProfileJSON();
   const saveData = { profile_name: profileName.value.trim(), profile_json: profileData };
@@ -241,14 +244,14 @@ function saveProfile() {
     .then(r => r.json())
     .then(d => {
       if (d.success) {
-        alert('Profil został zapisany!');
+        dialogRef.value?.openMessage('Profile has been created succesfuly');
         const updated = new Set(props.sharedProfileNames); updated.add(profileName.value.trim());
         emit('profile-created', updated); resetFormState();
       } else {
-        alert('Błąd: ' + (d.error || 'Nie udało się zapisać profilu'));
+        dialogRef.value?.openMessage('Error: ' + (d.error || 'Profile could not be saved'));
       }
     })
-    .catch(e => alert('Błąd połączenia: ' + e.message))
+    .catch(e => dialogRef.value?.openMessage('Connection error: ' + e.message))
     .finally(() => { btn.innerText = originalText; btn.disabled = false; });
 }
 

@@ -7,7 +7,7 @@
         <div class="card__body">
             <div class="card__content">
 
-                <!-- Action buttons: manual control triggers Tuya via backend; automation is disabled first -->
+                <!-- Action buttons now call blindsControl.php backend; automation is disabled first -->
                 <div class="button-group">
                     <button type="button" class="btn" @click="openBlinds">
                         Open blinds
@@ -16,7 +16,7 @@
                     <button type="button" class="btn" @click="closeBlinds">
                         Close blinds
                     </button>
-                    <button type="button" class="btn" @click="fetchStatus()">
+                    <button type="button" class="btn" @click="manualFetchStatus()">
                         Get status
                     </button>
                 </div>
@@ -62,7 +62,7 @@ import { useAutomateStore } from '@/stores/automateStore'
 const responseData = ref(null)
 // batteryLevel: numeric percentage (null until known)
 const batteryLevel = ref(null)
-// deviceState: canonical string 'open' | 'close' | null (derived from various Tuya keys)
+// deviceState: canonical string 'open' | 'close' | null
 const deviceState = ref(null) 
 
 // Pinia stores provide API URL construction and global automation flag
@@ -83,128 +83,77 @@ const setAutomateFalse = async () => {
     }
 }
 
-// Generic helper contacting tuyaBlindsApi.php with optional action (open|close|status)
-// On success for movement commands schedules follow-up status fetch (after delay in open/close wrappers).
+// Generic helper contacting blindsControl.php with action=open|close|status
 const makeApiCall = async (actionParam) => {
+    if (!actionParam) return
     try {
-        let apiUrl = linkStore.getPhpApiUrl('tuyaBlindsApi.php')
-        if (actionParam) {
-            apiUrl += `?action=${actionParam}`
-        }
-
-        const response = await fetch(apiUrl, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-        })
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`)
-        }
-
+        const apiUrl = linkStore.getPhpApiUrl('blindsControl.php') + `?action=${actionParam}`
+        const response = await fetch(apiUrl, { method: 'GET' })
+        if (!response.ok) throw new Error(`HTTP ${response.status}`)
         const data = await response.json()
         responseData.value = data
-
-        if (data.success) {
-            fetchStatus().catch(() => {})
+        // Map new JSON { state, battery }
+        if (typeof data.battery !== 'undefined') {
+            const num = Number(data.battery)
+            batteryLevel.value = Number.isNaN(num) ? null : num
+        }
+        if (typeof data.state === 'string') {
+            const st = data.state.toLowerCase()
+            if (st.includes('open')) deviceState.value = 'open'
+            else if (st.includes('close')) deviceState.value = 'close'
+            else deviceState.value = null
         }
     } catch (error) {
+        // Silent failure (could extend for UI feedback later)
         console.error('API error:', error)
     }
 }
 
-// Manual open wrapper: disable automation, send command, schedule status refresh.
+// Manual open wrapper: disable automation, send command, then refresh status and reset polling.
 const openBlinds = async () => {
     await setAutomateFalse()
     await makeApiCall('open')
-    setTimeout(fetchStatus, 5000);
+    await fetchStatus()
+    resetPolling()
 }
 
-// Manual close wrapper (mirrors open sequence).
+// Manual close wrapper.
 const closeBlinds = async () => {
     await setAutomateFalse()
     await makeApiCall('close')
-    setTimeout(fetchStatus, 5000);
+    await fetchStatus()
+    resetPolling()
 }
 
-// Parse legacy / verbose Tuya status shape: collect dp entries (list/status arrays) and infer battery & state.
-// This is only used when simplified fields are absent.
-const parseStatus = (data) => {
-    
-    batteryLevel.value = null
-    deviceState.value = null
+// Legacy parser removed: blindsControl.php returns a simple JSON {state,battery}
 
-    if (!data) return
-
-    const result = data.result ?? data
-
-    let items = []
-    if (Array.isArray(result)) {
-        items = result
-    } else if (result && typeof result === 'object') {
-
-        items = result.list ?? result.status ?? []
-        if (!Array.isArray(items)) items = []
-    }
-
-    const numericStateCodes = ['control', 'state', 'switch', 'status']
-    const textStateCodes = ['control', 'state', 'switch', 'status']
-
-    for (const it of items) {
-        const code = (it.code || '').toLowerCase()
-        const value = it.value
-
-        if (code.includes('battery') && (typeof value === 'number' || typeof value === 'string')) {
-            const num = Number(value)
-            if (!Number.isNaN(num)) batteryLevel.value = num
-        }
-
-        if (typeof value === 'string' && (textStateCodes.includes(code) || code.includes('control'))) {
-            const v = value.toLowerCase()
-            if (v.includes('open')) deviceState.value = 'open'
-            if (v.includes('close')) deviceState.value = 'close'
-            continue
-        }
-
-        if (typeof value === 'number' && numericStateCodes.includes(code)) {
-            if (value === 1) deviceState.value = 'open'
-            else if (value === 0) deviceState.value = 'close'
-        } else if (typeof value === 'boolean' && (textStateCodes.includes(code) || code.includes('control'))) {
-            deviceState.value = value ? 'open' : 'close'
-        }
-    }
-}
-
-// Fetch current blinds info (prefers simplified structure with battery_percent & blinds_state).
-// Falls back to parseStatus if those keys are absent, maintaining compatibility.
+// Fetch current blinds info via status action.
 const fetchStatus = async () => {
     try {
-        const apiUrl = linkStore.getPhpApiUrl('tuyaBlindsApi.php?action=status')
+        const apiUrl = linkStore.getPhpApiUrl('blindsControl.php') + '?action=status'
         const resp = await fetch(apiUrl, { method: 'GET' })
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
         const data = await resp.json()
         responseData.value = data
-        
-        // Handle the new response format directly
-        if (data) {
-            if (data.battery_percent !== undefined && data.battery_percent !== null) {
-                batteryLevel.value = Number(data.battery_percent)
-            }
-            if (data.blinds_state !== undefined) {
-                const state = String(data.blinds_state).toLowerCase()
-                if (state === 'open' || state === '1' || state === 'true') {
-                    deviceState.value = 'open'
-                } else if (state === 'close' || state === '0' || state === 'false') {
-                    deviceState.value = 'close'
-                }
-            } else {
-                parseStatus(data)
-            }
+        if (typeof data.battery !== 'undefined') {
+            const num = Number(data.battery)
+            batteryLevel.value = Number.isNaN(num) ? null : num
+        }
+        if (typeof data.state === 'string') {
+            const st = data.state.toLowerCase()
+            if (st.includes('open')) deviceState.value = 'open'
+            else if (st.includes('close')) deviceState.value = 'close'
+            else deviceState.value = null
         }
     } catch (err) {
-        // fetchStatus error handled silently
+        // silent
     }
+}
+
+// Manual status fetch resets polling cycle
+const manualFetchStatus = async () => {
+    await fetchStatus()
+    resetPolling()
 }
 
 // Human friendly mapping for UI label.
@@ -236,15 +185,24 @@ const batteryTooltip = computed(() => {
 })
 
 // Initial fetch on mount; silent catch keeps UI clean if first request fails.
-// Polling interval (ms) - adjust as needed
-const POLL_INTERVAL_MS = 60_000 // 1 minute
+// Polling every 10s with reset on manual actions
+const POLL_INTERVAL_MS = 10_000
 let pollHandle = null
 
-onMounted(() => {
-    fetchStatus().catch(() => { })
+const startPolling = () => {
     pollHandle = setInterval(() => {
         fetchStatus().catch(() => {})
     }, POLL_INTERVAL_MS)
+}
+
+const resetPolling = () => {
+    if (pollHandle) clearInterval(pollHandle)
+    startPolling()
+}
+
+onMounted(() => {
+    fetchStatus().catch(() => {})
+    startPolling()
 })
 
 onBeforeUnmount(() => {

@@ -70,7 +70,7 @@
                         <!-- Action buttons -->
                         <div class="choose-profile__actions">
                             <button class="btn choose-profile__btn choose-profile__btn--apply" @click="applyProfile">Use profile</button>
-                            <button class="btn choose-profile__btn choose-profile__btn--delete" @click="deleteProfile">Delete profile</button>
+                            <button class="btn choose-profile__btn choose-profile__btn--delete" @click="promptDeleteProfile">Delete profile</button>
                         </div>
                     </div>
                 </div>
@@ -78,6 +78,7 @@
             </div>
         </div>
     </div>
+    <dialog-box ref="dialogRef" />
 </template>
 
 <script setup>
@@ -92,6 +93,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useAutomateStore } from '@/stores/automateStore';
 import { useLinkStore } from '@/stores/linkStore';
 import { useWsStore } from '@/stores/wsStore';
+import dialogBox from '@/components/dialogBox_component.vue'
 
 // --- Stores ---
 const automateStore = useAutomateStore();
@@ -110,6 +112,7 @@ const profiles = ref([]);            // Loaded profiles array
 const loading = ref(true);           // Loading flag
 const error = ref(null);             // Error message or null
 const selectedProfileId = ref('');   // Currently selected profile id
+const dialogRef = ref(null);
 
 // Derived currently selected full profile object (or null)
 const selectedProfile = computed(() =>
@@ -170,13 +173,12 @@ async function applyProfile() {
         if (profile?.[key]) await fn(profile[key]);
     }
 
-    alert('Profil został zastosowany!');
+    dialogRef.value?.openMessage('Profile has been applied successfully');
 }
 
 // --- Delete selected profile ---
 async function deleteProfile() {
     if (!selectedProfile.value) return;
-    if (!confirm(`Czy na pewno chcesz usunąć profil "${selectedProfile.value.profile_name}"?`)) return;
     try {
         const response = await fetch(linkStore.getPhpApiUrl('deleteProfile.php'), {
             method: 'POST',
@@ -188,12 +190,21 @@ async function deleteProfile() {
             profiles.value = profiles.value.filter(p => p.profile_id !== selectedProfile.value.profile_id);
             selectedProfileId.value = '';
             emit('update-profiles', new Set(profiles.value.map(p => p.profile_name)));
-            alert('Profil został usunięty!');
+            dialogRef.value?.openMessage(`Profile ${data.deleted_name || ''} has been deleted succesfuly`);
         } else {
-            throw new Error(data.error || 'Nie udało się usunąć profilu');
+            throw new Error(data.error || 'Profile could not be deleted');
         }
     } catch (err) {
-        alert(`Błąd podczas usuwania profilu: ${err.message}`);
+        dialogRef.value?.openMessage(`Error deleting profile: ${err.message}`);
+    }
+}
+
+async function promptDeleteProfile() {
+    if (!selectedProfile.value) return;
+    const name = selectedProfile.value.profile_name;
+    const confirmed = await dialogRef.value?.openConfirm(`Are you sure you want to delete profile ${name}?`);
+    if (confirmed) {
+        await deleteProfile();
     }
 }
 
@@ -207,7 +218,7 @@ async function applyBlindsPayload(payload) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ automate: false })
         });
-        await fetch(linkStore.getPhpApiUrl('tuyaBlindsApi.php') + `?action=${payload.state}`);
+        await fetch(linkStore.getPhpApiUrl('blindsControl.php') + `?action=${payload.state}`);
         return;
     }
 
