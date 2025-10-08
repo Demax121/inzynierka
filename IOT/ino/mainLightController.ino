@@ -56,7 +56,7 @@ const unsigned int BUTTON_DEBOUNCE_MS = 50;// Debounce interval (ms)
 //  2. Zmienne (Variables / Configuration & State)
 // ===================================================================
 // Network / WS
-String WEBSOCKET_SERVER = "websocket.simplysmart.duckdns.org"; // Backend server
+String WEBSOCKET_SERVER = "websocket server domain name"; // Backend server
 const int WEBSOCKET_PORT = 443;                 // Port
 const unsigned int WEBSOCKET_RECONNECT_INTERVAL = 5000; // Library auto reconnect
 const unsigned long WS_RECONNECT_TIMEOUT = 15000;        // Manual watchdog stale threshold
