@@ -68,7 +68,7 @@ const int buttonPin = 13;                 // Manual override button
 // Network / WS
 WebSocketsClient webSocketClient;          // WebSocket client instance (async event-driven)
 WiFiClientSecure clientSSL;                // Secure client (wss)
-String WEBSOCKET_SERVER = "websocket.simplysmart.duckdns.org"; // Backend Bun server (proxy endpoint)
+String WEBSOCKET_SERVER = "websocket server domain name "; // Backend Bun server (proxy endpoint)
 const int WEBSOCKET_PORT = 443;            // WebSocket port
 const unsigned long RECONNECT_INTERVAL = 5000;      // Library auto reconnect interval (ms)
 const unsigned long WS_RECONNECT_TIMEOUT = 15000;   // Stale connection threshold (ms)
