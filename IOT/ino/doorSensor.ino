@@ -51,7 +51,7 @@ const int BUTTON_PIN = 21;                 // Door switch input (internal pull-u
 //  2. Zmienne (Variables / Configuration & State)
 // ===================================================================
 // Network & encryption
-String WEBSOCKET_SERVER = "websocket.simplysmart.duckdns.org"; // Backend server
+String WEBSOCKET_SERVER =" websocket server domain name"; // Backend server
 const int WEBSOCKET_PORT = 443;                 // WebSocket port
 const unsigned long WEBSOCKET_RECONNECT_INTERVAL = 5000; // Library auto reconnect (ms)
 const unsigned long WS_RECONNECT_TIMEOUT = 15000;        // Stale threshold
