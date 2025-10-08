@@ -68,6 +68,7 @@ services:
       TUYA_CLIENT_SECRET: ${TUYA_CLIENT_SECRET}
       TUYA_DEVICE_ID: ${TUYA_DEVICE_ID}
       TUYA_API_ENDPOINT: ${TUYA_API_ENDPOINT}
+      TINYTUYA_IP: ${TINYTUYA_IP}
     restart: unless-stopped
     depends_on:
       - offline_postgres_dyplom

@@ -16,6 +16,7 @@ define('TUYA_CLIENT_SECRET', getenv('TUYA_CLIENT_SECRET'));
 define('TUYA_DEVICE_ID', getenv('TUYA_DEVICE_ID') ?: '');
 define('TUYA_API_ENDPOINT', getenv('TUYA_API_ENDPOINT'));
 
+define('TINYTUYA_IP', getenv('TINYTUYA_IP'));
 // Optional: expose a helper array if scripts prefer array-style config access later.
 // $APP_CONFIG = [
 //   'db' => [ 'host'=>DB_HOST,'name'=>DB_NAME,'user'=>DB_USER,'pass'=>DB_PASS ],

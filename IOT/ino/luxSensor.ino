@@ -79,12 +79,12 @@ void identifyDevice() {
   idDoc["device_api_key"] = device_api_key;
   String idMessage;
   serializeJson(idDoc, idMessage);
-  webSocket.sendTXT(idMessage);
+  webSocketClient.sendTXT(idMessage);
 }
 
 // Encrypt current lux value and transmit to server
 void sendWebSocketData() {
-  if (!webSocket.isConnected()) return;
+  if (!webSocketClient.isConnected()) return;
   StaticJsonDocument<96> p;
   p["lux"] = lastLux;
   String plain; serializeJson(p, plain);
@@ -98,7 +98,7 @@ void sendWebSocketData() {
   env["payload"] = cipherHex;
   env["tag"] = tagHex;
   String out; serializeJson(env, out);
-  webSocket.sendTXT(out);
+  webSocketClient.sendTXT(out);
 }
 
 // Handle inbound WS text frames (currently only plaintext 'ping')
@@ -139,8 +139,8 @@ void setup() {
   lastLux = initialLux;
 
   webSocketClient.begin(WEBSOCKET_SERVER.c_str(), WEBSOCKET_PORT);
-  webSocket.setReconnectInterval(WEBSOCKET_RECONNECT_INTERVAL);
-  webSocket.onEvent([](WStype_t type, uint8_t *payload, size_t length) {
+  webSocketClient.setReconnectInterval(WEBSOCKET_RECONNECT_INTERVAL);
+  webSocketClient.onEvent([](WStype_t type, uint8_t *payload, size_t length) {
     if (type == WStype_CONNECTED) {
       identifyDevice();
     } else if (type == WStype_TEXT) {
@@ -154,12 +154,12 @@ void setup() {
 
 // Watchdog: monitor stale connection & manually force reconnect
 void websocketWatchdog() {
-  if (webSocket.isConnected()) return;
+  if (webSocketClient.isConnected()) return;
   unsigned long now = millis();
   const unsigned long RETRY_EVERY = 5000;
   if (now - lastWsConnected > WS_RECONNECT_TIMEOUT && now - lastWsAttempt > RETRY_EVERY) {
     Serial.println("WebSocket nie odpowiada, restart połączenia...");
-    webSocket.disconnect();
+    webSocketClient.disconnect();
     delay(100);
     webSocketClient.begin(WEBSOCKET_SERVER.c_str(), WEBSOCKET_PORT);
     lastWsAttempt = now;
@@ -170,7 +170,7 @@ void websocketWatchdog() {
 void loop() {
 
   MyWiFi::loop();
-  webSocket.loop();
+  webSocketClient.loop();
 
   int currentLux = sensorReady ? (int)veml.readLux() : -1;
 
